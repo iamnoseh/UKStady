@@ -344,6 +344,11 @@ public sealed class TeachingService : ITeachingService
             {
                 var subjectLessons = lessons
                     .Where(lesson => lesson.SubjectId == groupSubject.SubjectId)
+                    .OrderByDescending(lesson => lesson.LessonDate)
+                    .ThenByDescending(lesson => lesson.CreatedAtUtc)
+                    .Take(50)
+                    .OrderBy(lesson => lesson.LessonDate)
+                    .ThenBy(lesson => lesson.CreatedAtUtc)
                     .ToList();
                 var todayLesson = subjectLessons
                     .OrderByDescending(lesson => lesson.CreatedAtUtc)
@@ -367,6 +372,16 @@ public sealed class TeachingService : ITeachingService
                         var average = studentGrades.Count == 0
                             ? (decimal?)null
                             : Math.Round(studentGrades.Average(grade => grade.Score), 2);
+                        var lessonScores = subjectLessons
+                            .Select(lesson =>
+                            {
+                                var lessonGrade = studentGrades.FirstOrDefault(grade => grade.DailyLessonId == lesson.Id);
+                                return new GroupJournalLessonScoreDto(
+                                    lesson.Id,
+                                    lessonGrade?.Score,
+                                    lessonGrade?.AttendanceStatus.ToString() ?? "NoGrade");
+                            })
+                            .ToList();
 
                         return new GroupJournalStudentDto(
                             groupStudent.StudentId,
@@ -374,7 +389,8 @@ public sealed class TeachingService : ITeachingService
                             groupStudent.Student.PhoneNumber,
                             todayGrade?.Score,
                             average,
-                            todayGrade?.AttendanceStatus.ToString() ?? "NoGrade");
+                            todayGrade?.AttendanceStatus.ToString() ?? "NoGrade",
+                            lessonScores);
                     })
                     .ToList();
 
@@ -390,6 +406,15 @@ public sealed class TeachingService : ITeachingService
                     todayLesson?.Topic?.Title,
                     todayLesson?.QuestionCount ?? 0,
                     subjectAverage,
+                    subjectLessons
+                        .Select(lesson => new GroupJournalLessonDto(
+                            lesson.Id,
+                            lesson.LessonDate,
+                            lesson.Title,
+                            lesson.TopicId,
+                            lesson.Topic?.Title,
+                            lesson.QuestionCount))
+                        .ToList(),
                     students);
             })
             .ToList();

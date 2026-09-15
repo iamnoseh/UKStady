@@ -178,6 +178,22 @@ export interface GroupJournalStudentDto {
   todayScore: number | null;
   averageScore: number | null;
   status: string;
+  lessonScores: GroupJournalLessonScoreDto[];
+}
+
+export interface GroupJournalLessonScoreDto {
+  lessonId: string;
+  score: number | null;
+  status: string;
+}
+
+export interface GroupJournalLessonDto {
+  id: string;
+  lessonDate: string;
+  title: string;
+  topicId: string | null;
+  topicTitle: string | null;
+  questionCount: number;
 }
 
 export interface GroupSubjectJournalDto {
@@ -188,6 +204,7 @@ export interface GroupSubjectJournalDto {
   todayTopicTitle: string | null;
   todayQuestionCount: number;
   averageScore: number | null;
+  lessons: GroupJournalLessonDto[];
   students: GroupJournalStudentDto[];
 }
 

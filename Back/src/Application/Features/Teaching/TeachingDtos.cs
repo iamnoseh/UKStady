@@ -86,7 +86,16 @@ public sealed record GroupSubjectJournalDto(
     string? TodayTopicTitle,
     int TodayQuestionCount,
     decimal? AverageScore,
+    IReadOnlyList<GroupJournalLessonDto> Lessons,
     IReadOnlyList<GroupJournalStudentDto> Students);
+
+public sealed record GroupJournalLessonDto(
+    Guid Id,
+    DateOnly LessonDate,
+    string Title,
+    Guid? TopicId,
+    string? TopicTitle,
+    int QuestionCount);
 
 public sealed record GroupJournalStudentDto(
     Guid StudentId,
@@ -94,6 +103,12 @@ public sealed record GroupJournalStudentDto(
     string PhoneNumber,
     decimal? TodayScore,
     decimal? AverageScore,
+    string Status,
+    IReadOnlyList<GroupJournalLessonScoreDto> LessonScores);
+
+public sealed record GroupJournalLessonScoreDto(
+    Guid LessonId,
+    decimal? Score,
     string Status);
 
 public sealed record TeacherDashboardDto(

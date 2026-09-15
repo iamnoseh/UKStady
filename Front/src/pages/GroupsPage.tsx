@@ -10,6 +10,7 @@ import {
   ClipboardList,
   Edit3,
   Layers,
+  Save,
   Plus,
   Search,
   SlidersHorizontal,
@@ -35,7 +36,7 @@ import {
   updateGroupLessonTopic,
   updateGroup,
 } from '../services/api';
-import type { GroupDto, GroupJournalDto, SubjectDto, TopicDto, UserDto } from '../types/admin';
+import type { GroupDto, GroupJournalDto, GroupJournalLessonDto, GroupSubjectJournalDto, SubjectDto, TopicDto, UserDto } from '../types/admin';
 import { useAuth } from '../context/AuthContext';
 
 type GroupTab = 'students' | 'journals' | 'edit' | 'other';
@@ -82,6 +83,12 @@ export function GroupsPage() {
   const [isJournalLoading, setIsJournalLoading] = useState(false);
   const [journalBusySubjectId, setJournalBusySubjectId] = useState('');
   const [journalBusyLessonId, setJournalBusyLessonId] = useState('');
+  const [activeJournalSubjectId, setActiveJournalSubjectId] = useState('');
+  const [topicModalLesson, setTopicModalLesson] = useState<{
+    lesson: GroupJournalLessonDto;
+    subject: GroupSubjectJournalDto;
+  } | null>(null);
+  const [topicModalTopicId, setTopicModalTopicId] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   useEffect(() => {
@@ -310,6 +317,26 @@ export function GroupsPage() {
     }
   }
 
+  function openTopicModal(subject: GroupSubjectJournalDto, lesson: GroupJournalLessonDto) {
+    setTopicModalLesson({ subject, lesson });
+    setTopicModalTopicId(lesson.topicId ?? '');
+    setError('');
+  }
+
+  function closeTopicModal() {
+    setTopicModalLesson(null);
+    setTopicModalTopicId('');
+  }
+
+  async function handleSaveLessonTopic() {
+    if (!topicModalLesson || !topicModalTopicId) {
+      return;
+    }
+
+    await handleUpdateLessonTopic(topicModalLesson.lesson.id, topicModalTopicId);
+    closeTopicModal();
+  }
+
   const filteredGroups = useMemo(() => {
     const value = query.trim().toLowerCase();
     if (!value) {
@@ -365,6 +392,15 @@ export function GroupsPage() {
         return result;
       }, {});
   }, [topics]);
+  const activeSubjectJournal = useMemo(() => {
+    if (!journal) {
+      return null;
+    }
+
+    return journal.subjects.find((subject) => subject.subjectId === activeJournalSubjectId)
+      ?? journal.subjects[0]
+      ?? null;
+  }, [activeJournalSubjectId, journal]);
   const filteredAssignedStudents = useMemo(() => {
     const value = studentQuery.trim().toLowerCase();
     const assigned = selectedGroup?.students ?? [];
@@ -391,6 +427,17 @@ export function GroupsPage() {
       void loadJournal(selectedGroupId);
     }
   }, [activeTab, selectedGroupId]);
+
+  useEffect(() => {
+    if (!journal?.subjects.length) {
+      setActiveJournalSubjectId('');
+      return;
+    }
+
+    if (!journal.subjects.some((subject) => subject.subjectId === activeJournalSubjectId)) {
+      setActiveJournalSubjectId(journal.subjects[0].subjectId);
+    }
+  }, [activeJournalSubjectId, journal]);
 
   if (selectedGroup) {
     return (
@@ -530,101 +577,152 @@ export function GroupsPage() {
               <p className="rounded-lg border border-line bg-white px-4 py-5 text-sm text-muted">Ба ин гурӯҳ ҳоло фан илова нашудааст.</p>
             ) : null}
 
-            {journal?.subjects.map((subjectJournal) => {
-              const topicOptions = topicOptionsBySubject[subjectJournal.subjectId] ?? [];
-              const hasTodayLesson = Boolean(subjectJournal.todayLessonId);
+            {journal?.subjects.length ? (
+              <div className="flex flex-wrap gap-2">
+                {journal.subjects.map((subjectJournal) => (
+                  <button
+                    key={subjectJournal.subjectId}
+                    type="button"
+                    onClick={() => setActiveJournalSubjectId(subjectJournal.subjectId)}
+                    className={`inline-flex h-10 items-center gap-2 rounded-lg border px-4 text-sm font-bold transition ${
+                      activeSubjectJournal?.subjectId === subjectJournal.subjectId
+                        ? 'border-brand/30 bg-brand text-white shadow-sm'
+                        : 'border-line bg-white text-muted hover:border-brand/30 hover:text-brand'
+                    }`}
+                  >
+                    <BookOpen className="h-4 w-4" />
+                    {subjectJournal.subjectName}
+                  </button>
+                ))}
+              </div>
+            ) : null}
 
-              return (
-                <div key={subjectJournal.subjectId} className="overflow-hidden rounded-lg border border-line bg-white">
-                  <div className="flex flex-col justify-between gap-4 border-b border-line bg-panel px-4 py-4 xl:flex-row xl:items-center">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="inline-flex h-9 items-center gap-2 rounded-lg bg-white px-3 text-sm font-bold text-ink ring-1 ring-line">
-                          <BookOpen className="h-4 w-4 text-brand" />
-                          {subjectJournal.subjectName}
-                        </span>
-                        <span className="inline-flex h-9 items-center gap-2 rounded-lg bg-white px-3 text-sm font-semibold text-muted ring-1 ring-line">
-                          <BarChart3 className="h-4 w-4" />
-                          Average: {formatScore(subjectJournal.averageScore)}
-                        </span>
-                      </div>
-                      <p className="mt-2 text-sm text-muted">
-                        {hasTodayLesson
-                          ? `Дарси имрӯз: ${subjectJournal.todayTopicTitle ?? 'Мавзӯъ интихоб нашудааст'}`
-                          : 'Барои имрӯз ҳоло дарс сохта нашудааст.'}
-                      </p>
-                    </div>
-
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                      {hasTodayLesson && subjectJournal.todayLessonId ? (
-                        <div className="w-full sm:w-[320px]">
-                          <SearchableSelect
-                            label="Мавзӯи имрӯз"
-                            value={subjectJournal.todayTopicId ?? ''}
-                            options={topicOptions}
-                            placeholder="Ҷустуҷӯ ва интихоби мавзӯъ"
-                            emptyText="Барои ин фан мавзӯъ нест."
-                            onChange={(topicId) => void handleUpdateLessonTopic(subjectJournal.todayLessonId!, topicId)}
-                          />
-                        </div>
-                      ) : null}
-
-                      {!hasTodayLesson ? (
-                        <Button
-                          type="button"
-                          className="h-11"
-                          onClick={() => void handleCreateTodayLesson(subjectJournal.subjectId)}
-                          disabled={journalBusySubjectId === subjectJournal.subjectId}
-                        >
-                          <CalendarDays className="h-4 w-4" />
-                          {journalBusySubjectId === subjectJournal.subjectId ? 'Сохта истодааст...' : 'Сохтани дарси имрӯз'}
-                        </Button>
-                      ) : null}
-                    </div>
+            {activeSubjectJournal ? (
+              <div className="overflow-hidden rounded-lg border border-line bg-white shadow-sm">
+                <div className="flex flex-col justify-between gap-3 border-b border-line bg-panel px-4 py-4 xl:flex-row xl:items-center">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex h-9 items-center gap-2 rounded-lg bg-white px-3 text-sm font-bold text-ink ring-1 ring-line">
+                      <BookOpen className="h-4 w-4 text-brand" />
+                      {activeSubjectJournal.subjectName}
+                    </span>
+                    <span className="inline-flex h-9 items-center gap-2 rounded-lg bg-white px-3 text-sm font-semibold text-muted ring-1 ring-line">
+                      <BarChart3 className="h-4 w-4" />
+                      Average: {formatScore(activeSubjectJournal.averageScore)}
+                    </span>
+                    <span className="inline-flex h-9 items-center rounded-lg bg-white px-3 text-sm font-semibold text-muted ring-1 ring-line">
+                      {activeSubjectJournal.lessons.length} / 50 дарс
+                    </span>
                   </div>
 
-                  <div className="overflow-x-auto">
-                    <div className="min-w-[680px]">
-                      <div className={`grid border-b border-line px-4 py-3 text-xs font-bold uppercase text-muted ${
-                        hasTodayLesson ? 'grid-cols-[1.4fr_130px_130px_130px]' : 'grid-cols-[1.4fr_130px]'
-                      }`}>
-                        <span>Хонанда</span>
-                        {hasTodayLesson ? <span>Имрӯз</span> : null}
-                        {hasTodayLesson ? <span>Ҳолат</span> : null}
-                        <span>Average</span>
-                      </div>
-
-                      {subjectJournal.students.length === 0 ? (
-                        <p className="px-4 py-5 text-sm text-muted">Дар гурӯҳ ҳоло хонанда нест.</p>
-                      ) : null}
-
-                      {subjectJournal.students.map((student) => (
-                        <div
-                          key={`${subjectJournal.subjectId}-${student.studentId}`}
-                          className={`grid items-center border-b border-line px-4 py-4 text-sm last:border-0 ${
-                            hasTodayLesson ? 'grid-cols-[1.4fr_130px_130px_130px]' : 'grid-cols-[1.4fr_130px]'
-                          }`}
-                        >
-                          <div>
-                            <p className="font-semibold">{student.fullName}</p>
-                            <p className="font-mono text-muted">{student.phoneNumber}</p>
-                          </div>
-                          {hasTodayLesson ? (
-                            <span className="font-bold text-ink">{formatScore(student.todayScore)}</span>
-                          ) : null}
-                          {hasTodayLesson ? (
-                            <span className={`w-fit rounded-md px-2 py-1 text-xs font-bold ${getJournalStatusClass(student.status)}`}>
-                              {getJournalStatusLabel(student.status)}
-                            </span>
-                          ) : null}
-                          <span className="font-bold text-muted">{formatScore(student.averageScore)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                  <Button
+                    type="button"
+                    className="h-11"
+                    onClick={() => void handleCreateTodayLesson(activeSubjectJournal.subjectId)}
+                    disabled={Boolean(activeSubjectJournal.todayLessonId) || journalBusySubjectId === activeSubjectJournal.subjectId}
+                  >
+                    <CalendarDays className="h-4 w-4" />
+                    {activeSubjectJournal.todayLessonId
+                      ? 'Дарси имрӯз ҳаст'
+                      : journalBusySubjectId === activeSubjectJournal.subjectId
+                        ? 'Сохта истодааст...'
+                        : 'Сохтани дарси имрӯз'}
+                  </Button>
                 </div>
-              );
-            })}
+
+                <div className="max-h-[620px] overflow-auto">
+                  <table className="w-max min-w-full border-separate border-spacing-0 text-sm">
+                    <thead className="sticky top-0 z-30 bg-white">
+                      <tr>
+                        <th className="sticky left-0 z-40 h-20 w-[230px] border-b border-r border-line bg-white px-4 text-left text-xs font-bold uppercase text-muted">
+                          Хонанда
+                        </th>
+                        <th className="sticky left-[230px] z-40 h-20 w-[120px] border-b border-r border-line bg-white px-4 text-center text-xs font-bold uppercase text-muted">
+                          Average
+                        </th>
+                        {activeSubjectJournal.lessons.map((lesson, index) => (
+                          <th key={lesson.id} className="h-20 w-[154px] border-b border-r border-line bg-white px-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => openTopicModal(activeSubjectJournal, lesson)}
+                              className={`mx-auto flex min-h-14 w-full flex-col items-center justify-center rounded-lg border px-2 text-xs font-bold transition ${
+                                lesson.id === activeSubjectJournal.todayLessonId
+                                  ? 'border-sky-200 bg-sky-50 text-sky-700 shadow-sm'
+                                  : 'border-transparent text-muted hover:border-brand/20 hover:bg-panel hover:text-brand'
+                              }`}
+                              title="Мавзӯи дарс"
+                            >
+                              <span className="inline-flex items-center gap-1">
+                                <BookOpen className="h-3.5 w-3.5" />
+                                Урок {index + 1}
+                              </span>
+                              <span className="mt-1 text-ink">{formatLessonDate(lesson.lessonDate)}</span>
+                              <span className="font-semibold text-muted">{lesson.topicTitle ?? 'Мавзӯъ нест'}</span>
+                            </button>
+                          </th>
+                        ))}
+                      </tr>
+                      <tr>
+                        <th className="sticky left-0 z-40 w-[230px] border-b border-r border-line bg-panel px-4 py-3 text-left text-xs font-bold uppercase text-muted">
+                          Ном ва фамилия
+                        </th>
+                        <th className="sticky left-[230px] z-40 w-[120px] border-b border-r border-line bg-panel px-4 py-3 text-center text-xs font-bold uppercase text-muted">
+                          Average
+                        </th>
+                        {activeSubjectJournal.lessons.map((lesson) => (
+                          <th key={`${lesson.id}-score`} className="w-[154px] border-b border-r border-line bg-panel px-3 py-3 text-center text-xs font-bold uppercase text-muted">
+                            Оценка
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {activeSubjectJournal.students.length === 0 ? (
+                        <tr>
+                          <td className="sticky left-0 z-20 border-b border-r border-line bg-white px-4 py-5 text-muted" colSpan={2}>
+                            Дар гурӯҳ ҳоло хонанда нест.
+                          </td>
+                        </tr>
+                      ) : null}
+
+                      {activeSubjectJournal.students.map((student, index) => (
+                        <tr key={`${activeSubjectJournal.subjectId}-${student.studentId}`} className={index % 2 === 0 ? 'bg-sky-50/40' : 'bg-white'}>
+                          <td className="sticky left-0 z-20 w-[230px] border-b border-r border-line bg-inherit px-4 py-4">
+                            <div className="flex min-w-0 items-center gap-3">
+                              <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-brand/10 text-[11px] font-bold text-brand">
+                                {index + 1}
+                              </span>
+                              <div className="min-w-0">
+                                <p className="truncate font-semibold">{student.fullName}</p>
+                                <p className="font-mono text-xs text-muted">{student.phoneNumber}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="sticky left-[230px] z-20 w-[120px] border-b border-r border-line bg-inherit px-3 py-4 text-center">
+                            <span className="inline-flex h-9 w-[86px] items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 font-bold text-ink">
+                              {formatScore(student.averageScore)}
+                            </span>
+                          </td>
+                          {activeSubjectJournal.lessons.map((lesson) => {
+                            const score = student.lessonScores.find((item) => item.lessonId === lesson.id);
+                            return (
+                              <td key={`${student.studentId}-${lesson.id}`} className="w-[154px] border-b border-r border-line px-3 py-4 text-center">
+                                <span className={`inline-flex h-9 w-[110px] items-center justify-center rounded-lg border font-bold ${
+                                  score?.score === null || score?.score === undefined
+                                    ? 'border-slate-200 bg-slate-50 text-muted'
+                                    : 'border-emerald-200 bg-emerald-50 text-ink'
+                                }`}>
+                                  {formatScore(score?.score ?? null)}
+                                </span>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
 
@@ -768,6 +866,53 @@ export function GroupsPage() {
               {isEditSubmitting ? 'Нигоҳ дошта истодааст...' : 'Нигоҳ доштан'}
             </Button>
           </form>
+        ) : null}
+
+        {topicModalLesson ? (
+          <div className="fixed inset-0 z-50 grid place-items-center bg-ink/25 px-4">
+            <div className="w-full max-w-md rounded-lg border border-line bg-white p-5 shadow-soft">
+              <div className="mb-4 flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-muted">{topicModalLesson.subject.subjectName}</p>
+                  <h3 className="mt-1 text-lg font-bold">Мавзӯи дарс</h3>
+                  <p className="mt-1 text-sm text-muted">{formatLessonDate(topicModalLesson.lesson.lessonDate)}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeTopicModal}
+                  className="grid h-9 w-9 place-items-center rounded-lg border border-line text-muted transition hover:bg-panel hover:text-ink"
+                  aria-label="Пӯшидан"
+                  title="Пӯшидан"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <SearchableSelect
+                label="Мавзӯъ"
+                value={topicModalTopicId}
+                options={topicOptionsBySubject[topicModalLesson.subject.subjectId] ?? []}
+                placeholder="Ҷустуҷӯ ва интихоби мавзӯъ"
+                emptyText="Барои ин фан мавзӯъ нест."
+                onChange={setTopicModalTopicId}
+              />
+
+              <div className="mt-5 flex justify-end gap-2">
+                <Button type="button" variant="secondary" onClick={closeTopicModal}>
+                  <XCircle className="h-4 w-4" />
+                  Бекор кардан
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => void handleSaveLessonTopic()}
+                  disabled={!topicModalTopicId || journalBusyLessonId === topicModalLesson.lesson.id}
+                >
+                  <Save className="h-4 w-4" />
+                  {journalBusyLessonId === topicModalLesson.lesson.id ? 'Сабт шуда истодааст...' : 'Сабт кардан'}
+                </Button>
+              </div>
+            </div>
+          </div>
         ) : null}
       </section>
     );
@@ -925,32 +1070,18 @@ export function GroupsPage() {
 
 function formatScore(value: number | null) {
   if (value === null || Number.isNaN(value)) {
-    return 'Нест';
+    return '0';
   }
 
   return `${Math.round(value * 100) / 100}`;
 }
 
-function getJournalStatusLabel(status: string) {
-  switch (status) {
-    case 'Present':
-      return 'Супорид';
-    case 'Absent':
-      return 'Ҳозир нест';
-    default:
-      return 'Нест';
-  }
-}
-
-function getJournalStatusClass(status: string) {
-  switch (status) {
-    case 'Present':
-      return 'bg-emerald-50 text-emerald-700';
-    case 'Absent':
-      return 'bg-red-50 text-red-700';
-    default:
-      return 'bg-slate-100 text-slate-600';
-  }
+function formatLessonDate(value: string) {
+  const date = new Date(`${value}T00:00:00`);
+  const day = date.getDate();
+  const month = date.toLocaleString('ru-RU', { month: 'short' }).replace('.', '');
+  const weekDay = date.toLocaleString('ru-RU', { weekday: 'short' });
+  return `${day} ${month}. · ${weekDay}`;
 }
 
 function TabButton({
