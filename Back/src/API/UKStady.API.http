@@ -1,0 +1,6 @@
+@UKStady.API_HostAddress = http://localhost:5036
+
+GET {{UKStady.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
