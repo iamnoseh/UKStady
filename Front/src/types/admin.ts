@@ -38,6 +38,36 @@ export interface CreateSubjectRequest {
   description: string | null;
 }
 
+export interface GroupSubjectDto {
+  id: string;
+  name: string;
+}
+
+export interface GroupStudentDto {
+  id: string;
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
+}
+
+export interface GroupDto {
+  id: string;
+  name: string;
+  description: string | null;
+  branch: string;
+  isActive: boolean;
+  studentCount: number;
+  subjects: GroupSubjectDto[];
+  students: GroupStudentDto[];
+}
+
+export interface CreateGroupRequest {
+  name: string;
+  description: string | null;
+  branch: string;
+  subjectIds: string[];
+}
+
 export interface AssignTeacherSubjectRequest {
   teacherId: string;
   subjectId: string;

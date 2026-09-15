@@ -12,6 +12,8 @@ public sealed class Subject : AuditableEntity
 
     public ICollection<Topic> Topics { get; set; } = [];
 
+    public ICollection<GroupSubject> Groups { get; set; } = [];
+
     public ICollection<TeacherSubjectGroup> TeacherAssignments { get; set; } = [];
 
     public ICollection<TeacherSubject> TeacherSubjects { get; set; } = [];

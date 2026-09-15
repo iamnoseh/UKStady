@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { AppShell, type AppView } from './components/AppShell';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { DashboardPage } from './pages/DashboardPage';
+import { GroupsPage } from './pages/GroupsPage';
 import { LoginPage } from './pages/LoginPage';
 import { StudentsPage } from './pages/StudentsPage';
 import { SubjectsPage } from './pages/SubjectsPage';
@@ -11,6 +12,7 @@ const titles: Record<AppView, string> = {
   dashboard: 'Dashboard',
   students: 'Хонандагон',
   teachers: 'Муаллимон',
+  groups: 'Гурӯҳҳо',
   subjects: 'Фанҳо',
 };
 
@@ -26,6 +28,8 @@ function AppContent() {
         return <SubjectsPage />;
       case 'teachers':
         return <TeachersPage />;
+      case 'groups':
+        return <GroupsPage />;
       default:
         return <DashboardPage onViewChange={setActiveView} />;
     }

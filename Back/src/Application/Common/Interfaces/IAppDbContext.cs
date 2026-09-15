@@ -11,6 +11,8 @@ public interface IAppDbContext
 
     DbSet<GroupStudent> GroupStudents { get; }
 
+    DbSet<GroupSubject> GroupSubjects { get; }
+
     DbSet<Subject> Subjects { get; }
 
     DbSet<Topic> Topics { get; }

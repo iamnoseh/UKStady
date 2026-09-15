@@ -131,7 +131,7 @@ public sealed class TeachingEndpointTests : IClassFixture<TestApiFactory>
     {
         using var response = await client.PostAsJsonAsync(
             "/api/groups",
-            new CreateGroupRequest(name, null));
+            new CreateGroupRequest(name, null, "Main branch", []));
 
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<GroupDto>()

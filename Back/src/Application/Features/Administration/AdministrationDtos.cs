@@ -32,11 +32,23 @@ public sealed record UpdateUserRequest(
 
 public sealed record GeneratedPasswordDto(string Password);
 
-public sealed record GroupDto(Guid Id, string Name, string? Description, bool IsActive, int StudentCount);
+public sealed record GroupSubjectDto(Guid Id, string Name);
 
-public sealed record CreateGroupRequest(string Name, string? Description);
+public sealed record GroupStudentDto(Guid Id, string FirstName, string LastName, string PhoneNumber);
 
-public sealed record UpdateGroupRequest(string Name, string? Description, bool IsActive);
+public sealed record GroupDto(
+    Guid Id,
+    string Name,
+    string? Description,
+    string Branch,
+    bool IsActive,
+    int StudentCount,
+    IReadOnlyList<GroupSubjectDto> Subjects,
+    IReadOnlyList<GroupStudentDto> Students);
+
+public sealed record CreateGroupRequest(string Name, string? Description, string Branch, IReadOnlyList<Guid> SubjectIds);
+
+public sealed record UpdateGroupRequest(string Name, string? Description, string Branch, bool IsActive, IReadOnlyList<Guid> SubjectIds);
 
 public sealed record SubjectDto(Guid Id, string Name, string? Description, bool IsActive, int TopicCount);
 

@@ -1,7 +1,9 @@
 import type {
   CreateSubjectRequest,
+  CreateGroupRequest,
   CreateUserRequest,
   GeneratedPasswordDto,
+  GroupDto,
   AssignTeacherSubjectRequest,
   SubjectDto,
   TeacherSubjectAssignmentDto,
@@ -81,6 +83,29 @@ export function createSubject(token: string, body: CreateSubjectRequest): Promis
   return request<SubjectDto>('/api/subjects', token, {
     method: 'POST',
     body: JSON.stringify(body),
+  });
+}
+
+export function getGroups(token: string): Promise<GroupDto[]> {
+  return request<GroupDto[]>('/api/groups', token);
+}
+
+export function createGroup(token: string, body: CreateGroupRequest): Promise<GroupDto> {
+  return request<GroupDto>('/api/groups', token, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function addStudentToGroup(token: string, groupId: string, studentId: string): Promise<void> {
+  return request<void>(`/api/groups/${groupId}/students/${studentId}`, token, {
+    method: 'POST',
+  });
+}
+
+export function removeStudentFromGroup(token: string, groupId: string, studentId: string): Promise<void> {
+  return request<void>(`/api/groups/${groupId}/students/${studentId}`, token, {
+    method: 'DELETE',
   });
 }
 

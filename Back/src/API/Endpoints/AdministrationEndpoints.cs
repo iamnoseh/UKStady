@@ -111,9 +111,9 @@ public static class AdministrationEndpoints
             IAdministrationService service,
             CancellationToken cancellationToken) =>
         {
-            if (string.IsNullOrWhiteSpace(request.Name))
+            if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Branch))
             {
-                return Results.BadRequest(new { message = "Name is required." });
+                return Results.BadRequest(new { message = "Name and Branch are required." });
             }
 
             var result = await service.CreateGroupAsync(request, cancellationToken);
@@ -127,9 +127,9 @@ public static class AdministrationEndpoints
             IAdministrationService service,
             CancellationToken cancellationToken) =>
         {
-            if (string.IsNullOrWhiteSpace(request.Name))
+            if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Branch))
             {
-                return Results.BadRequest(new { message = "Name is required." });
+                return Results.BadRequest(new { message = "Name and Branch are required." });
             }
 
             var result = await service.UpdateGroupAsync(id, request, cancellationToken);

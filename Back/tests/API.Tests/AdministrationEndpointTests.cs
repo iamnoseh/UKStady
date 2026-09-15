@@ -76,6 +76,31 @@ public sealed class AdministrationEndpointTests : IClassFixture<TestApiFactory>
     }
 
     [Fact]
+    public async Task Groups_CreateWithBranchAndSubjects_ReturnsCardData()
+    {
+        using var client = _factory.CreateClient();
+        await AuthorizeAsync(client, "+992000000000", "Admin123!");
+
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var firstSubject = await CreateSubjectAsync(client, $"Math {suffix}");
+        var secondSubject = await CreateSubjectAsync(client, $"Physics {suffix}");
+
+        using var response = await client.PostAsJsonAsync(
+            "/api/groups",
+            new CreateGroupRequest(
+                $"Group {suffix}",
+                "Morning students",
+                "Central branch",
+                [firstSubject.Id, secondSubject.Id]));
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var group = await response.Content.ReadFromJsonAsync<GroupDto>();
+        Assert.NotNull(group);
+        Assert.Equal("Central branch", group.Branch);
+        Assert.Equal(2, group.Subjects.Count);
+    }
+
+    [Fact]
     public async Task TeacherSubjects_AssignsTeacherToSubject()
     {
         using var client = _factory.CreateClient();
@@ -136,7 +161,7 @@ public sealed class AdministrationEndpointTests : IClassFixture<TestApiFactory>
     {
         using var response = await client.PostAsJsonAsync(
             "/api/groups",
-            new CreateGroupRequest("Group A", "Demo group"));
+            new CreateGroupRequest("Group A", "Demo group", "Main branch", []));
 
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<GroupDto>()

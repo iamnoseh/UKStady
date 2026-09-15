@@ -44,6 +44,7 @@ public sealed class GroupConfiguration : IEntityTypeConfiguration<Group>
         builder.HasKey(group => group.Id);
         builder.Property(group => group.Name).HasMaxLength(150).IsRequired();
         builder.Property(group => group.Description).HasMaxLength(500);
+        builder.Property(group => group.Branch).HasMaxLength(150).IsRequired();
         builder.HasIndex(group => group.Name).IsUnique();
     }
 }
@@ -62,6 +63,23 @@ public sealed class GroupStudentConfiguration : IEntityTypeConfiguration<GroupSt
             .WithMany(user => user.StudentGroups)
             .HasForeignKey(groupStudent => groupStudent.StudentId)
             .OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+public sealed class GroupSubjectConfiguration : IEntityTypeConfiguration<GroupSubject>
+{
+    public void Configure(EntityTypeBuilder<GroupSubject> builder)
+    {
+        builder.ToTable("group_subjects");
+        builder.HasKey(groupSubject => new { groupSubject.GroupId, groupSubject.SubjectId });
+        builder.HasOne(groupSubject => groupSubject.Group)
+            .WithMany(group => group.Subjects)
+            .HasForeignKey(groupSubject => groupSubject.GroupId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(groupSubject => groupSubject.Subject)
+            .WithMany(subject => subject.Groups)
+            .HasForeignKey(groupSubject => groupSubject.SubjectId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }
 

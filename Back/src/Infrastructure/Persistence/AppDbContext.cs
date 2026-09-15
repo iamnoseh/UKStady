@@ -21,6 +21,8 @@ public sealed class AppDbContext : DbContext, IAppDbContext
 
     public DbSet<GroupStudent> GroupStudents => Set<GroupStudent>();
 
+    public DbSet<GroupSubject> GroupSubjects => Set<GroupSubject>();
+
     public DbSet<Subject> Subjects => Set<Subject>();
 
     public DbSet<Topic> Topics => Set<Topic>();

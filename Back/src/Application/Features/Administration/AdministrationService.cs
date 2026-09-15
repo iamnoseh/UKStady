@@ -119,50 +119,72 @@ public sealed class AdministrationService : IAdministrationService
 
     public async Task<IReadOnlyList<GroupDto>> GetGroupsAsync(CancellationToken cancellationToken)
     {
-        return await _dbContext.Groups
+        var groups = await _dbContext.Groups
             .AsNoTracking()
+            .Include(group => group.Students)
+            .ThenInclude(groupStudent => groupStudent.Student)
+            .Include(group => group.Subjects)
+            .ThenInclude(groupSubject => groupSubject.Subject)
             .OrderBy(group => group.Name)
-            .Select(group => new GroupDto(
-                group.Id,
-                group.Name,
-                group.Description,
-                group.IsActive,
-                group.Students.Count))
             .ToListAsync(cancellationToken);
+
+        return groups.Select(ToGroupDto).ToList();
     }
 
     public async Task<GroupDto?> GetGroupAsync(Guid id, CancellationToken cancellationToken)
     {
-        return await _dbContext.Groups
+        var group = await _dbContext.Groups
             .AsNoTracking()
+            .Include(candidate => candidate.Students)
+            .ThenInclude(groupStudent => groupStudent.Student)
+            .Include(candidate => candidate.Subjects)
+            .ThenInclude(groupSubject => groupSubject.Subject)
             .Where(group => group.Id == id)
-            .Select(group => new GroupDto(
-                group.Id,
-                group.Name,
-                group.Description,
-                group.IsActive,
-                group.Students.Count))
             .FirstOrDefaultAsync(cancellationToken);
+
+        return group is null ? null : ToGroupDto(group);
     }
 
     public async Task<GroupDto> CreateGroupAsync(CreateGroupRequest request, CancellationToken cancellationToken)
     {
+        var subjectIds = request.SubjectIds.Distinct().ToList();
+        var existingSubjectIds = await _dbContext.Subjects
+            .Where(subject => subjectIds.Contains(subject.Id))
+            .Select(subject => subject.Id)
+            .ToListAsync(cancellationToken);
+
         var group = new Group
         {
             Name = request.Name.Trim(),
             Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(),
+            Branch = request.Branch.Trim(),
             IsActive = true
         };
 
         _dbContext.Groups.Add(group);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return new GroupDto(group.Id, group.Name, group.Description, group.IsActive, 0);
+        foreach (var subjectId in existingSubjectIds)
+        {
+            _dbContext.GroupSubjects.Add(new GroupSubject
+            {
+                GroupId = group.Id,
+                SubjectId = subjectId,
+                AddedAtUtc = _dateTimeProvider.UtcNow
+            });
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return await GetGroupAsync(group.Id, cancellationToken)
+            ?? throw new InvalidOperationException("Created group could not be loaded.");
     }
 
     public async Task<GroupDto?> UpdateGroupAsync(Guid id, UpdateGroupRequest request, CancellationToken cancellationToken)
     {
-        var group = await _dbContext.Groups.FirstOrDefaultAsync(candidate => candidate.Id == id, cancellationToken);
+        var group = await _dbContext.Groups
+            .Include(candidate => candidate.Subjects)
+            .FirstOrDefaultAsync(candidate => candidate.Id == id, cancellationToken);
         if (group is null)
         {
             return null;
@@ -170,12 +192,34 @@ public sealed class AdministrationService : IAdministrationService
 
         group.Name = request.Name.Trim();
         group.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
+        group.Branch = request.Branch.Trim();
         group.IsActive = request.IsActive;
+
+        var requestedSubjectIds = request.SubjectIds.Distinct().ToHashSet();
+        var existingSubjectIds = await _dbContext.Subjects
+            .Where(subject => requestedSubjectIds.Contains(subject.Id))
+            .Select(subject => subject.Id)
+            .ToListAsync(cancellationToken);
+        var existingSubjectIdSet = existingSubjectIds.ToHashSet();
+
+        foreach (var groupSubject in group.Subjects.Where(item => !existingSubjectIdSet.Contains(item.SubjectId)).ToList())
+        {
+            group.Subjects.Remove(groupSubject);
+        }
+
+        foreach (var subjectId in existingSubjectIds.Where(subjectId => group.Subjects.All(item => item.SubjectId != subjectId)))
+        {
+            group.Subjects.Add(new GroupSubject
+            {
+                GroupId = group.Id,
+                SubjectId = subjectId,
+                AddedAtUtc = _dateTimeProvider.UtcNow
+            });
+        }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        var studentCount = await _dbContext.GroupStudents.CountAsync(item => item.GroupId == id, cancellationToken);
-        return new GroupDto(group.Id, group.Name, group.Description, group.IsActive, studentCount);
+        return await GetGroupAsync(group.Id, cancellationToken);
     }
 
     public async Task<bool> DeactivateGroupAsync(Guid id, CancellationToken cancellationToken)
@@ -501,6 +545,32 @@ public sealed class AdministrationService : IAdministrationService
             user.UserName,
             user.Role,
             user.IsActive);
+    }
+
+    private static GroupDto ToGroupDto(Group group)
+    {
+        return new GroupDto(
+            group.Id,
+            group.Name,
+            group.Description,
+            group.Branch,
+            group.IsActive,
+            group.Students.Count,
+            group.Subjects
+                .OrderBy(groupSubject => groupSubject.Subject.Name)
+                .Select(groupSubject => new GroupSubjectDto(
+                    groupSubject.SubjectId,
+                    groupSubject.Subject.Name))
+                .ToList(),
+            group.Students
+                .OrderBy(groupStudent => groupStudent.Student.LastName)
+                .ThenBy(groupStudent => groupStudent.Student.FirstName)
+                .Select(groupStudent => new GroupStudentDto(
+                    groupStudent.StudentId,
+                    groupStudent.Student.FirstName,
+                    groupStudent.Student.LastName,
+                    groupStudent.Student.PhoneNumber))
+                .ToList());
     }
 
     private static string NormalizePhoneNumber(string phoneNumber)
