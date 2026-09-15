@@ -28,6 +28,13 @@ dotnet test UKStady.Back.slnx
 dotnet run --project src/API/UKStady.API.csproj
 ```
 
+Ҳангоми `dotnet run` migration-ҳои EF Core худкор ба PostgreSQL apply мешаванд, агар `Database:AutoMigrate` фаъол бошад. Агар password-и PostgreSQL-и шумо дигар бошад, connection string-ро бо environment variable гузоред:
+
+```powershell
+$env:ConnectionStrings__DefaultConnection="Host=localhost;Port=5432;Database=ukstady;Username=postgres;Password=YOUR_PASSWORD"
+dotnet run --project src/API/UKStady.API.csproj --urls http://localhost:5036
+```
+
 Endpoint-ҳои skeleton:
 
 - `GET /health`

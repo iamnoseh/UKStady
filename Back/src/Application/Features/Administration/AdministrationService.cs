@@ -313,6 +313,80 @@ public sealed class AdministrationService : IAdministrationService
         return true;
     }
 
+    public async Task<TeacherSubjectAssignmentDto?> AssignTeacherSubjectAsync(
+        AssignTeacherSubjectRequest request,
+        CancellationToken cancellationToken)
+    {
+        var teacher = await _dbContext.Users.FirstOrDefaultAsync(
+            user => user.Id == request.TeacherId && user.Role == UserRole.Teacher,
+            cancellationToken);
+        var subject = await _dbContext.Subjects.FirstOrDefaultAsync(
+            candidate => candidate.Id == request.SubjectId,
+            cancellationToken);
+
+        if (teacher is null || subject is null)
+        {
+            return null;
+        }
+
+        var alreadyExists = await _dbContext.TeacherSubjects.AnyAsync(
+            assignment => assignment.TeacherId == request.TeacherId && assignment.SubjectId == request.SubjectId,
+            cancellationToken);
+
+        if (!alreadyExists)
+        {
+            _dbContext.TeacherSubjects.Add(new TeacherSubject
+            {
+                TeacherId = request.TeacherId,
+                SubjectId = request.SubjectId,
+                AssignedAtUtc = _dateTimeProvider.UtcNow
+            });
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        return new TeacherSubjectAssignmentDto(
+            teacher.Id,
+            $"{teacher.FirstName} {teacher.LastName}",
+            subject.Id,
+            subject.Name,
+            _dateTimeProvider.UtcNow);
+    }
+
+    public async Task<bool> RemoveTeacherSubjectAsync(
+        Guid teacherId,
+        Guid subjectId,
+        CancellationToken cancellationToken)
+    {
+        var assignment = await _dbContext.TeacherSubjects.FirstOrDefaultAsync(
+            item => item.TeacherId == teacherId && item.SubjectId == subjectId,
+            cancellationToken);
+
+        if (assignment is null)
+        {
+            return false;
+        }
+
+        _dbContext.TeacherSubjects.Remove(assignment);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<IReadOnlyList<TeacherSubjectAssignmentDto>> GetTeacherSubjectsAsync(CancellationToken cancellationToken)
+    {
+        return await _dbContext.TeacherSubjects
+            .AsNoTracking()
+            .OrderBy(assignment => assignment.Teacher.LastName)
+            .ThenBy(assignment => assignment.Teacher.FirstName)
+            .ThenBy(assignment => assignment.Subject.Name)
+            .Select(assignment => new TeacherSubjectAssignmentDto(
+                assignment.TeacherId,
+                assignment.Teacher.FirstName + " " + assignment.Teacher.LastName,
+                assignment.SubjectId,
+                assignment.Subject.Name,
+                assignment.AssignedAtUtc))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<TeacherAssignmentDto?> AssignTeacherAsync(
         AssignTeacherRequest request,
         CancellationToken cancellationToken)

@@ -38,6 +38,17 @@ public interface IAdministrationService
 
     Task<bool> DeactivateSubjectAsync(Guid id, CancellationToken cancellationToken);
 
+    Task<TeacherSubjectAssignmentDto?> AssignTeacherSubjectAsync(
+        AssignTeacherSubjectRequest request,
+        CancellationToken cancellationToken);
+
+    Task<bool> RemoveTeacherSubjectAsync(
+        Guid teacherId,
+        Guid subjectId,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<TeacherSubjectAssignmentDto>> GetTeacherSubjectsAsync(CancellationToken cancellationToken);
+
     Task<TeacherAssignmentDto?> AssignTeacherAsync(AssignTeacherRequest request, CancellationToken cancellationToken);
 
     Task<bool> RemoveTeacherAssignmentAsync(

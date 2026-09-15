@@ -27,6 +27,8 @@ public sealed class User : AuditableEntity
 
     public ICollection<TeacherSubjectGroup> TeacherAssignments { get; set; } = [];
 
+    public ICollection<TeacherSubject> TeacherSubjects { get; set; } = [];
+
     public ICollection<DailyLesson> CreatedDailyLessons { get; set; } = [];
 
     public ICollection<StudentTestAttempt> TestAttempts { get; set; } = [];

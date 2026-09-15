@@ -1,5 +1,8 @@
+using System.Text.Json.Serialization;
+
 namespace UKStady.Domain.Enums;
 
+[JsonConverter(typeof(JsonStringEnumConverter<TestStatus>))]
 public enum TestStatus
 {
     Pending = 1,
@@ -8,4 +11,3 @@ public enum TestStatus
     Expired = 4,
     Graded = 5
 }
-

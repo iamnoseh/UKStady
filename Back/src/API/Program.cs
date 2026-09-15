@@ -1,9 +1,11 @@
 using System.Text;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using UKStady.API.Auth;
 using UKStady.API.Endpoints;
+using UKStady.API.Extensions;
 using UKStady.API.Middlewares;
 using UKStady.Application.Common.Interfaces;
 using UKStady.Application;
@@ -18,6 +20,10 @@ var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get
     ?? ["http://localhost:5173", "http://localhost:5174"];
 
 builder.Services.AddOpenApi();
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Frontend", policy =>
@@ -78,6 +84,8 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
+
+await app.ApplyDatabaseMigrationsAsync();
 
 app.UseGlobalExceptionHandling();
 app.UseCors("Frontend");

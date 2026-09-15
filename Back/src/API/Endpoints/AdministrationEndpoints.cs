@@ -11,6 +11,7 @@ public static class AdministrationEndpoints
         endpoints.MapUserEndpoints();
         endpoints.MapGroupEndpoints();
         endpoints.MapSubjectEndpoints();
+        endpoints.MapTeacherSubjectEndpoints();
         endpoints.MapTeacherAssignmentEndpoints();
         endpoints.MapDashboardEndpoints();
 
@@ -229,6 +230,38 @@ public static class AdministrationEndpoints
             return deactivated ? Results.NoContent() : Results.NotFound();
         })
         .WithName("DeactivateSubject");
+    }
+
+    private static void MapTeacherSubjectEndpoints(this IEndpointRouteBuilder endpoints)
+    {
+        var group = endpoints.MapGroup("/api/teacher-subjects")
+            .WithTags("Teacher Subjects")
+            .RequireAuthorization(AuthorizationPolicies.Managers);
+
+        group.MapGet("/", async (IAdministrationService service, CancellationToken cancellationToken) =>
+            Results.Ok(await service.GetTeacherSubjectsAsync(cancellationToken)))
+            .WithName("GetTeacherSubjects");
+
+        group.MapPost("/", async (
+            [FromBody] AssignTeacherSubjectRequest request,
+            IAdministrationService service,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.AssignTeacherSubjectAsync(request, cancellationToken);
+            return result is null ? Results.NotFound() : Results.Created("/api/teacher-subjects", result);
+        })
+        .WithName("AssignTeacherSubject");
+
+        group.MapDelete("/{teacherId:guid}/{subjectId:guid}", async (
+            Guid teacherId,
+            Guid subjectId,
+            IAdministrationService service,
+            CancellationToken cancellationToken) =>
+        {
+            var removed = await service.RemoveTeacherSubjectAsync(teacherId, subjectId, cancellationToken);
+            return removed ? Results.NoContent() : Results.NotFound();
+        })
+        .WithName("RemoveTeacherSubject");
     }
 
     private static void MapTeacherAssignmentEndpoints(this IEndpointRouteBuilder endpoints)

@@ -21,6 +21,8 @@ public interface IAppDbContext
 
     DbSet<TeacherSubjectGroup> TeacherSubjectGroups { get; }
 
+    DbSet<TeacherSubject> TeacherSubjects { get; }
+
     DbSet<DailyLesson> DailyLessons { get; }
 
     DbSet<TestAssignment> TestAssignments { get; }
@@ -37,4 +39,3 @@ public interface IAppDbContext
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
-

@@ -10,26 +10,39 @@ import {
   Shield,
   Users,
 } from 'lucide-react';
-import logo from '../../UKStady_Logo.png';
-import { Button } from './Button';
+import logo from '../assets/UKStady_Logo.png';
 import { useAuth } from '../context/AuthContext';
 import type { UserRole } from '../types/auth';
+import { Button } from './Button';
+
+export type AppView = 'dashboard' | 'students' | 'subjects';
 
 const navigation: Array<{
   label: string;
+  view: AppView;
   icon: React.ComponentType<{ className?: string }>;
   roles: UserRole[];
 }> = [
-  { label: 'Dashboard', icon: Home, roles: ['SuperAdmin', 'Admin', 'Manager', 'Teacher', 'Student'] },
-  { label: 'Users', icon: Users, roles: ['SuperAdmin', 'Admin', 'Manager'] },
-  { label: 'Groups', icon: Layers, roles: ['SuperAdmin', 'Admin', 'Manager'] },
-  { label: 'Subjects', icon: BookOpen, roles: ['SuperAdmin', 'Admin', 'Manager', 'Teacher'] },
-  { label: 'Tests', icon: ClipboardCheck, roles: ['Teacher', 'Student'] },
-  { label: 'Gradebook', icon: GraduationCap, roles: ['SuperAdmin', 'Admin', 'Manager', 'Teacher', 'Student'] },
-  { label: 'Settings', icon: Settings, roles: ['SuperAdmin', 'Admin'] },
+  { label: 'Dashboard', view: 'dashboard', icon: Home, roles: ['SuperAdmin', 'Admin', 'Manager', 'Teacher', 'Student'] },
+  { label: 'Хонандагон', view: 'students', icon: Users, roles: ['SuperAdmin', 'Admin', 'Manager'] },
+  { label: 'Гурӯҳҳо', view: 'dashboard', icon: Layers, roles: ['SuperAdmin', 'Admin', 'Manager'] },
+  { label: 'Фанҳо', view: 'subjects', icon: BookOpen, roles: ['SuperAdmin', 'Admin', 'Manager'] },
+  { label: 'Тестҳо', view: 'dashboard', icon: ClipboardCheck, roles: ['Teacher', 'Student'] },
+  { label: 'Журнал', view: 'dashboard', icon: GraduationCap, roles: ['SuperAdmin', 'Admin', 'Manager', 'Teacher', 'Student'] },
+  { label: 'Танзимот', view: 'dashboard', icon: Settings, roles: ['SuperAdmin', 'Admin'] },
 ];
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  activeView,
+  onViewChange,
+  title,
+}: {
+  children: React.ReactNode;
+  activeView: AppView;
+  onViewChange: (view: AppView) => void;
+  title: string;
+}) {
   const { auth, signOut } = useAuth();
   const visibleNavigation = navigation.filter((item) => auth && item.roles.includes(auth.role));
 
@@ -48,7 +61,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {visibleNavigation.map((item) => (
             <button
               key={item.label}
-              className="flex h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-semibold text-muted transition hover:bg-white hover:text-ink"
+              onClick={() => onViewChange(item.view)}
+              className={`flex h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-semibold transition ${
+                activeView === item.view ? 'bg-white text-ink shadow-sm' : 'text-muted hover:bg-white hover:text-ink'
+              }`}
             >
               <item.icon className="h-4 w-4" />
               {item.label}
@@ -65,7 +81,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </button>
             <div>
               <p className="text-xs font-semibold uppercase text-muted">{auth?.role}</p>
-              <h1 className="text-lg font-bold">Dashboard</h1>
+              <h1 className="text-lg font-bold">{title}</h1>
             </div>
           </div>
 
@@ -89,4 +105,3 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
-

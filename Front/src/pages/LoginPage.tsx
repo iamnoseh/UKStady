@@ -1,6 +1,6 @@
 import { FormEvent, useState } from 'react';
-import { LockKeyhole, Phone, ShieldCheck } from 'lucide-react';
-import logo from '../../UKStady_Logo.png';
+import { Eye, EyeOff, LockKeyhole, Phone } from 'lucide-react';
+import bannerImg from '../assets/login_banner.jpg';
 import { Button } from '../components/Button';
 import { useAuth } from '../context/AuthContext';
 
@@ -8,6 +8,7 @@ export function LoginPage() {
   const { signIn } = useAuth();
   const [phoneNumber, setPhoneNumber] = useState('+992000000000');
   const [password, setPassword] = useState('Admin123!');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -26,81 +27,95 @@ export function LoginPage() {
   }
 
   return (
-    <main className="grid min-h-screen bg-panel lg:grid-cols-[1fr_460px]">
-      <section className="hidden border-r border-line bg-white p-10 lg:flex lg:flex-col lg:justify-between">
-        <div className="flex items-center gap-3">
-          <img src={logo} alt="UKStady" className="h-11 w-11 rounded-xl object-contain" />
-          <div>
-            <p className="text-base font-bold">UKStady</p>
-            <p className="text-sm text-muted">Daily Knowledge Assessment</p>
-          </div>
-        </div>
-
-        <div className="max-w-xl">
-          <div className="mb-8 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-brand/10 text-brand">
-            <ShieldCheck className="h-6 w-6" />
-          </div>
-          <h1 className="text-4xl font-bold leading-tight">Назорати дониш дар як ҷой.</h1>
-          <p className="mt-4 max-w-lg text-base leading-7 text-muted">
-            Муаллим, донишҷӯ ва маъмурият бо як интерфейси тоза ва фаҳмо кор мекунанд.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-3 gap-3">
-          {['20:00 - 07:00', '100 хол', 'RBAC'].map((item) => (
-            <div key={item} className="rounded-lg border border-line bg-panel px-4 py-3 text-sm font-semibold">
-              {item}
-            </div>
-          ))}
+    <main className="min-h-screen bg-panel lg:grid lg:grid-cols-[1.1fr_0.9fr] xl:grid-cols-[1.2fr_0.8fr]">
+      {/* ТАРАФИ ЧАП: Танҳо барои компютер (Desktop) — расми пурраи калон бо тарҳи зебо */}
+      <section className="relative hidden items-center justify-center overflow-hidden border-r border-line bg-gradient-to-br from-[#e8f1fd] via-[#f1f6fe] to-[#edf4fc] p-8 lg:flex xl:p-12">
+        <div className="relative flex h-full max-h-[92vh] w-full max-w-[620px] items-center justify-center">
+          <img
+            src={bannerImg}
+            alt="UKStady - Назорати дониш дар як ҷой"
+            className="max-h-full w-auto max-w-full rounded-3xl object-contain shadow-2xl ring-1 ring-black/5 transition-transform duration-300 hover:scale-[1.01]"
+          />
         </div>
       </section>
 
-      <section className="flex items-center justify-center px-5 py-10">
-        <form onSubmit={handleSubmit} className="w-full max-w-[380px] rounded-xl border border-line bg-white p-6 shadow-soft">
-          <div className="mb-7 lg:hidden">
-            <img src={logo} alt="UKStady" className="mb-3 h-11 w-11 rounded-xl object-contain" />
-          </div>
+      {/* ТАРАФИ РОСТ: Танҳо корти воридшавӣ (дар мобил низ танҳо ҳамин қисмат нишон дода мешавад) */}
+      <section className="flex min-h-screen flex-col items-center justify-center px-4 py-8 sm:px-6 lg:p-12">
+        <div className="w-full max-w-[420px]">
+          {/* Корти формаи воридшавӣ */}
+          <form
+            onSubmit={handleSubmit}
+            className="rounded-2xl border border-line bg-white p-6 shadow-soft sm:p-8"
+          >
+            <div className="mb-6">
+              <h2 className="text-xl font-bold text-ink sm:text-2xl">Воридшавӣ</h2>
+              <p className="mt-1 text-xs text-muted sm:text-sm">
+                Барои идома рақами телефон ва паролро ворид намоед
+              </p>
+            </div>
 
-          <h2 className="text-2xl font-bold">Воридшавӣ</h2>
-          <p className="mt-2 text-sm text-muted">Бо рақами телефон ва пароли худ ворид шавед.</p>
+            <div className="space-y-4">
+              <label className="block">
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted">
+                  Рақами телефон
+                </span>
+                <div className="mt-1.5 flex h-12 items-center gap-3 rounded-xl border border-line bg-panel/60 px-3.5 transition-colors focus-within:border-brand focus-within:bg-white focus-within:ring-2 focus-within:ring-brand/15">
+                  <Phone className="h-5 w-5 shrink-0 text-muted" />
+                  <input
+                    value={phoneNumber}
+                    onChange={(event) => setPhoneNumber(event.target.value)}
+                    className="h-full w-full bg-transparent text-sm text-ink outline-none placeholder:text-muted/60"
+                    placeholder="+992..."
+                    autoComplete="tel"
+                    required
+                  />
+                </div>
+              </label>
 
-          <label className="mt-7 block">
-            <span className="text-sm font-semibold">Рақами телефон</span>
-            <span className="mt-2 flex h-12 items-center gap-3 rounded-lg border border-line bg-white px-3 focus-within:border-brand">
-              <Phone className="h-5 w-5 text-muted" />
-              <input
-                value={phoneNumber}
-                onChange={(event) => setPhoneNumber(event.target.value)}
-                className="h-full flex-1 outline-none"
-                placeholder="+992..."
-                autoComplete="tel"
-              />
-            </span>
-          </label>
+              <label className="block">
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted">
+                  Парол
+                </span>
+                <div className="mt-1.5 flex h-12 items-center gap-3 rounded-xl border border-line bg-panel/60 px-3.5 transition-colors focus-within:border-brand focus-within:bg-white focus-within:ring-2 focus-within:ring-brand/15">
+                  <LockKeyhole className="h-5 w-5 shrink-0 text-muted" />
+                  <input
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    className="h-full w-full bg-transparent text-sm text-ink outline-none placeholder:text-muted/60"
+                    placeholder="Пароли худро ворид кунед"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition hover:bg-line/60 hover:text-ink focus:outline-none"
+                    title={showPassword ? 'Пинҳон кардани парол' : 'Дидани парол'}
+                    aria-label={showPassword ? 'Пинҳон кардани парол' : 'Дидани парол'}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </label>
+            </div>
 
-          <label className="mt-4 block">
-            <span className="text-sm font-semibold">Парол</span>
-            <span className="mt-2 flex h-12 items-center gap-3 rounded-lg border border-line bg-white px-3 focus-within:border-brand">
-              <LockKeyhole className="h-5 w-5 text-muted" />
-              <input
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className="h-full flex-1 outline-none"
-                placeholder="12345A"
-                type="password"
-                autoComplete="current-password"
-              />
-            </span>
-          </label>
+            {error ? (
+              <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+                {error}
+              </div>
+            ) : null}
 
-          {error ? <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
-
-          <Button type="submit" className="mt-6 w-full" disabled={isSubmitting}>
-            {isSubmitting ? 'Санҷида истодааст...' : 'Ворид шудан'}
-          </Button>
-        </form>
+            <Button
+              type="submit"
+              className="mt-6 h-12 w-full text-base font-semibold shadow-md transition hover:brightness-105 active:scale-[0.99]"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Санҷида истодааст...' : 'Ворид шудан'}
+            </Button>
+          </form>
+        </div>
       </section>
     </main>
   );
 }
-

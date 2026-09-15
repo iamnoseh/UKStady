@@ -30,6 +30,8 @@ public sealed class TeachingService : ITeachingService
             var teacherId = RequireCurrentUserId();
             query = query.Where(topic =>
                 _dbContext.TeacherSubjectGroups.Any(assignment =>
+                    assignment.TeacherId == teacherId && assignment.SubjectId == topic.SubjectId) ||
+                _dbContext.TeacherSubjects.Any(assignment =>
                     assignment.TeacherId == teacherId && assignment.SubjectId == topic.SubjectId));
         }
 
@@ -276,10 +278,14 @@ public sealed class TeachingService : ITeachingService
         var subjectIds = _dbContext.TeacherSubjectGroups
             .Where(assignment => assignment.TeacherId == teacherId)
             .Select(assignment => assignment.SubjectId);
+        var directlyAssignedSubjectIds = _dbContext.TeacherSubjects
+            .Where(assignment => assignment.TeacherId == teacherId)
+            .Select(assignment => assignment.SubjectId);
+        var allSubjectIds = subjectIds.Union(directlyAssignedSubjectIds);
 
-        var topics = await _dbContext.Topics.CountAsync(topic => subjectIds.Contains(topic.SubjectId), cancellationToken);
+        var topics = await _dbContext.Topics.CountAsync(topic => allSubjectIds.Contains(topic.SubjectId), cancellationToken);
         var activeQuestions = await _dbContext.Questions.CountAsync(
-            question => question.IsActive && subjectIds.Contains(question.Topic.SubjectId),
+            question => question.IsActive && allSubjectIds.Contains(question.Topic.SubjectId),
             cancellationToken);
         var dailyLessons = await _dbContext.DailyLessons.CountAsync(
             lesson => lesson.TeacherId == teacherId,
@@ -340,6 +346,9 @@ public sealed class TeachingService : ITeachingService
 
         var teacherId = RequireCurrentUserId();
         return await _dbContext.TeacherSubjectGroups.AnyAsync(
+            assignment => assignment.TeacherId == teacherId && assignment.SubjectId == subjectId,
+            cancellationToken) ||
+            await _dbContext.TeacherSubjects.AnyAsync(
             assignment => assignment.TeacherId == teacherId && assignment.SubjectId == subjectId,
             cancellationToken);
     }

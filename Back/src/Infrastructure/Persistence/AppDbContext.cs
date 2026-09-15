@@ -31,6 +31,8 @@ public sealed class AppDbContext : DbContext, IAppDbContext
 
     public DbSet<TeacherSubjectGroup> TeacherSubjectGroups => Set<TeacherSubjectGroup>();
 
+    public DbSet<TeacherSubject> TeacherSubjects => Set<TeacherSubject>();
+
     public DbSet<DailyLesson> DailyLessons => Set<DailyLesson>();
 
     public DbSet<TestAssignment> TestAssignments => Set<TestAssignment>();
@@ -70,4 +72,3 @@ public sealed class AppDbContext : DbContext, IAppDbContext
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
     }
 }
-

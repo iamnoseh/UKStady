@@ -49,6 +49,15 @@ public sealed record UpdateSubjectRequest(string Name, string? Description, bool
 
 public sealed record AssignTeacherRequest(Guid TeacherId, Guid SubjectId, Guid GroupId);
 
+public sealed record AssignTeacherSubjectRequest(Guid TeacherId, Guid SubjectId);
+
+public sealed record TeacherSubjectAssignmentDto(
+    Guid TeacherId,
+    string TeacherName,
+    Guid SubjectId,
+    string SubjectName,
+    DateTimeOffset AssignedAtUtc);
+
 public sealed record TeacherAssignmentDto(
     Guid TeacherId,
     string TeacherName,

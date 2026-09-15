@@ -1,11 +1,41 @@
+import { useMemo, useState } from 'react';
+import { AppShell, type AppView } from './components/AppShell';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { DashboardPage } from './pages/DashboardPage';
 import { LoginPage } from './pages/LoginPage';
+import { StudentsPage } from './pages/StudentsPage';
+import { SubjectsPage } from './pages/SubjectsPage';
+
+const titles: Record<AppView, string> = {
+  dashboard: 'Dashboard',
+  students: 'Хонандагон',
+  subjects: 'Фанҳо',
+};
 
 function AppContent() {
   const { auth } = useAuth();
+  const [activeView, setActiveView] = useState<AppView>('dashboard');
 
-  return auth ? <DashboardPage /> : <LoginPage />;
+  const content = useMemo(() => {
+    switch (activeView) {
+      case 'students':
+        return <StudentsPage />;
+      case 'subjects':
+        return <SubjectsPage />;
+      default:
+        return <DashboardPage onViewChange={setActiveView} />;
+    }
+  }, [activeView]);
+
+  if (!auth) {
+    return <LoginPage />;
+  }
+
+  return (
+    <AppShell activeView={activeView} onViewChange={setActiveView} title={titles[activeView]}>
+      {content}
+    </AppShell>
+  );
 }
 
 export function App() {

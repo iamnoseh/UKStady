@@ -148,6 +148,23 @@ public sealed class TeacherSubjectGroupConfiguration : IEntityTypeConfiguration<
     }
 }
 
+public sealed class TeacherSubjectConfiguration : IEntityTypeConfiguration<TeacherSubject>
+{
+    public void Configure(EntityTypeBuilder<TeacherSubject> builder)
+    {
+        builder.ToTable("teacher_subjects");
+        builder.HasKey(assignment => new { assignment.TeacherId, assignment.SubjectId });
+        builder.HasOne(assignment => assignment.Teacher)
+            .WithMany(user => user.TeacherSubjects)
+            .HasForeignKey(assignment => assignment.TeacherId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(assignment => assignment.Subject)
+            .WithMany(subject => subject.TeacherSubjects)
+            .HasForeignKey(assignment => assignment.SubjectId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
 public sealed class DailyLessonConfiguration : IEntityTypeConfiguration<DailyLesson>
 {
     public void Configure(EntityTypeBuilder<DailyLesson> builder)
