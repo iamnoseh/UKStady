@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Copy, KeyRound, Plus, Search, UserRoundPlus } from 'lucide-react';
 import { Button } from '../components/Button';
+import { Pagination, paginate } from '../components/Pagination';
 import { createUser, generatePassword, getUsers } from '../services/api';
 import type { UserDto } from '../types/admin';
 import { useAuth } from '../context/AuthContext';
@@ -13,6 +14,7 @@ export function StudentsPage() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -108,6 +110,11 @@ export function StudentsPage() {
       `${student.firstName} ${student.lastName} ${student.phoneNumber}`.toLowerCase().includes(value),
     );
   }, [query, students]);
+  const pagedStudents = paginate(filteredStudents, page, 8);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, students.length]);
 
   return (
     <section className="px-4 py-6 lg:px-6">
@@ -204,31 +211,43 @@ export function StudentsPage() {
           </Button>
         </form>
 
-        <div className="overflow-hidden rounded-lg border border-line bg-white">
-          <div className="grid grid-cols-[1.2fr_1fr_120px] border-b border-line bg-panel px-4 py-3 text-xs font-bold uppercase text-muted">
-            <span>Хонанда</span>
-            <span>Телефон</span>
-            <span>Ҳолат</span>
-          </div>
-
-          {isLoading ? <p className="px-4 py-5 text-sm text-muted">Бор шуда истодааст...</p> : null}
-
-          {!isLoading && filteredStudents.length === 0 ? (
-            <p className="px-4 py-5 text-sm text-muted">Ҳоло хонанда нест.</p>
-          ) : null}
-
-          {filteredStudents.map((student) => (
-            <div key={student.id} className="grid grid-cols-[1.2fr_1fr_120px] items-center border-b border-line px-4 py-4 text-sm last:border-0">
-              <div>
-                <p className="font-semibold">{student.firstName} {student.lastName}</p>
-                <p className="text-muted">{student.userName}</p>
-              </div>
-              <span className="font-mono text-muted">{student.phoneNumber}</span>
-              <span className={`w-fit rounded-md px-2 py-1 text-xs font-bold ${student.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
-                {student.isActive ? 'Фаъол' : 'Ғайрифаъол'}
-              </span>
+        <div className="min-w-0">
+          <div className="min-h-[420px] overflow-hidden rounded-lg border border-line bg-white">
+            <div className="grid grid-cols-[1.2fr_1fr_120px] border-b border-line bg-panel px-4 py-3 text-xs font-bold uppercase text-muted">
+              <span>Хонанда</span>
+              <span>Телефон</span>
+              <span>Ҳолат</span>
             </div>
-          ))}
+
+            {isLoading ? <p className="px-4 py-5 text-sm text-muted">Бор шуда истодааст...</p> : null}
+
+            {!isLoading && filteredStudents.length === 0 ? (
+              <p className="px-4 py-5 text-sm text-muted">Ҳоло хонанда нест.</p>
+            ) : null}
+
+            {pagedStudents.items.map((student) => (
+              <div key={student.id} className="grid grid-cols-[1.2fr_1fr_120px] items-center border-b border-line px-4 py-4 text-sm last:border-0">
+                <div>
+                  <p className="font-semibold">{student.firstName} {student.lastName}</p>
+                  <p className="text-muted">{student.userName}</p>
+                </div>
+                <span className="font-mono text-muted">{student.phoneNumber}</span>
+                <span className={`w-fit rounded-md px-2 py-1 text-xs font-bold ${student.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                  {student.isActive ? 'Фаъол' : 'Ғайрифаъол'}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4">
+            <Pagination
+              page={pagedStudents.page}
+              pageCount={pagedStudents.pageCount}
+              total={filteredStudents.length}
+              from={pagedStudents.from}
+              to={pagedStudents.to}
+              onPageChange={setPage}
+            />
+          </div>
         </div>
       </div>
     </section>

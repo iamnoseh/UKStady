@@ -12,10 +12,13 @@ public sealed class Topic : AuditableEntity
 
     public string? Description { get; set; }
 
+    public string? Source { get; set; }
+
+    public string? Grade { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     public ICollection<Question> Questions { get; set; } = [];
 
     public ICollection<DailyLesson> DailyLessons { get; set; } = [];
 }
-

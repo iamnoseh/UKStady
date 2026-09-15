@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Copy, KeyRound, Plus, Search, UserRoundPlus } from 'lucide-react';
 import { Button } from '../components/Button';
+import { Pagination, paginate } from '../components/Pagination';
+import { SearchableSelect } from '../components/SearchableSelect';
 import {
   assignTeacherSubject,
   createUser,
@@ -23,6 +25,7 @@ export function TeachersPage() {
   const [password, setPassword] = useState('');
   const [subjectId, setSubjectId] = useState('');
   const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -151,6 +154,15 @@ export function TeachersPage() {
         .includes(value),
     );
   }, [query, subjectByTeacherId, teachers]);
+  const subjectOptions = useMemo(
+    () => subjects.filter((subject) => subject.isActive).map((subject) => ({ value: subject.id, label: subject.name })),
+    [subjects],
+  );
+  const pagedTeachers = paginate(filteredTeachers, page, 8);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, teachers.length]);
 
   return (
     <section className="px-4 py-6 lg:px-6">
@@ -215,28 +227,16 @@ export function TeachersPage() {
             />
           </label>
 
-          <label className="mt-4 block">
-            <span className="text-sm font-semibold">Фанни дарсӣ</span>
-            <select
+          <div className="mt-4">
+            <SearchableSelect
+              label="Фанни дарсӣ"
               value={subjectId}
-              onChange={(event) => setSubjectId(event.target.value)}
-              className={`mt-2 h-11 w-full rounded-lg border border-line bg-white px-3 outline-none transition focus:border-brand ${
-                !subjectId ? 'text-muted' : 'text-ink font-semibold'
-              }`}
-              required
-            >
-              <option value="" className="text-muted">
-                Фанро интихоб кунед
-              </option>
-              {subjects
-                .filter((subject) => subject.isActive)
-                .map((subject) => (
-                  <option key={subject.id} value={subject.id} className="text-ink font-normal">
-                    {subject.name}
-                  </option>
-                ))}
-            </select>
-          </label>
+              options={subjectOptions}
+              placeholder="Ҷустуҷӯ ва интихоби фан"
+              emptyText="Фан ёфт нашуд."
+              onChange={setSubjectId}
+            />
+          </div>
 
           <div className="mt-4">
             <span className="text-sm font-semibold">Парол</span>
@@ -277,32 +277,44 @@ export function TeachersPage() {
           </Button>
         </form>
 
-        <div className="overflow-hidden rounded-lg border border-line bg-white">
-          <div className="grid grid-cols-[1.2fr_1fr_120px] border-b border-line bg-panel px-4 py-3 text-xs font-bold uppercase text-muted">
-            <span>Муаллим</span>
-            <span>Телефон</span>
-            <span>Ҳолат</span>
-          </div>
-
-          {isLoading ? <p className="px-4 py-5 text-sm text-muted">Бор шуда истодааст...</p> : null}
-
-          {!isLoading && filteredTeachers.length === 0 ? (
-            <p className="px-4 py-5 text-sm text-muted">Ҳоло муаллим нест.</p>
-          ) : null}
-
-          {filteredTeachers.map((teacher) => (
-            <div key={teacher.id} className="grid grid-cols-[1.2fr_1fr_120px] items-center border-b border-line px-4 py-4 text-sm last:border-0">
-              <div>
-                <p className="font-semibold">{teacher.firstName} {teacher.lastName}</p>
-                <p className="text-muted">{teacher.userName}</p>
-                <p className="text-muted">{(subjectByTeacherId[teacher.id] ?? ['Фан нест']).join(', ')}</p>
-              </div>
-              <span className="font-mono text-muted">{teacher.phoneNumber}</span>
-              <span className={`w-fit rounded-md px-2 py-1 text-xs font-bold ${teacher.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
-                {teacher.isActive ? 'Фаъол' : 'Ғайрифаъол'}
-              </span>
+        <div className="min-w-0">
+          <div className="min-h-[420px] overflow-hidden rounded-lg border border-line bg-white">
+            <div className="grid grid-cols-[1.2fr_1fr_120px] border-b border-line bg-panel px-4 py-3 text-xs font-bold uppercase text-muted">
+              <span>Муаллим</span>
+              <span>Телефон</span>
+              <span>Ҳолат</span>
             </div>
-          ))}
+
+            {isLoading ? <p className="px-4 py-5 text-sm text-muted">Бор шуда истодааст...</p> : null}
+
+            {!isLoading && filteredTeachers.length === 0 ? (
+              <p className="px-4 py-5 text-sm text-muted">Ҳоло муаллим нест.</p>
+            ) : null}
+
+            {pagedTeachers.items.map((teacher) => (
+              <div key={teacher.id} className="grid grid-cols-[1.2fr_1fr_120px] items-center border-b border-line px-4 py-4 text-sm last:border-0">
+                <div>
+                  <p className="font-semibold">{teacher.firstName} {teacher.lastName}</p>
+                  <p className="text-muted">{teacher.userName}</p>
+                  <p className="text-muted">{(subjectByTeacherId[teacher.id] ?? ['Фан нест']).join(', ')}</p>
+                </div>
+                <span className="font-mono text-muted">{teacher.phoneNumber}</span>
+                <span className={`w-fit rounded-md px-2 py-1 text-xs font-bold ${teacher.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                  {teacher.isActive ? 'Фаъол' : 'Ғайрифаъол'}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4">
+            <Pagination
+              page={pagedTeachers.page}
+              pageCount={pagedTeachers.pageCount}
+              total={filteredTeachers.length}
+              from={pagedTeachers.from}
+              to={pagedTeachers.to}
+              onPageChange={setPage}
+            />
+          </div>
         </div>
       </div>
     </section>

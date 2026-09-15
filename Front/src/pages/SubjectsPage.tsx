@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { BookOpen, Plus, Search } from 'lucide-react';
 import { Button } from '../components/Button';
+import { Pagination, paginate } from '../components/Pagination';
 import { createSubject, getSubjects } from '../services/api';
 import type { SubjectDto } from '../types/admin';
 import { useAuth } from '../context/AuthContext';
@@ -11,6 +12,7 @@ export function SubjectsPage() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -66,6 +68,11 @@ export function SubjectsPage() {
 
     return subjects.filter((subject) => subject.name.toLowerCase().includes(value));
   }, [query, subjects]);
+  const pagedSubjects = paginate(filteredSubjects, page, 8);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, subjects.length]);
 
   return (
     <section className="px-4 py-6 lg:px-6">
@@ -126,34 +133,45 @@ export function SubjectsPage() {
           </Button>
         </form>
 
-        <div className="overflow-hidden rounded-lg border border-line bg-white">
-          <div className="grid grid-cols-[1.4fr_1fr_120px] border-b border-line bg-panel px-4 py-3 text-xs font-bold uppercase text-muted">
-            <span>Фан</span>
-            <span>Мавзӯъҳо</span>
-            <span>Ҳолат</span>
-          </div>
-
-          {isLoading ? <p className="px-4 py-5 text-sm text-muted">Бор шуда истодааст...</p> : null}
-
-          {!isLoading && filteredSubjects.length === 0 ? (
-            <p className="px-4 py-5 text-sm text-muted">Ҳоло фан нест.</p>
-          ) : null}
-
-          {filteredSubjects.map((subject) => (
-            <div key={subject.id} className="grid grid-cols-[1.4fr_1fr_120px] items-center border-b border-line px-4 py-4 text-sm last:border-0">
-              <div>
-                <p className="font-semibold">{subject.name}</p>
-                <p className="text-muted">{subject.description || 'Бе тавсиф'}</p>
-              </div>
-              <span className="text-muted">{subject.topicCount}</span>
-              <span className={`w-fit rounded-md px-2 py-1 text-xs font-bold ${subject.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
-                {subject.isActive ? 'Фаъол' : 'Ғайрифаъол'}
-              </span>
+        <div className="min-w-0">
+          <div className="min-h-[420px] overflow-hidden rounded-lg border border-line bg-white">
+            <div className="grid grid-cols-[1.4fr_1fr_120px] border-b border-line bg-panel px-4 py-3 text-xs font-bold uppercase text-muted">
+              <span>Фан</span>
+              <span>Мавзӯъҳо</span>
+              <span>Ҳолат</span>
             </div>
-          ))}
+
+            {isLoading ? <p className="px-4 py-5 text-sm text-muted">Бор шуда истодааст...</p> : null}
+
+            {!isLoading && filteredSubjects.length === 0 ? (
+              <p className="px-4 py-5 text-sm text-muted">Ҳоло фан нест.</p>
+            ) : null}
+
+            {pagedSubjects.items.map((subject) => (
+              <div key={subject.id} className="grid grid-cols-[1.4fr_1fr_120px] items-center border-b border-line px-4 py-4 text-sm last:border-0">
+                <div>
+                  <p className="font-semibold">{subject.name}</p>
+                  <p className="text-muted">{subject.description || 'Бе тавсиф'}</p>
+                </div>
+                <span className="text-muted">{subject.topicCount}</span>
+                <span className={`w-fit rounded-md px-2 py-1 text-xs font-bold ${subject.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                  {subject.isActive ? 'Фаъол' : 'Ғайрифаъол'}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4">
+            <Pagination
+              page={pagedSubjects.page}
+              pageCount={pagedSubjects.pageCount}
+              total={filteredSubjects.length}
+              from={pagedSubjects.from}
+              to={pagedSubjects.to}
+              onPageChange={setPage}
+            />
+          </div>
         </div>
       </div>
     </section>
   );
 }
-

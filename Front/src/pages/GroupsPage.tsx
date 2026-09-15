@@ -16,6 +16,9 @@ import {
   XCircle,
 } from 'lucide-react';
 import { Button } from '../components/Button';
+import { Pagination, paginate } from '../components/Pagination';
+import { SearchableMultiSelect } from '../components/SearchableMultiSelect';
+import { SearchableSelect } from '../components/SearchableSelect';
 import {
   addStudentToGroup,
   createGroup,
@@ -50,7 +53,7 @@ export function GroupsPage() {
   const [branch, setBranch] = useState('');
   const [description, setDescription] = useState('');
   const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>([]);
-  const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [editName, setEditName] = useState('');
   const [editBranch, setEditBranch] = useState('');
   const [editDescription, setEditDescription] = useState('');
@@ -59,6 +62,8 @@ export function GroupsPage() {
   const [subjectToAddId, setSubjectToAddId] = useState('');
   const [query, setQuery] = useState('');
   const [studentQuery, setStudentQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [studentPage, setStudentPage] = useState(1);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -100,7 +105,7 @@ export function GroupsPage() {
     setActiveTab('students');
     setNotice('');
     setError('');
-    setSelectedStudentId('');
+    setSelectedStudentIds([]);
     setStudentQuery('');
     setSubjectToAddId('');
 
@@ -112,15 +117,7 @@ export function GroupsPage() {
   function closeGroup() {
     setSelectedGroupId(null);
     setActiveTab('students');
-    setSelectedStudentId('');
-  }
-
-  function toggleSubject(subjectId: string) {
-    setSelectedSubjectIds((current) =>
-      current.includes(subjectId)
-        ? current.filter((id) => id !== subjectId)
-        : [...current, subjectId],
-    );
+    setSelectedStudentIds([]);
   }
 
   function addEditSubject(subjectId: string) {
@@ -176,7 +173,7 @@ export function GroupsPage() {
 
   async function handleAddStudent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!auth || !selectedGroupId || !selectedStudentId) {
+    if (!auth || !selectedGroupId || selectedStudentIds.length === 0) {
       return;
     }
 
@@ -184,10 +181,12 @@ export function GroupsPage() {
     setError('');
     setNotice('');
     try {
-      await addStudentToGroup(auth.accessToken, selectedGroupId, selectedStudentId);
+      await Promise.all(
+        selectedStudentIds.map((studentId) => addStudentToGroup(auth.accessToken, selectedGroupId, studentId)),
+      );
       await loadData();
-      setSelectedStudentId('');
-      setNotice('Хонанда ба гурӯҳ дохил шуд.');
+      setSelectedStudentIds([]);
+      setNotice('Хонандагон ба гурӯҳ дохил шуданд.');
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Хонанда дохил нашуд.');
     } finally {
@@ -251,6 +250,7 @@ export function GroupsPage() {
       `${group.name} ${group.branch} ${group.description ?? ''}`.toLowerCase().includes(value),
     );
   }, [groups, query]);
+  const pagedGroups = paginate(filteredGroups, page, 9);
 
   const selectedGroup = useMemo(
     () => groups.find((group) => group.id === selectedGroupId) ?? null,
@@ -266,6 +266,22 @@ export function GroupsPage() {
     () => students.filter((student) => !assignedStudentIds.has(student.id)),
     [assignedStudentIds, students],
   );
+  const availableStudentOptions = useMemo(
+    () => availableStudents.map((student) => ({
+      value: student.id,
+      label: `${student.firstName} ${student.lastName}`,
+      meta: student.phoneNumber,
+    })),
+    [availableStudents],
+  );
+  const subjectOptions = useMemo(
+    () => subjects.filter((subject) => subject.isActive).map((subject) => ({ value: subject.id, label: subject.name })),
+    [subjects],
+  );
+  const createSubjectOptions = useMemo(
+    () => subjects.filter((subject) => subject.isActive).map((subject) => ({ value: subject.id, label: subject.name })),
+    [subjects],
+  );
   const filteredAssignedStudents = useMemo(() => {
     const value = studentQuery.trim().toLowerCase();
     const assigned = selectedGroup?.students ?? [];
@@ -277,6 +293,15 @@ export function GroupsPage() {
       `${student.firstName} ${student.lastName} ${student.phoneNumber}`.toLowerCase().includes(value),
     );
   }, [selectedGroup, studentQuery]);
+  const pagedAssignedStudents = paginate(filteredAssignedStudents, studentPage, 8);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, groups.length]);
+
+  useEffect(() => {
+    setStudentPage(1);
+  }, [studentQuery, selectedGroupId, filteredAssignedStudents.length]);
 
   if (selectedGroup) {
     return (
@@ -338,65 +363,70 @@ export function GroupsPage() {
                 </div>
               </div>
 
-              <label className="block">
-                <span className="text-sm font-semibold">Хонанда</span>
-                <select
-                  value={selectedStudentId}
-                  onChange={(event) => setSelectedStudentId(event.target.value)}
-                  className="mt-2 h-11 w-full rounded-lg border border-line bg-white px-3 outline-none focus:border-brand"
-                >
-                  <option value="">Интихоб кунед</option>
-                  {availableStudents.map((student) => (
-                    <option key={student.id} value={student.id}>
-                      {student.firstName} {student.lastName} - {student.phoneNumber}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <SearchableMultiSelect
+                label="Хонандагон"
+                values={selectedStudentIds}
+                options={availableStudentOptions}
+                placeholder="Ҷустуҷӯ ва интихоби хонандагон"
+                emptyText="Хонандаи дастрас нест."
+                onChange={setSelectedStudentIds}
+              />
 
-              <Button type="submit" className="mt-5 w-full" disabled={isStudentSubmitting || !selectedStudentId}>
+              <Button type="submit" className="mt-5 w-full" disabled={isStudentSubmitting || selectedStudentIds.length === 0}>
                 <Plus className="h-4 w-4" />
-                {isStudentSubmitting ? 'Дохил шуда истодааст...' : 'Дохил кардан'}
+                {isStudentSubmitting ? 'Дохил шуда истодааст...' : `Дохил кардан (${selectedStudentIds.length})`}
               </Button>
             </form>
 
-            <div className="overflow-hidden rounded-lg border border-line bg-white">
-              <div className="flex flex-col justify-between gap-3 border-b border-line bg-panel px-4 py-3 sm:flex-row sm:items-center">
-                <div className="text-xs font-bold uppercase text-muted">Хонандагони гурӯҳ</div>
-                <div className="flex h-10 items-center gap-3 rounded-lg border border-line bg-white px-3 sm:w-[320px]">
-                  <Search className="h-4 w-4 text-muted" />
-                  <input
-                    value={studentQuery}
-                    onChange={(event) => setStudentQuery(event.target.value)}
-                    className="h-full flex-1 outline-none"
-                    placeholder="Ҷустуҷӯи хонанда"
-                  />
-                </div>
-              </div>
-
-              {filteredAssignedStudents.length === 0 ? (
-                <p className="px-4 py-5 text-sm text-muted">Ҳоло хонанда нест.</p>
-              ) : null}
-
-              {filteredAssignedStudents.map((student) => (
-                <div key={student.id} className="grid grid-cols-[1.2fr_1fr_56px] items-center border-b border-line px-4 py-4 text-sm last:border-0">
-                  <div>
-                    <p className="font-semibold">{student.firstName} {student.lastName}</p>
-                    <p className="text-muted">Login рақами телефон</p>
+            <div className="min-w-0">
+              <div className="min-h-[420px] overflow-hidden rounded-lg border border-line bg-white">
+                <div className="flex flex-col justify-between gap-3 border-b border-line bg-panel px-4 py-3 sm:flex-row sm:items-center">
+                  <div className="text-xs font-bold uppercase text-muted">Хонандагони гурӯҳ</div>
+                  <div className="flex h-10 items-center gap-3 rounded-lg border border-line bg-white px-3 sm:w-[320px]">
+                    <Search className="h-4 w-4 text-muted" />
+                    <input
+                      value={studentQuery}
+                      onChange={(event) => setStudentQuery(event.target.value)}
+                      className="h-full flex-1 outline-none"
+                      placeholder="Ҷустуҷӯи хонанда"
+                    />
                   </div>
-                  <span className="font-mono text-muted">{student.phoneNumber}</span>
-                  <button
-                    type="button"
-                    onClick={() => void handleRemoveStudent(student.id)}
-                    className="grid h-9 w-9 place-items-center rounded-lg border border-line text-muted transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-                    disabled={isStudentSubmitting}
-                    aria-label="Хориҷ кардан"
-                    title="Хориҷ кардан"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
                 </div>
-              ))}
+
+                {filteredAssignedStudents.length === 0 ? (
+                  <p className="px-4 py-5 text-sm text-muted">Ҳоло хонанда нест.</p>
+                ) : null}
+
+                {pagedAssignedStudents.items.map((student) => (
+                  <div key={student.id} className="grid grid-cols-[1.2fr_1fr_56px] items-center border-b border-line px-4 py-4 text-sm last:border-0">
+                    <div>
+                      <p className="font-semibold">{student.firstName} {student.lastName}</p>
+                      <p className="text-muted">Login рақами телефон</p>
+                    </div>
+                    <span className="font-mono text-muted">{student.phoneNumber}</span>
+                    <button
+                      type="button"
+                      onClick={() => void handleRemoveStudent(student.id)}
+                      className="grid h-9 w-9 place-items-center rounded-lg border border-line text-muted transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                      disabled={isStudentSubmitting}
+                      aria-label="Хориҷ кардан"
+                      title="Хориҷ кардан"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4">
+                <Pagination
+                  page={pagedAssignedStudents.page}
+                  pageCount={pagedAssignedStudents.pageCount}
+                  total={filteredAssignedStudents.length}
+                  from={pagedAssignedStudents.from}
+                  to={pagedAssignedStudents.to}
+                  onPageChange={setStudentPage}
+                />
+              </div>
             </div>
           </div>
         ) : null}
@@ -504,23 +534,14 @@ export function GroupsPage() {
               </div>
 
               <div className="rounded-lg border border-line p-4">
-                <label className="block">
-                  <span className="text-sm font-semibold">Илова кардани фан</span>
-                  <select
-                    value={subjectToAddId}
-                    onChange={(event) => addEditSubject(event.target.value)}
-                    className="mt-2 h-11 w-full rounded-lg border border-line bg-white px-3 outline-none focus:border-brand"
-                  >
-                    <option value="">Фанро интихоб кунед</option>
-                    {subjects
-                      .filter((subject) => subject.isActive && !editSubjectIds.includes(subject.id))
-                      .map((subject) => (
-                        <option key={subject.id} value={subject.id}>
-                          {subject.name}
-                        </option>
-                      ))}
-                  </select>
-                </label>
+                <SearchableSelect
+                  label="Илова кардани фан"
+                  value={subjectToAddId}
+                  options={subjectOptions.filter((option) => !editSubjectIds.includes(option.value))}
+                  placeholder="Ҷустуҷӯ ва интихоби фан"
+                  emptyText="Фани дастрас нест."
+                  onChange={addEditSubject}
+                />
 
                 <div className="mt-4 flex flex-wrap gap-2">
                   {editSubjectIds.length > 0 ? (
@@ -631,26 +652,14 @@ export function GroupsPage() {
           </div>
 
           <div className="mt-4">
-            <span className="text-sm font-semibold">Фанҳо</span>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {subjects.filter((subject) => subject.isActive).map((subject, index) => {
-                const isSelected = selectedSubjectIds.includes(subject.id);
-                return (
-                  <button
-                    key={subject.id}
-                    type="button"
-                    onClick={() => toggleSubject(subject.id)}
-                    className={`inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-semibold transition ${
-                      isSelected ? subjectBadgeColors[index % subjectBadgeColors.length] : 'border-line bg-white text-muted hover:bg-panel'
-                    }`}
-                  >
-                    {isSelected ? <Check className="h-4 w-4" /> : null}
-                    {subject.name}
-                  </button>
-                );
-              })}
-              {subjects.length === 0 ? <span className="text-sm text-muted">Аввал фан созед.</span> : null}
-            </div>
+            <SearchableMultiSelect
+              label="Фанҳо"
+              values={selectedSubjectIds}
+              options={createSubjectOptions}
+              placeholder="Ҷустуҷӯ ва интихоби фанҳо"
+              emptyText="Аввал фан созед."
+              onChange={setSelectedSubjectIds}
+            />
           </div>
 
           {error ? <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
@@ -675,8 +684,8 @@ export function GroupsPage() {
         <p className="rounded-lg border border-line bg-white px-4 py-5 text-sm text-muted">Ҳоло гурӯҳ нест.</p>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {filteredGroups.map((group) => (
+      <div className="grid min-h-[420px] content-start gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {pagedGroups.items.map((group) => (
           <button
             key={group.id}
             type="button"
@@ -708,6 +717,16 @@ export function GroupsPage() {
             </div>
           </button>
         ))}
+      </div>
+      <div className="mt-4">
+        <Pagination
+          page={pagedGroups.page}
+          pageCount={pagedGroups.pageCount}
+          total={filteredGroups.length}
+          from={pagedGroups.from}
+          to={pagedGroups.to}
+          onPageChange={setPage}
+        />
       </div>
     </section>
   );
