@@ -7,6 +7,8 @@ import { LoginPage } from './pages/LoginPage';
 import { StudentsPage } from './pages/StudentsPage';
 import { SubjectsPage } from './pages/SubjectsPage';
 import { TeachersPage } from './pages/TeachersPage';
+import { TopicsPage } from './pages/TopicsPage';
+import type { SubjectDto } from './types/admin';
 
 const titles: Record<AppView, string> = {
   dashboard: 'Dashboard',
@@ -14,18 +16,38 @@ const titles: Record<AppView, string> = {
   teachers: 'Муаллимон',
   groups: 'Гурӯҳҳо',
   subjects: 'Фанҳо',
+  topics: 'Мавзӯъҳо',
 };
 
 function AppContent() {
   const { auth } = useAuth();
   const [activeView, setActiveView] = useState<AppView>('dashboard');
+  const [selectedSubject, setSelectedSubject] = useState<SubjectDto | null>(null);
 
   const content = useMemo(() => {
     switch (activeView) {
       case 'students':
         return <StudentsPage />;
       case 'subjects':
-        return <SubjectsPage />;
+        return <SubjectsPage onOpenTopics={(subject) => {
+          setSelectedSubject(subject);
+          setActiveView('topics');
+        }} />;
+      case 'topics':
+        return selectedSubject ? (
+          <TopicsPage
+            subject={selectedSubject}
+            onBack={() => {
+              setSelectedSubject(null);
+              setActiveView('subjects');
+            }}
+          />
+        ) : (
+          <SubjectsPage onOpenTopics={(subject) => {
+            setSelectedSubject(subject);
+            setActiveView('topics');
+          }} />
+        );
       case 'teachers':
         return <TeachersPage />;
       case 'groups':
@@ -33,7 +55,7 @@ function AppContent() {
       default:
         return <DashboardPage onViewChange={setActiveView} />;
     }
-  }, [activeView]);
+  }, [activeView, selectedSubject]);
 
   if (!auth) {
     return <LoginPage />;

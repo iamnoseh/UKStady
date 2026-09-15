@@ -15,7 +15,7 @@ import { useAuth } from '../context/AuthContext';
 import type { UserRole } from '../types/auth';
 import { Button } from './Button';
 
-export type AppView = 'dashboard' | 'students' | 'teachers' | 'groups' | 'subjects';
+export type AppView = 'dashboard' | 'students' | 'teachers' | 'groups' | 'subjects' | 'topics';
 
 const navigation: Array<{
   label: string;

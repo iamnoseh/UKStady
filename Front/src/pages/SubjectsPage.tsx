@@ -1,12 +1,12 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { BookOpen, Plus, Search } from 'lucide-react';
+import { BookOpen, ListTree, Plus, Search } from 'lucide-react';
 import { Button } from '../components/Button';
 import { Pagination, paginate } from '../components/Pagination';
 import { createSubject, getSubjects } from '../services/api';
 import type { SubjectDto } from '../types/admin';
 import { useAuth } from '../context/AuthContext';
 
-export function SubjectsPage() {
+export function SubjectsPage({ onOpenTopics }: { onOpenTopics: (subject: SubjectDto) => void }) {
   const { auth } = useAuth();
   const [subjects, setSubjects] = useState<SubjectDto[]>([]);
   const [name, setName] = useState('');
@@ -135,10 +135,11 @@ export function SubjectsPage() {
 
         <div className="min-w-0">
           <div className="min-h-[420px] overflow-hidden rounded-lg border border-line bg-white">
-            <div className="grid grid-cols-[1.4fr_1fr_120px] border-b border-line bg-panel px-4 py-3 text-xs font-bold uppercase text-muted">
+            <div className="grid grid-cols-[1.3fr_120px_120px_150px] border-b border-line bg-panel px-4 py-3 text-xs font-bold uppercase text-muted">
               <span>Фан</span>
               <span>Мавзӯъҳо</span>
               <span>Ҳолат</span>
+              <span>Амал</span>
             </div>
 
             {isLoading ? <p className="px-4 py-5 text-sm text-muted">Бор шуда истодааст...</p> : null}
@@ -148,7 +149,7 @@ export function SubjectsPage() {
             ) : null}
 
             {pagedSubjects.items.map((subject) => (
-              <div key={subject.id} className="grid grid-cols-[1.4fr_1fr_120px] items-center border-b border-line px-4 py-4 text-sm last:border-0">
+              <div key={subject.id} className="grid grid-cols-[1.3fr_120px_120px_150px] items-center border-b border-line px-4 py-4 text-sm last:border-0">
                 <div>
                   <p className="font-semibold">{subject.name}</p>
                   <p className="text-muted">{subject.description || 'Бе тавсиф'}</p>
@@ -157,6 +158,10 @@ export function SubjectsPage() {
                 <span className={`w-fit rounded-md px-2 py-1 text-xs font-bold ${subject.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
                   {subject.isActive ? 'Фаъол' : 'Ғайрифаъол'}
                 </span>
+                <Button type="button" variant="secondary" className="h-9 px-3" onClick={() => onOpenTopics(subject)}>
+                  <ListTree className="h-4 w-4" />
+                  Мавзӯъҳо
+                </Button>
               </div>
             ))}
           </div>
