@@ -1,0 +1,311 @@
+using Microsoft.AspNetCore.Mvc;
+using UKStady.API.Auth;
+using UKStady.Application.Features.Administration;
+
+namespace UKStady.API.Endpoints;
+
+public static class AdministrationEndpoints
+{
+    public static IEndpointRouteBuilder MapAdministrationEndpoints(this IEndpointRouteBuilder endpoints)
+    {
+        endpoints.MapUserEndpoints();
+        endpoints.MapGroupEndpoints();
+        endpoints.MapSubjectEndpoints();
+        endpoints.MapTeacherAssignmentEndpoints();
+        endpoints.MapDashboardEndpoints();
+
+        return endpoints;
+    }
+
+    private static void MapUserEndpoints(this IEndpointRouteBuilder endpoints)
+    {
+        var group = endpoints.MapGroup("/api/users")
+            .WithTags("Users")
+            .RequireAuthorization(AuthorizationPolicies.Managers);
+
+        group.MapGet("/", async (IAdministrationService service, CancellationToken cancellationToken) =>
+            Results.Ok(await service.GetUsersAsync(cancellationToken)))
+            .WithName("GetUsers");
+
+        group.MapGet("/{id:guid}", async (
+            Guid id,
+            IAdministrationService service,
+            CancellationToken cancellationToken) =>
+        {
+            var user = await service.GetUserAsync(id, cancellationToken);
+            return user is null ? Results.NotFound() : Results.Ok(user);
+        })
+        .WithName("GetUser");
+
+        group.MapPost("/", async (
+            [FromBody] CreateUserRequest request,
+            IAdministrationService service,
+            CancellationToken cancellationToken) =>
+        {
+            var validationError = ValidateCreateUser(request);
+            if (validationError is not null)
+            {
+                return Results.BadRequest(new { message = validationError });
+            }
+
+            var user = await service.CreateUserAsync(request, cancellationToken);
+            return Results.Created($"/api/users/{user.Id}", user);
+        })
+        .WithName("CreateUser");
+
+        group.MapPut("/{id:guid}", async (
+            Guid id,
+            [FromBody] UpdateUserRequest request,
+            IAdministrationService service,
+            CancellationToken cancellationToken) =>
+        {
+            var validationError = ValidateUpdateUser(request);
+            if (validationError is not null)
+            {
+                return Results.BadRequest(new { message = validationError });
+            }
+
+            var user = await service.UpdateUserAsync(id, request, cancellationToken);
+            return user is null ? Results.NotFound() : Results.Ok(user);
+        })
+        .WithName("UpdateUser");
+
+        group.MapDelete("/{id:guid}", async (
+            Guid id,
+            IAdministrationService service,
+            CancellationToken cancellationToken) =>
+        {
+            var deactivated = await service.DeactivateUserAsync(id, cancellationToken);
+            return deactivated ? Results.NoContent() : Results.NotFound();
+        })
+        .WithName("DeactivateUser");
+    }
+
+    private static void MapGroupEndpoints(this IEndpointRouteBuilder endpoints)
+    {
+        var group = endpoints.MapGroup("/api/groups")
+            .WithTags("Groups")
+            .RequireAuthorization(AuthorizationPolicies.Managers);
+
+        group.MapGet("/", async (IAdministrationService service, CancellationToken cancellationToken) =>
+            Results.Ok(await service.GetGroupsAsync(cancellationToken)))
+            .WithName("GetGroups");
+
+        group.MapGet("/{id:guid}", async (
+            Guid id,
+            IAdministrationService service,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.GetGroupAsync(id, cancellationToken);
+            return result is null ? Results.NotFound() : Results.Ok(result);
+        })
+        .WithName("GetGroup");
+
+        group.MapPost("/", async (
+            [FromBody] CreateGroupRequest request,
+            IAdministrationService service,
+            CancellationToken cancellationToken) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.Name))
+            {
+                return Results.BadRequest(new { message = "Name is required." });
+            }
+
+            var result = await service.CreateGroupAsync(request, cancellationToken);
+            return Results.Created($"/api/groups/{result.Id}", result);
+        })
+        .WithName("CreateGroup");
+
+        group.MapPut("/{id:guid}", async (
+            Guid id,
+            [FromBody] UpdateGroupRequest request,
+            IAdministrationService service,
+            CancellationToken cancellationToken) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.Name))
+            {
+                return Results.BadRequest(new { message = "Name is required." });
+            }
+
+            var result = await service.UpdateGroupAsync(id, request, cancellationToken);
+            return result is null ? Results.NotFound() : Results.Ok(result);
+        })
+        .WithName("UpdateGroup");
+
+        group.MapDelete("/{id:guid}", async (
+            Guid id,
+            IAdministrationService service,
+            CancellationToken cancellationToken) =>
+        {
+            var deactivated = await service.DeactivateGroupAsync(id, cancellationToken);
+            return deactivated ? Results.NoContent() : Results.NotFound();
+        })
+        .WithName("DeactivateGroup");
+
+        group.MapPost("/{groupId:guid}/students/{studentId:guid}", async (
+            Guid groupId,
+            Guid studentId,
+            IAdministrationService service,
+            CancellationToken cancellationToken) =>
+        {
+            var added = await service.AddStudentToGroupAsync(groupId, studentId, cancellationToken);
+            return added ? Results.NoContent() : Results.NotFound();
+        })
+        .WithName("AddStudentToGroup");
+
+        group.MapDelete("/{groupId:guid}/students/{studentId:guid}", async (
+            Guid groupId,
+            Guid studentId,
+            IAdministrationService service,
+            CancellationToken cancellationToken) =>
+        {
+            var removed = await service.RemoveStudentFromGroupAsync(groupId, studentId, cancellationToken);
+            return removed ? Results.NoContent() : Results.NotFound();
+        })
+        .WithName("RemoveStudentFromGroup");
+    }
+
+    private static void MapSubjectEndpoints(this IEndpointRouteBuilder endpoints)
+    {
+        var group = endpoints.MapGroup("/api/subjects")
+            .WithTags("Subjects")
+            .RequireAuthorization(AuthorizationPolicies.Managers);
+
+        group.MapGet("/", async (IAdministrationService service, CancellationToken cancellationToken) =>
+            Results.Ok(await service.GetSubjectsAsync(cancellationToken)))
+            .WithName("GetSubjects");
+
+        group.MapGet("/{id:guid}", async (
+            Guid id,
+            IAdministrationService service,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.GetSubjectAsync(id, cancellationToken);
+            return result is null ? Results.NotFound() : Results.Ok(result);
+        })
+        .WithName("GetSubject");
+
+        group.MapPost("/", async (
+            [FromBody] CreateSubjectRequest request,
+            IAdministrationService service,
+            CancellationToken cancellationToken) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.Name))
+            {
+                return Results.BadRequest(new { message = "Name is required." });
+            }
+
+            var result = await service.CreateSubjectAsync(request, cancellationToken);
+            return Results.Created($"/api/subjects/{result.Id}", result);
+        })
+        .WithName("CreateSubject");
+
+        group.MapPut("/{id:guid}", async (
+            Guid id,
+            [FromBody] UpdateSubjectRequest request,
+            IAdministrationService service,
+            CancellationToken cancellationToken) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.Name))
+            {
+                return Results.BadRequest(new { message = "Name is required." });
+            }
+
+            var result = await service.UpdateSubjectAsync(id, request, cancellationToken);
+            return result is null ? Results.NotFound() : Results.Ok(result);
+        })
+        .WithName("UpdateSubject");
+
+        group.MapDelete("/{id:guid}", async (
+            Guid id,
+            IAdministrationService service,
+            CancellationToken cancellationToken) =>
+        {
+            var deactivated = await service.DeactivateSubjectAsync(id, cancellationToken);
+            return deactivated ? Results.NoContent() : Results.NotFound();
+        })
+        .WithName("DeactivateSubject");
+    }
+
+    private static void MapTeacherAssignmentEndpoints(this IEndpointRouteBuilder endpoints)
+    {
+        var group = endpoints.MapGroup("/api/teacher-assignments")
+            .WithTags("Teacher Assignments")
+            .RequireAuthorization(AuthorizationPolicies.Managers);
+
+        group.MapGet("/", async (IAdministrationService service, CancellationToken cancellationToken) =>
+            Results.Ok(await service.GetTeacherAssignmentsAsync(cancellationToken)))
+            .WithName("GetTeacherAssignments");
+
+        group.MapPost("/", async (
+            [FromBody] AssignTeacherRequest request,
+            IAdministrationService service,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.AssignTeacherAsync(request, cancellationToken);
+            return result is null ? Results.NotFound() : Results.Created("/api/teacher-assignments", result);
+        })
+        .WithName("AssignTeacher");
+
+        group.MapDelete("/{teacherId:guid}/{subjectId:guid}/{groupId:guid}", async (
+            Guid teacherId,
+            Guid subjectId,
+            Guid groupId,
+            IAdministrationService service,
+            CancellationToken cancellationToken) =>
+        {
+            var removed = await service.RemoveTeacherAssignmentAsync(
+                teacherId,
+                subjectId,
+                groupId,
+                cancellationToken);
+
+            return removed ? Results.NoContent() : Results.NotFound();
+        })
+        .WithName("RemoveTeacherAssignment");
+    }
+
+    private static void MapDashboardEndpoints(this IEndpointRouteBuilder endpoints)
+    {
+        endpoints.MapGet("/api/admin/dashboard", async (
+            IAdministrationService service,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await service.GetDashboardSummaryAsync(cancellationToken)))
+            .WithTags("Dashboard")
+            .RequireAuthorization(AuthorizationPolicies.Managers)
+            .WithName("GetAdminDashboard");
+    }
+
+    private static string? ValidateCreateUser(CreateUserRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.FirstName) ||
+            string.IsNullOrWhiteSpace(request.LastName) ||
+            string.IsNullOrWhiteSpace(request.UserName) ||
+            string.IsNullOrWhiteSpace(request.Email) ||
+            string.IsNullOrWhiteSpace(request.Password))
+        {
+            return "FirstName, LastName, UserName, Email and Password are required.";
+        }
+
+        if (request.Password.Length < 8)
+        {
+            return "Password must contain at least 8 characters.";
+        }
+
+        return null;
+    }
+
+    private static string? ValidateUpdateUser(UpdateUserRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.FirstName) ||
+            string.IsNullOrWhiteSpace(request.LastName) ||
+            string.IsNullOrWhiteSpace(request.UserName) ||
+            string.IsNullOrWhiteSpace(request.Email))
+        {
+            return "FirstName, LastName, UserName and Email are required.";
+        }
+
+        return null;
+    }
+}
+

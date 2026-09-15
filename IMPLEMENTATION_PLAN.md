@@ -54,12 +54,12 @@
 
 ## Марҳилаи 4: Admin/Manager APIs
 
-- [ ] CRUD users бо role assignment.
-- [ ] CRUD groups.
-- [ ] Add/remove students to groups.
-- [ ] CRUD subjects.
-- [ ] Assign teacher to subject/group.
-- [ ] Dashboard summary барои admin/manager.
+- [x] CRUD users бо role assignment.
+- [x] CRUD groups.
+- [x] Add/remove students to groups.
+- [x] CRUD subjects.
+- [x] Assign teacher to subject/group.
+- [x] Dashboard summary барои admin/manager.
 
 ## Марҳилаи 5: Teacher education workflow
 

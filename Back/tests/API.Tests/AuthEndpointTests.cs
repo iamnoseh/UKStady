@@ -85,4 +85,15 @@ public sealed class AuthEndpointTests : IClassFixture<TestApiFactory>
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
+
+    public async Task<string> LoginAsSuperAdminAsync()
+    {
+        using var client = _factory.CreateClient();
+        var login = await client.PostAsJsonAsync(
+            "/api/auth/login",
+            new LoginRequest("superadmin", "Admin123!"));
+        var result = await login.Content.ReadFromJsonAsync<AuthResult>();
+
+        return result?.AccessToken ?? throw new InvalidOperationException("SuperAdmin login failed.");
+    }
 }
