@@ -1,7 +1,10 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
+  BarChart3,
+  BookOpen,
   Building2,
+  CalendarDays,
   Check,
   CheckCircle2,
   ClipboardList,
@@ -21,14 +24,18 @@ import { SearchableMultiSelect } from '../components/SearchableMultiSelect';
 import { SearchableSelect } from '../components/SearchableSelect';
 import {
   addStudentToGroup,
+  createTodayGroupLesson,
   createGroup,
+  getGroupJournal,
   getGroups,
   getSubjects,
+  getTopics,
   getUsers,
   removeStudentFromGroup,
+  updateGroupLessonTopic,
   updateGroup,
 } from '../services/api';
-import type { GroupDto, SubjectDto, UserDto } from '../types/admin';
+import type { GroupDto, GroupJournalDto, SubjectDto, TopicDto, UserDto } from '../types/admin';
 import { useAuth } from '../context/AuthContext';
 
 type GroupTab = 'students' | 'journals' | 'edit' | 'other';
@@ -46,7 +53,9 @@ export function GroupsPage() {
   const { auth } = useAuth();
   const [groups, setGroups] = useState<GroupDto[]>([]);
   const [subjects, setSubjects] = useState<SubjectDto[]>([]);
+  const [topics, setTopics] = useState<TopicDto[]>([]);
   const [users, setUsers] = useState<UserDto[]>([]);
+  const [journal, setJournal] = useState<GroupJournalDto | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<GroupTab>('students');
   const [name, setName] = useState('');
@@ -70,6 +79,9 @@ export function GroupsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isStudentSubmitting, setIsStudentSubmitting] = useState(false);
   const [isEditSubmitting, setIsEditSubmitting] = useState(false);
+  const [isJournalLoading, setIsJournalLoading] = useState(false);
+  const [journalBusySubjectId, setJournalBusySubjectId] = useState('');
+  const [journalBusyLessonId, setJournalBusyLessonId] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   useEffect(() => {
@@ -84,14 +96,16 @@ export function GroupsPage() {
     setIsLoading(true);
     setError('');
     try {
-      const [loadedGroups, loadedSubjects, loadedUsers] = await Promise.all([
+      const [loadedGroups, loadedSubjects, loadedUsers, loadedTopics] = await Promise.all([
         getGroups(auth.accessToken),
         getSubjects(auth.accessToken),
         getUsers(auth.accessToken),
+        getTopics(auth.accessToken),
       ]);
       setGroups(loadedGroups);
       setSubjects(loadedSubjects);
       setUsers(loadedUsers);
+      setTopics(loadedTopics);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Гурӯҳҳо гирифта нашуданд.');
     } finally {
@@ -108,6 +122,7 @@ export function GroupsPage() {
     setSelectedStudentIds([]);
     setStudentQuery('');
     setSubjectToAddId('');
+    setJournal(null);
 
     if (group) {
       syncEditFields(group);
@@ -118,6 +133,23 @@ export function GroupsPage() {
     setSelectedGroupId(null);
     setActiveTab('students');
     setSelectedStudentIds([]);
+    setJournal(null);
+  }
+
+  async function loadJournal(groupId = selectedGroupId) {
+    if (!auth || !groupId) {
+      return;
+    }
+
+    setIsJournalLoading(true);
+    setError('');
+    try {
+      setJournal(await getGroupJournal(auth.accessToken, groupId));
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Журнал гирифта нашуд.');
+    } finally {
+      setIsJournalLoading(false);
+    }
   }
 
   function addEditSubject(subjectId: string) {
@@ -240,6 +272,44 @@ export function GroupsPage() {
     }
   }
 
+  async function handleCreateTodayLesson(subjectId: string) {
+    if (!auth || !selectedGroupId) {
+      return;
+    }
+
+    setJournalBusySubjectId(subjectId);
+    setError('');
+    setNotice('');
+    try {
+      const result = await createTodayGroupLesson(auth.accessToken, selectedGroupId, subjectId);
+      await loadJournal(selectedGroupId);
+      setNotice(result.created ? 'Дарси имрӯз сохта шуд.' : 'Дарси имрӯз аллакай вуҷуд дорад.');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Дарси имрӯз сохта нашуд.');
+    } finally {
+      setJournalBusySubjectId('');
+    }
+  }
+
+  async function handleUpdateLessonTopic(lessonId: string, topicId: string) {
+    if (!auth || !selectedGroupId || !topicId) {
+      return;
+    }
+
+    setJournalBusyLessonId(lessonId);
+    setError('');
+    setNotice('');
+    try {
+      await updateGroupLessonTopic(auth.accessToken, selectedGroupId, lessonId, topicId);
+      await loadJournal(selectedGroupId);
+      setNotice('Мавзӯи дарс интихоб шуд.');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Мавзӯи дарс нав нашуд.');
+    } finally {
+      setJournalBusyLessonId('');
+    }
+  }
+
   const filteredGroups = useMemo(() => {
     const value = query.trim().toLowerCase();
     if (!value) {
@@ -282,6 +352,19 @@ export function GroupsPage() {
     () => subjects.filter((subject) => subject.isActive).map((subject) => ({ value: subject.id, label: subject.name })),
     [subjects],
   );
+  const topicOptionsBySubject = useMemo(() => {
+    return topics
+      .filter((topic) => topic.isActive)
+      .reduce<Record<string, { value: string; label: string; meta: string }[]>>((result, topic) => {
+        result[topic.subjectId] ??= [];
+        result[topic.subjectId].push({
+          value: topic.id,
+          label: topic.title,
+          meta: `${topic.questionCount} савол`,
+        });
+        return result;
+      }, {});
+  }, [topics]);
   const filteredAssignedStudents = useMemo(() => {
     const value = studentQuery.trim().toLowerCase();
     const assigned = selectedGroup?.students ?? [];
@@ -302,6 +385,12 @@ export function GroupsPage() {
   useEffect(() => {
     setStudentPage(1);
   }, [studentQuery, selectedGroupId, filteredAssignedStudents.length]);
+
+  useEffect(() => {
+    if (activeTab === 'journals' && selectedGroupId) {
+      void loadJournal(selectedGroupId);
+    }
+  }, [activeTab, selectedGroupId]);
 
   if (selectedGroup) {
     return (
@@ -432,8 +521,110 @@ export function GroupsPage() {
         ) : null}
 
         {activeTab === 'journals' ? (
-          <div className="rounded-lg border border-line bg-white px-4 py-5 text-sm text-muted">
-            Журналҳо дар қадами баъдӣ пайваст мешаванд.
+          <div className="space-y-5">
+            {isJournalLoading ? (
+              <p className="rounded-lg border border-line bg-white px-4 py-5 text-sm text-muted">Журнал бор шуда истодааст...</p>
+            ) : null}
+
+            {!isJournalLoading && journal?.subjects.length === 0 ? (
+              <p className="rounded-lg border border-line bg-white px-4 py-5 text-sm text-muted">Ба ин гурӯҳ ҳоло фан илова нашудааст.</p>
+            ) : null}
+
+            {journal?.subjects.map((subjectJournal) => {
+              const topicOptions = topicOptionsBySubject[subjectJournal.subjectId] ?? [];
+              const hasTodayLesson = Boolean(subjectJournal.todayLessonId);
+
+              return (
+                <div key={subjectJournal.subjectId} className="overflow-hidden rounded-lg border border-line bg-white">
+                  <div className="flex flex-col justify-between gap-4 border-b border-line bg-panel px-4 py-4 xl:flex-row xl:items-center">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="inline-flex h-9 items-center gap-2 rounded-lg bg-white px-3 text-sm font-bold text-ink ring-1 ring-line">
+                          <BookOpen className="h-4 w-4 text-brand" />
+                          {subjectJournal.subjectName}
+                        </span>
+                        <span className="inline-flex h-9 items-center gap-2 rounded-lg bg-white px-3 text-sm font-semibold text-muted ring-1 ring-line">
+                          <BarChart3 className="h-4 w-4" />
+                          Average: {formatScore(subjectJournal.averageScore)}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm text-muted">
+                        {hasTodayLesson
+                          ? `Дарси имрӯз: ${subjectJournal.todayTopicTitle ?? 'Мавзӯъ интихоб нашудааст'}`
+                          : 'Барои имрӯз ҳоло дарс сохта нашудааст.'}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                      {hasTodayLesson && subjectJournal.todayLessonId ? (
+                        <div className="w-full sm:w-[320px]">
+                          <SearchableSelect
+                            label="Мавзӯи имрӯз"
+                            value={subjectJournal.todayTopicId ?? ''}
+                            options={topicOptions}
+                            placeholder="Ҷустуҷӯ ва интихоби мавзӯъ"
+                            emptyText="Барои ин фан мавзӯъ нест."
+                            onChange={(topicId) => void handleUpdateLessonTopic(subjectJournal.todayLessonId!, topicId)}
+                          />
+                        </div>
+                      ) : null}
+
+                      {!hasTodayLesson ? (
+                        <Button
+                          type="button"
+                          className="h-11"
+                          onClick={() => void handleCreateTodayLesson(subjectJournal.subjectId)}
+                          disabled={journalBusySubjectId === subjectJournal.subjectId}
+                        >
+                          <CalendarDays className="h-4 w-4" />
+                          {journalBusySubjectId === subjectJournal.subjectId ? 'Сохта истодааст...' : 'Сохтани дарси имрӯз'}
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[680px]">
+                      <div className={`grid border-b border-line px-4 py-3 text-xs font-bold uppercase text-muted ${
+                        hasTodayLesson ? 'grid-cols-[1.4fr_130px_130px_130px]' : 'grid-cols-[1.4fr_130px]'
+                      }`}>
+                        <span>Хонанда</span>
+                        {hasTodayLesson ? <span>Имрӯз</span> : null}
+                        {hasTodayLesson ? <span>Ҳолат</span> : null}
+                        <span>Average</span>
+                      </div>
+
+                      {subjectJournal.students.length === 0 ? (
+                        <p className="px-4 py-5 text-sm text-muted">Дар гурӯҳ ҳоло хонанда нест.</p>
+                      ) : null}
+
+                      {subjectJournal.students.map((student) => (
+                        <div
+                          key={`${subjectJournal.subjectId}-${student.studentId}`}
+                          className={`grid items-center border-b border-line px-4 py-4 text-sm last:border-0 ${
+                            hasTodayLesson ? 'grid-cols-[1.4fr_130px_130px_130px]' : 'grid-cols-[1.4fr_130px]'
+                          }`}
+                        >
+                          <div>
+                            <p className="font-semibold">{student.fullName}</p>
+                            <p className="font-mono text-muted">{student.phoneNumber}</p>
+                          </div>
+                          {hasTodayLesson ? (
+                            <span className="font-bold text-ink">{formatScore(student.todayScore)}</span>
+                          ) : null}
+                          {hasTodayLesson ? (
+                            <span className={`w-fit rounded-md px-2 py-1 text-xs font-bold ${getJournalStatusClass(student.status)}`}>
+                              {getJournalStatusLabel(student.status)}
+                            </span>
+                          ) : null}
+                          <span className="font-bold text-muted">{formatScore(student.averageScore)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         ) : null}
 
@@ -730,6 +921,36 @@ export function GroupsPage() {
       </div>
     </section>
   );
+}
+
+function formatScore(value: number | null) {
+  if (value === null || Number.isNaN(value)) {
+    return 'Нест';
+  }
+
+  return `${Math.round(value * 100) / 100}`;
+}
+
+function getJournalStatusLabel(status: string) {
+  switch (status) {
+    case 'Present':
+      return 'Супорид';
+    case 'Absent':
+      return 'Ҳозир нест';
+    default:
+      return 'Нест';
+  }
+}
+
+function getJournalStatusClass(status: string) {
+  switch (status) {
+    case 'Present':
+      return 'bg-emerald-50 text-emerald-700';
+    case 'Absent':
+      return 'bg-red-50 text-red-700';
+    default:
+      return 'bg-slate-100 text-slate-600';
+  }
 }
 
 function TabButton({

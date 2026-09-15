@@ -103,6 +103,47 @@ public sealed class TeachingEndpointTests : IClassFixture<TestApiFactory>
         Assert.Equal(subject.Id, topic.SubjectId);
     }
 
+    [Fact]
+    public async Task GroupJournal_CreateTodayLesson_DoesNotCreateDuplicate()
+    {
+        using var client = _factory.CreateClient();
+        await AuthorizeAsync(client, "+992000000000", "Admin123!");
+
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var subject = await CreateSubjectAsync(client, $"Journal subject {suffix}");
+        var group = await CreateGroupAsync(client, $"Journal group {suffix}", [subject.Id]);
+        var student = await CreateUserAsync(client, UserRole.Student, $"journal-student-{suffix}", $"+99232{suffix[..7]}");
+
+        using var addStudentResponse = await client.PostAsync($"/api/groups/{group.Id}/students/{student.Id}", null);
+        addStudentResponse.EnsureSuccessStatusCode();
+
+        var journal = await client.GetFromJsonAsync<GroupJournalDto>($"/api/group-journals/{group.Id}");
+        Assert.NotNull(journal);
+        var subjectJournal = Assert.Single(journal.Subjects);
+        Assert.Equal(subject.Id, subjectJournal.SubjectId);
+        Assert.Null(subjectJournal.TodayLessonId);
+        Assert.Single(subjectJournal.Students);
+
+        using var firstCreateResponse = await client.PostAsJsonAsync(
+            $"/api/group-journals/{group.Id}/today-lessons",
+            new CreateTodayGroupLessonRequest(subject.Id));
+
+        Assert.Equal(HttpStatusCode.Created, firstCreateResponse.StatusCode);
+        var firstResult = await firstCreateResponse.Content.ReadFromJsonAsync<CreateTodayGroupLessonResult>();
+        Assert.NotNull(firstResult);
+        Assert.True(firstResult.Created);
+
+        using var secondCreateResponse = await client.PostAsJsonAsync(
+            $"/api/group-journals/{group.Id}/today-lessons",
+            new CreateTodayGroupLessonRequest(subject.Id));
+
+        Assert.Equal(HttpStatusCode.OK, secondCreateResponse.StatusCode);
+        var secondResult = await secondCreateResponse.Content.ReadFromJsonAsync<CreateTodayGroupLessonResult>();
+        Assert.NotNull(secondResult);
+        Assert.False(secondResult.Created);
+        Assert.Equal(firstResult.Lesson.Id, secondResult.Lesson.Id);
+    }
+
     private static async Task AuthorizeAsync(HttpClient client, string phoneNumber, string password)
     {
         var response = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest(phoneNumber, password));
@@ -129,11 +170,11 @@ public sealed class TeachingEndpointTests : IClassFixture<TestApiFactory>
             ?? throw new InvalidOperationException("User response was empty.");
     }
 
-    private static async Task<GroupDto> CreateGroupAsync(HttpClient client, string name)
+    private static async Task<GroupDto> CreateGroupAsync(HttpClient client, string name, IReadOnlyList<Guid>? subjectIds = null)
     {
         using var response = await client.PostAsJsonAsync(
             "/api/groups",
-            new CreateGroupRequest(name, null, "Main branch", []));
+            new CreateGroupRequest(name, null, "Main branch", subjectIds ?? []));
 
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<GroupDto>()

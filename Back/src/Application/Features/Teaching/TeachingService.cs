@@ -9,15 +9,18 @@ public sealed class TeachingService : ITeachingService
 {
     private readonly IAppDbContext _dbContext;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IDateTimeProvider _dateTimeProvider;
     private readonly ITimeZoneProvider _timeZoneProvider;
 
     public TeachingService(
         IAppDbContext dbContext,
         ICurrentUserService currentUserService,
+        IDateTimeProvider dateTimeProvider,
         ITimeZoneProvider timeZoneProvider)
     {
         _dbContext = dbContext;
         _currentUserService = currentUserService;
+        _dateTimeProvider = dateTimeProvider;
         _timeZoneProvider = timeZoneProvider;
     }
 
@@ -218,10 +221,15 @@ public sealed class TeachingService : ITeachingService
             return null;
         }
 
+        if (request.TopicId is null)
+        {
+            return null;
+        }
+
         var topic = await _dbContext.Topics
             .AsNoTracking()
             .FirstOrDefaultAsync(candidate =>
-                candidate.Id == request.TopicId && candidate.SubjectId == request.SubjectId,
+                candidate.Id == request.TopicId.Value && candidate.SubjectId == request.SubjectId,
                 cancellationToken);
 
         if (topic is null)
@@ -280,6 +288,228 @@ public sealed class TeachingService : ITeachingService
             .OrderByDescending(lesson => lesson.LessonDate)
             .Select(lesson => ToDailyLessonDto(lesson))
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<GroupJournalDto?> GetGroupJournalAsync(Guid groupId, CancellationToken cancellationToken)
+    {
+        if (!await CanUseGroupAsync(groupId, cancellationToken))
+        {
+            return null;
+        }
+
+        var today = GetBusinessToday();
+        var group = await _dbContext.Groups
+            .AsNoTracking()
+            .Include(candidate => candidate.Subjects)
+                .ThenInclude(groupSubject => groupSubject.Subject)
+            .Include(candidate => candidate.Students)
+                .ThenInclude(groupStudent => groupStudent.Student)
+            .FirstOrDefaultAsync(candidate => candidate.Id == groupId, cancellationToken);
+
+        if (group is null)
+        {
+            return null;
+        }
+
+        var subjectIds = group.Subjects.Select(groupSubject => groupSubject.SubjectId).ToList();
+        var studentIds = group.Students.Select(groupStudent => groupStudent.StudentId).ToList();
+
+        var lessons = await _dbContext.DailyLessons
+            .AsNoTracking()
+            .Include(lesson => lesson.Topic)
+            .Include(lesson => lesson.TestAssignments)
+            .Where(lesson =>
+                subjectIds.Contains(lesson.SubjectId) &&
+                lesson.TestAssignments.Any(assignment => assignment.GroupId == groupId))
+            .ToListAsync(cancellationToken);
+
+        var lessonIds = lessons.Select(lesson => lesson.Id).ToList();
+        var gradeEntries = await _dbContext.GradeEntries
+            .AsNoTracking()
+            .Where(grade =>
+                lessonIds.Contains(grade.DailyLessonId) &&
+                studentIds.Contains(grade.StudentId))
+            .Select(grade => new
+            {
+                grade.DailyLessonId,
+                grade.StudentId,
+                Score = grade.FinalScore ?? grade.AutoScore,
+                grade.AttendanceStatus
+            })
+            .ToListAsync(cancellationToken);
+
+        var subjects = group.Subjects
+            .OrderBy(groupSubject => groupSubject.Subject.Name)
+            .Select(groupSubject =>
+            {
+                var subjectLessons = lessons
+                    .Where(lesson => lesson.SubjectId == groupSubject.SubjectId)
+                    .ToList();
+                var todayLesson = subjectLessons
+                    .OrderByDescending(lesson => lesson.CreatedAtUtc)
+                    .FirstOrDefault(lesson => lesson.LessonDate == today);
+                var subjectLessonIds = subjectLessons.Select(lesson => lesson.Id).ToHashSet();
+                var subjectGrades = gradeEntries
+                    .Where(grade => subjectLessonIds.Contains(grade.DailyLessonId))
+                    .ToList();
+
+                var students = group.Students
+                    .OrderBy(groupStudent => groupStudent.Student.LastName)
+                    .ThenBy(groupStudent => groupStudent.Student.FirstName)
+                    .Select(groupStudent =>
+                    {
+                        var studentGrades = subjectGrades
+                            .Where(grade => grade.StudentId == groupStudent.StudentId)
+                            .ToList();
+                        var todayGrade = todayLesson is null
+                            ? null
+                            : studentGrades.FirstOrDefault(grade => grade.DailyLessonId == todayLesson.Id);
+                        var average = studentGrades.Count == 0
+                            ? (decimal?)null
+                            : Math.Round(studentGrades.Average(grade => grade.Score), 2);
+
+                        return new GroupJournalStudentDto(
+                            groupStudent.StudentId,
+                            $"{groupStudent.Student.FirstName} {groupStudent.Student.LastName}",
+                            groupStudent.Student.PhoneNumber,
+                            todayGrade?.Score,
+                            average,
+                            todayGrade?.AttendanceStatus.ToString() ?? "NoGrade");
+                    })
+                    .ToList();
+
+                var subjectAverage = subjectGrades.Count == 0
+                    ? (decimal?)null
+                    : Math.Round(subjectGrades.Average(grade => grade.Score), 2);
+
+                return new GroupSubjectJournalDto(
+                    groupSubject.SubjectId,
+                    groupSubject.Subject.Name,
+                    todayLesson?.Id,
+                    todayLesson?.TopicId,
+                    todayLesson?.Topic?.Title,
+                    todayLesson?.QuestionCount ?? 0,
+                    subjectAverage,
+                    students);
+            })
+            .ToList();
+
+        return new GroupJournalDto(group.Id, group.Name, today, subjects);
+    }
+
+    public async Task<CreateTodayGroupLessonResult?> CreateTodayGroupLessonAsync(
+        Guid groupId,
+        CreateTodayGroupLessonRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (request.SubjectId == Guid.Empty ||
+            !await CanUseSubjectAsync(request.SubjectId, cancellationToken) ||
+            !await CanUseGroupAsync(groupId, cancellationToken))
+        {
+            return null;
+        }
+
+        var groupHasSubject = await _dbContext.GroupSubjects.AnyAsync(
+            groupSubject => groupSubject.GroupId == groupId && groupSubject.SubjectId == request.SubjectId,
+            cancellationToken);
+
+        if (!groupHasSubject)
+        {
+            return null;
+        }
+
+        if (IsTeacher() && !await TeacherCanUseAllGroupsAsync(request.SubjectId, [groupId], cancellationToken))
+        {
+            return null;
+        }
+
+        var today = GetBusinessToday();
+        var existingLesson = await _dbContext.DailyLessons
+            .AsNoTracking()
+            .Include(lesson => lesson.Subject)
+            .Include(lesson => lesson.Topic)
+            .Include(lesson => lesson.TestAssignments)
+            .FirstOrDefaultAsync(lesson =>
+                lesson.SubjectId == request.SubjectId &&
+                lesson.LessonDate == today &&
+                lesson.TestAssignments.Any(assignment => assignment.GroupId == groupId),
+                cancellationToken);
+
+        if (existingLesson is not null)
+        {
+            return new CreateTodayGroupLessonResult(ToDailyLessonDto(existingLesson), false);
+        }
+
+        var subject = await _dbContext.Subjects
+            .AsNoTracking()
+            .FirstOrDefaultAsync(candidate => candidate.Id == request.SubjectId, cancellationToken);
+
+        if (subject is null)
+        {
+            return null;
+        }
+
+        var (opensAtUtc, closesAtUtc) = BuildAvailabilityWindow(today);
+        var lesson = new DailyLesson
+        {
+            TeacherId = RequireCurrentUserId(),
+            SubjectId = request.SubjectId,
+            LessonDate = today,
+            Title = subject.Name,
+            QuestionCount = 0,
+            OpensAtUtc = opensAtUtc,
+            ClosesAtUtc = closesAtUtc,
+            TestAssignments = [new TestAssignment { GroupId = groupId }]
+        };
+
+        _dbContext.DailyLessons.Add(lesson);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var createdLesson = await GetDailyLessonDtoAsync(lesson.Id, cancellationToken);
+        return createdLesson is null ? null : new CreateTodayGroupLessonResult(createdLesson, true);
+    }
+
+    public async Task<DailyLessonDto?> UpdateDailyLessonTopicAsync(
+        Guid groupId,
+        Guid lessonId,
+        UpdateDailyLessonTopicRequest request,
+        CancellationToken cancellationToken)
+    {
+        var lesson = await _dbContext.DailyLessons
+            .Include(candidate => candidate.TestAssignments)
+            .FirstOrDefaultAsync(candidate =>
+                candidate.Id == lessonId &&
+                candidate.TestAssignments.Any(assignment => assignment.GroupId == groupId),
+                cancellationToken);
+
+        if (lesson is null ||
+            !await CanUseSubjectAsync(lesson.SubjectId, cancellationToken) ||
+            !await CanUseGroupAsync(groupId, cancellationToken))
+        {
+            return null;
+        }
+
+        var topic = await _dbContext.Topics
+            .AsNoTracking()
+            .FirstOrDefaultAsync(candidate =>
+                candidate.Id == request.TopicId &&
+                candidate.SubjectId == lesson.SubjectId &&
+                candidate.IsActive,
+                cancellationToken);
+
+        if (topic is null)
+        {
+            return null;
+        }
+
+        lesson.TopicId = topic.Id;
+        lesson.Title = topic.Title;
+        lesson.QuestionCount = await _dbContext.Questions.CountAsync(
+            question => question.TopicId == topic.Id && question.IsActive,
+            cancellationToken);
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return await GetDailyLessonDtoAsync(lesson.Id, cancellationToken);
     }
 
     public async Task<TeacherDashboardDto> GetTeacherDashboardAsync(CancellationToken cancellationToken)
@@ -374,6 +604,19 @@ public sealed class TeachingService : ITeachingService
             cancellationToken);
     }
 
+    private async Task<bool> CanUseGroupAsync(Guid groupId, CancellationToken cancellationToken)
+    {
+        if (!IsTeacher())
+        {
+            return await _dbContext.Groups.AnyAsync(group => group.Id == groupId, cancellationToken);
+        }
+
+        var teacherId = RequireCurrentUserId();
+        return await _dbContext.TeacherSubjectGroups.AnyAsync(
+            assignment => assignment.TeacherId == teacherId && assignment.GroupId == groupId,
+            cancellationToken);
+    }
+
     private async Task<bool> TeacherCanUseAllGroupsAsync(
         Guid subjectId,
         IEnumerable<Guid> groupIds,
@@ -402,6 +645,12 @@ public sealed class TeachingService : ITeachingService
         var closesAtUtc = TimeZoneInfo.ConvertTimeToUtc(closesLocal, timeZone);
 
         return (new DateTimeOffset(opensAtUtc, TimeSpan.Zero), new DateTimeOffset(closesAtUtc, TimeSpan.Zero));
+    }
+
+    private DateOnly GetBusinessToday()
+    {
+        var localNow = TimeZoneInfo.ConvertTime(_dateTimeProvider.UtcNow, _timeZoneProvider.BusinessTimeZone);
+        return DateOnly.FromDateTime(localNow.DateTime);
     }
 
     private Guid RequireCurrentUserId()
@@ -442,7 +691,7 @@ public sealed class TeachingService : ITeachingService
             lesson.SubjectId,
             lesson.Subject.Name,
             lesson.TopicId,
-            lesson.Topic.Title,
+            lesson.Topic?.Title,
             lesson.LessonDate,
             lesson.Title,
             lesson.QuestionCount,

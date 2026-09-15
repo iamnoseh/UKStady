@@ -12,6 +12,7 @@ public static class TeachingEndpoints
         endpoints.MapTopicEndpoints();
         endpoints.MapQuestionEndpoints();
         endpoints.MapDailyLessonEndpoints();
+        endpoints.MapGroupJournalEndpoints();
         endpoints.MapTeacherDashboardEndpoint();
 
         return endpoints;
@@ -157,6 +158,63 @@ public static class TeachingEndpoints
             return result is null ? Results.BadRequest(new { message = "Daily lesson cannot be created." }) : Results.Created($"/api/daily-lessons/{result.Id}", result);
         })
         .WithName("CreateDailyLesson");
+    }
+
+    private static void MapGroupJournalEndpoints(this IEndpointRouteBuilder endpoints)
+    {
+        var group = endpoints.MapGroup("/api/group-journals")
+            .WithTags("Group Journals")
+            .RequireAuthorization(AuthorizationPolicies.EducationStaff);
+
+        group.MapGet("/{groupId:guid}", async (
+            Guid groupId,
+            ITeachingService service,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.GetGroupJournalAsync(groupId, cancellationToken);
+            return result is null ? Results.NotFound() : Results.Ok(result);
+        })
+        .WithName("GetGroupJournal");
+
+        group.MapPost("/{groupId:guid}/today-lessons", async (
+            Guid groupId,
+            [FromBody] CreateTodayGroupLessonRequest request,
+            ITeachingService service,
+            CancellationToken cancellationToken) =>
+        {
+            if (request.SubjectId == Guid.Empty)
+            {
+                return Results.BadRequest(new { message = "SubjectId is required." });
+            }
+
+            var result = await service.CreateTodayGroupLessonAsync(groupId, request, cancellationToken);
+            if (result is null)
+            {
+                return Results.BadRequest(new { message = "Today lesson cannot be created." });
+            }
+
+            return result.Created
+                ? Results.Created($"/api/daily-lessons/{result.Lesson.Id}", result)
+                : Results.Ok(result);
+        })
+        .WithName("CreateTodayGroupLesson");
+
+        group.MapPut("/{groupId:guid}/lessons/{lessonId:guid}/topic", async (
+            Guid groupId,
+            Guid lessonId,
+            [FromBody] UpdateDailyLessonTopicRequest request,
+            ITeachingService service,
+            CancellationToken cancellationToken) =>
+        {
+            if (request.TopicId == Guid.Empty)
+            {
+                return Results.BadRequest(new { message = "TopicId is required." });
+            }
+
+            var result = await service.UpdateDailyLessonTopicAsync(groupId, lessonId, request, cancellationToken);
+            return result is null ? Results.BadRequest(new { message = "Lesson topic cannot be updated." }) : Results.Ok(result);
+        })
+        .WithName("UpdateGroupLessonTopic");
     }
 
     private static void MapTeacherDashboardEndpoint(this IEndpointRouteBuilder endpoints)

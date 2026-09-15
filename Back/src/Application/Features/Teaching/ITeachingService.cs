@@ -22,5 +22,18 @@ public interface ITeachingService
 
     Task<IReadOnlyList<DailyLessonDto>> GetDailyLessonsAsync(CancellationToken cancellationToken);
 
+    Task<GroupJournalDto?> GetGroupJournalAsync(Guid groupId, CancellationToken cancellationToken);
+
+    Task<CreateTodayGroupLessonResult?> CreateTodayGroupLessonAsync(
+        Guid groupId,
+        CreateTodayGroupLessonRequest request,
+        CancellationToken cancellationToken);
+
+    Task<DailyLessonDto?> UpdateDailyLessonTopicAsync(
+        Guid groupId,
+        Guid lessonId,
+        UpdateDailyLessonTopicRequest request,
+        CancellationToken cancellationToken);
+
     Task<TeacherDashboardDto> GetTeacherDashboardAsync(CancellationToken cancellationToken);
 }

@@ -151,6 +151,53 @@ export interface UpdateGroupRequest {
   subjectIds: string[];
 }
 
+export interface DailyLessonDto {
+  id: string;
+  teacherId: string;
+  subjectId: string;
+  subjectName: string;
+  topicId: string | null;
+  topicTitle: string | null;
+  lessonDate: string;
+  title: string;
+  questionCount: number;
+  opensAtUtc: string;
+  closesAtUtc: string;
+  assignedGroupIds: string[];
+}
+
+export interface CreateTodayGroupLessonResult {
+  lesson: DailyLessonDto;
+  created: boolean;
+}
+
+export interface GroupJournalStudentDto {
+  studentId: string;
+  fullName: string;
+  phoneNumber: string;
+  todayScore: number | null;
+  averageScore: number | null;
+  status: string;
+}
+
+export interface GroupSubjectJournalDto {
+  subjectId: string;
+  subjectName: string;
+  todayLessonId: string | null;
+  todayTopicId: string | null;
+  todayTopicTitle: string | null;
+  todayQuestionCount: number;
+  averageScore: number | null;
+  students: GroupJournalStudentDto[];
+}
+
+export interface GroupJournalDto {
+  groupId: string;
+  groupName: string;
+  today: string;
+  subjects: GroupSubjectJournalDto[];
+}
+
 export interface AssignTeacherSubjectRequest {
   teacherId: string;
   subjectId: string;

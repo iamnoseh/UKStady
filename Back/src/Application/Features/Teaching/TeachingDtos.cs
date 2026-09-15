@@ -49,8 +49,8 @@ public sealed record DailyLessonDto(
     Guid TeacherId,
     Guid SubjectId,
     string SubjectName,
-    Guid TopicId,
-    string TopicTitle,
+    Guid? TopicId,
+    string? TopicTitle,
     DateOnly LessonDate,
     string Title,
     int QuestionCount,
@@ -60,11 +60,41 @@ public sealed record DailyLessonDto(
 
 public sealed record CreateDailyLessonRequest(
     Guid SubjectId,
-    Guid TopicId,
+    Guid? TopicId,
     DateOnly LessonDate,
     string Title,
     int QuestionCount,
     IReadOnlyList<Guid> GroupIds);
+
+public sealed record CreateTodayGroupLessonRequest(Guid SubjectId);
+
+public sealed record UpdateDailyLessonTopicRequest(Guid TopicId);
+
+public sealed record CreateTodayGroupLessonResult(DailyLessonDto Lesson, bool Created);
+
+public sealed record GroupJournalDto(
+    Guid GroupId,
+    string GroupName,
+    DateOnly Today,
+    IReadOnlyList<GroupSubjectJournalDto> Subjects);
+
+public sealed record GroupSubjectJournalDto(
+    Guid SubjectId,
+    string SubjectName,
+    Guid? TodayLessonId,
+    Guid? TodayTopicId,
+    string? TodayTopicTitle,
+    int TodayQuestionCount,
+    decimal? AverageScore,
+    IReadOnlyList<GroupJournalStudentDto> Students);
+
+public sealed record GroupJournalStudentDto(
+    Guid StudentId,
+    string FullName,
+    string PhoneNumber,
+    decimal? TodayScore,
+    decimal? AverageScore,
+    string Status);
 
 public sealed record TeacherDashboardDto(
     int Topics,

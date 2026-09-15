@@ -6,6 +6,7 @@ import type {
   CreateUserRequest,
   GeneratedPasswordDto,
   GroupDto,
+  GroupJournalDto,
   AssignTeacherSubjectRequest,
   QuestionDto,
   SubjectDto,
@@ -16,6 +17,7 @@ import type {
   UpdateSubjectRequest,
   UpdateTopicRequest,
   UserDto,
+  CreateTodayGroupLessonResult,
 } from '../types/admin';
 import type { AuthResult, LoginRequest } from '../types/auth';
 
@@ -182,6 +184,33 @@ export function addStudentToGroup(token: string, groupId: string, studentId: str
 export function removeStudentFromGroup(token: string, groupId: string, studentId: string): Promise<void> {
   return request<void>(`/api/groups/${groupId}/students/${studentId}`, token, {
     method: 'DELETE',
+  });
+}
+
+export function getGroupJournal(token: string, groupId: string): Promise<GroupJournalDto> {
+  return request<GroupJournalDto>(`/api/group-journals/${groupId}`, token);
+}
+
+export function createTodayGroupLesson(
+  token: string,
+  groupId: string,
+  subjectId: string,
+): Promise<CreateTodayGroupLessonResult> {
+  return request<CreateTodayGroupLessonResult>(`/api/group-journals/${groupId}/today-lessons`, token, {
+    method: 'POST',
+    body: JSON.stringify({ subjectId }),
+  });
+}
+
+export function updateGroupLessonTopic(
+  token: string,
+  groupId: string,
+  lessonId: string,
+  topicId: string,
+): Promise<void> {
+  return request<void>(`/api/group-journals/${groupId}/lessons/${lessonId}/topic`, token, {
+    method: 'PUT',
+    body: JSON.stringify({ topicId }),
   });
 }
 

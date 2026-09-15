@@ -12,9 +12,9 @@ public sealed class DailyLesson : AuditableEntity
 
     public Subject Subject { get; set; } = null!;
 
-    public Guid TopicId { get; set; }
+    public Guid? TopicId { get; set; }
 
-    public Topic Topic { get; set; } = null!;
+    public Topic? Topic { get; set; }
 
     public DateOnly LessonDate { get; set; }
 
@@ -30,4 +30,3 @@ public sealed class DailyLesson : AuditableEntity
 
     public ICollection<GradeEntry> GradeEntries { get; set; } = [];
 }
-

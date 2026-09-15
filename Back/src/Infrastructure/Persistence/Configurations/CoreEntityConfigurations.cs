@@ -202,6 +202,7 @@ public sealed class DailyLessonConfiguration : IEntityTypeConfiguration<DailyLes
             .HasForeignKey(lesson => lesson.TopicId)
             .OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(lesson => new { lesson.TeacherId, lesson.TopicId, lesson.LessonDate }).IsUnique();
+        builder.HasIndex(lesson => new { lesson.SubjectId, lesson.LessonDate });
     }
 }
 
