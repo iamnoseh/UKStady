@@ -1,11 +1,33 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { Building2, Check, Layers, Plus, Search, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  BookOpen,
+  Building2,
+  Check,
+  ClipboardList,
+  Edit3,
+  Layers,
+  Plus,
+  Search,
+  Trash2,
+  Users,
+  X,
+} from 'lucide-react';
 import { Button } from '../components/Button';
-import { createGroup, getGroups, getSubjects } from '../services/api';
-import type { GroupDto, SubjectDto } from '../types/admin';
+import {
+  addStudentToGroup,
+  createGroup,
+  getGroups,
+  getSubjects,
+  getUsers,
+  removeStudentFromGroup,
+} from '../services/api';
+import type { GroupDto, SubjectDto, UserDto } from '../types/admin';
 import { useAuth } from '../context/AuthContext';
 
-const badgeColors = [
+type GroupTab = 'students' | 'journals' | 'edit';
+
+const subjectBadgeColors = [
   'bg-violet-50 text-violet-700 border-violet-100',
   'bg-sky-50 text-sky-700 border-sky-100',
   'bg-emerald-50 text-emerald-700 border-emerald-100',
@@ -18,15 +40,21 @@ export function GroupsPage() {
   const { auth } = useAuth();
   const [groups, setGroups] = useState<GroupDto[]>([]);
   const [subjects, setSubjects] = useState<SubjectDto[]>([]);
+  const [users, setUsers] = useState<UserDto[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<GroupTab>('students');
   const [name, setName] = useState('');
   const [branch, setBranch] = useState('');
   const [description, setDescription] = useState('');
   const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>([]);
+  const [selectedStudentId, setSelectedStudentId] = useState('');
   const [query, setQuery] = useState('');
+  const [studentQuery, setStudentQuery] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isStudentSubmitting, setIsStudentSubmitting] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   useEffect(() => {
@@ -41,17 +69,34 @@ export function GroupsPage() {
     setIsLoading(true);
     setError('');
     try {
-      const [loadedGroups, loadedSubjects] = await Promise.all([
+      const [loadedGroups, loadedSubjects, loadedUsers] = await Promise.all([
         getGroups(auth.accessToken),
         getSubjects(auth.accessToken),
+        getUsers(auth.accessToken),
       ]);
       setGroups(loadedGroups);
       setSubjects(loadedSubjects);
+      setUsers(loadedUsers);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Гурӯҳҳо гирифта нашуданд.');
     } finally {
       setIsLoading(false);
     }
+  }
+
+  function openGroup(groupId: string) {
+    setSelectedGroupId(groupId);
+    setActiveTab('students');
+    setNotice('');
+    setError('');
+    setSelectedStudentId('');
+    setStudentQuery('');
+  }
+
+  function closeGroup() {
+    setSelectedGroupId(null);
+    setActiveTab('students');
+    setSelectedStudentId('');
   }
 
   function toggleSubject(subjectId: string) {
@@ -92,6 +137,46 @@ export function GroupsPage() {
     }
   }
 
+  async function handleAddStudent(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!auth || !selectedGroupId || !selectedStudentId) {
+      return;
+    }
+
+    setIsStudentSubmitting(true);
+    setError('');
+    setNotice('');
+    try {
+      await addStudentToGroup(auth.accessToken, selectedGroupId, selectedStudentId);
+      await loadData();
+      setSelectedStudentId('');
+      setNotice('Хонанда ба гурӯҳ дохил шуд.');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Хонанда дохил нашуд.');
+    } finally {
+      setIsStudentSubmitting(false);
+    }
+  }
+
+  async function handleRemoveStudent(studentId: string) {
+    if (!auth || !selectedGroupId) {
+      return;
+    }
+
+    setIsStudentSubmitting(true);
+    setError('');
+    setNotice('');
+    try {
+      await removeStudentFromGroup(auth.accessToken, selectedGroupId, studentId);
+      await loadData();
+      setNotice('Хонанда аз гурӯҳ хориҷ шуд.');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Хонанда хориҷ нашуд.');
+    } finally {
+      setIsStudentSubmitting(false);
+    }
+  }
+
   const filteredGroups = useMemo(() => {
     const value = query.trim().toLowerCase();
     if (!value) {
@@ -99,11 +184,165 @@ export function GroupsPage() {
     }
 
     return groups.filter((group) =>
-      `${group.name} ${group.branch} ${group.description ?? ''} ${group.subjects.map((subject) => subject.name).join(' ')}`
-        .toLowerCase()
-        .includes(value),
+      `${group.name} ${group.branch} ${group.description ?? ''}`.toLowerCase().includes(value),
     );
   }, [groups, query]);
+
+  const selectedGroup = useMemo(
+    () => groups.find((group) => group.id === selectedGroupId) ?? null,
+    [groups, selectedGroupId],
+  );
+
+  const students = useMemo(() => users.filter((user) => user.role === 'Student'), [users]);
+  const assignedStudentIds = useMemo(
+    () => new Set(selectedGroup?.students.map((student) => student.id) ?? []),
+    [selectedGroup],
+  );
+  const availableStudents = useMemo(
+    () => students.filter((student) => !assignedStudentIds.has(student.id)),
+    [assignedStudentIds, students],
+  );
+  const filteredAssignedStudents = useMemo(() => {
+    const value = studentQuery.trim().toLowerCase();
+    const assigned = selectedGroup?.students ?? [];
+    if (!value) {
+      return assigned;
+    }
+
+    return assigned.filter((student) =>
+      `${student.firstName} ${student.lastName} ${student.phoneNumber}`.toLowerCase().includes(value),
+    );
+  }, [selectedGroup, studentQuery]);
+
+  if (selectedGroup) {
+    return (
+      <section className="px-4 py-6 lg:px-6">
+        <div className="mb-5 flex flex-col justify-between gap-4 xl:flex-row xl:items-start">
+          <div className="flex items-start gap-3">
+            <button
+              type="button"
+              onClick={closeGroup}
+              className="grid h-10 w-10 place-items-center rounded-lg border border-line text-muted transition hover:border-brand hover:text-brand"
+              aria-label="Бозгашт"
+              title="Бозгашт"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <div>
+              <p className="text-sm font-semibold text-muted">Гурӯҳ</p>
+              <h2 className="mt-1 text-2xl font-bold">{selectedGroup.name}</h2>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <span className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-semibold text-slate-700">
+                  <Building2 className="h-4 w-4" />
+                  {selectedGroup.branch}
+                </span>
+                <span className="rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-1.5 text-sm font-semibold text-indigo-700">
+                  {selectedGroup.studentCount} хонанда
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mb-5 flex flex-wrap gap-2 border-b border-line">
+          <TabButton active={activeTab === 'students'} onClick={() => setActiveTab('students')} icon={Users} label="Хонандагон" />
+          <TabButton active={activeTab === 'journals'} onClick={() => setActiveTab('journals')} icon={ClipboardList} label="Журналҳо" />
+          <TabButton active={activeTab === 'edit'} onClick={() => setActiveTab('edit')} icon={Edit3} label="Таҳрир кардан" />
+        </div>
+
+        {notice ? <p className="mb-5 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{notice}</p> : null}
+        {error ? <p className="mb-5 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
+
+        {activeTab === 'students' ? (
+          <div className="grid gap-5 xl:grid-cols-[420px_1fr]">
+            <form onSubmit={handleAddStudent} className="rounded-lg border border-line bg-white p-5">
+              <div className="mb-5 flex items-center gap-3">
+                <div className="grid h-10 w-10 place-items-center rounded-lg bg-brand/10 text-brand">
+                  <Users className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold">Дохил кардани хонанда</h3>
+                  <p className="text-sm text-muted">Хонандаро интихоб карда ба гурӯҳ илова кунед.</p>
+                </div>
+              </div>
+
+              <label className="block">
+                <span className="text-sm font-semibold">Хонанда</span>
+                <select
+                  value={selectedStudentId}
+                  onChange={(event) => setSelectedStudentId(event.target.value)}
+                  className="mt-2 h-11 w-full rounded-lg border border-line bg-white px-3 outline-none focus:border-brand"
+                >
+                  <option value="">Интихоб кунед</option>
+                  {availableStudents.map((student) => (
+                    <option key={student.id} value={student.id}>
+                      {student.firstName} {student.lastName} - {student.phoneNumber}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <Button type="submit" className="mt-5 w-full" disabled={isStudentSubmitting || !selectedStudentId}>
+                <Plus className="h-4 w-4" />
+                {isStudentSubmitting ? 'Дохил шуда истодааст...' : 'Дохил кардан'}
+              </Button>
+            </form>
+
+            <div className="overflow-hidden rounded-lg border border-line bg-white">
+              <div className="flex flex-col justify-between gap-3 border-b border-line bg-panel px-4 py-3 sm:flex-row sm:items-center">
+                <div className="text-xs font-bold uppercase text-muted">Хонандагони гурӯҳ</div>
+                <div className="flex h-10 items-center gap-3 rounded-lg border border-line bg-white px-3 sm:w-[320px]">
+                  <Search className="h-4 w-4 text-muted" />
+                  <input
+                    value={studentQuery}
+                    onChange={(event) => setStudentQuery(event.target.value)}
+                    className="h-full flex-1 outline-none"
+                    placeholder="Ҷустуҷӯи хонанда"
+                  />
+                </div>
+              </div>
+
+              {filteredAssignedStudents.length === 0 ? (
+                <p className="px-4 py-5 text-sm text-muted">Ҳоло хонанда нест.</p>
+              ) : null}
+
+              {filteredAssignedStudents.map((student) => (
+                <div key={student.id} className="grid grid-cols-[1.2fr_1fr_56px] items-center border-b border-line px-4 py-4 text-sm last:border-0">
+                  <div>
+                    <p className="font-semibold">{student.firstName} {student.lastName}</p>
+                    <p className="text-muted">Login рақами телефон</p>
+                  </div>
+                  <span className="font-mono text-muted">{student.phoneNumber}</span>
+                  <button
+                    type="button"
+                    onClick={() => void handleRemoveStudent(student.id)}
+                    className="grid h-9 w-9 place-items-center rounded-lg border border-line text-muted transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                    disabled={isStudentSubmitting}
+                    aria-label="Хориҷ кардан"
+                    title="Хориҷ кардан"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {activeTab === 'journals' ? (
+          <div className="rounded-lg border border-line bg-white px-4 py-5 text-sm text-muted">
+            Журналҳо дар қадами баъдӣ пайваст мешаванд.
+          </div>
+        ) : null}
+
+        {activeTab === 'edit' ? (
+          <div className="rounded-lg border border-line bg-white px-4 py-5 text-sm text-muted">
+            Таҳрир кардани гурӯҳ дар қадами баъдӣ илова мешавад.
+          </div>
+        ) : null}
+      </section>
+    );
+  }
 
   return (
     <section className="px-4 py-6 lg:px-6">
@@ -185,7 +424,7 @@ export function GroupsPage() {
                     type="button"
                     onClick={() => toggleSubject(subject.id)}
                     className={`inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-semibold transition ${
-                      isSelected ? badgeColors[index % badgeColors.length] : 'border-line bg-white text-muted hover:bg-panel'
+                      isSelected ? subjectBadgeColors[index % subjectBadgeColors.length] : 'border-line bg-white text-muted hover:bg-panel'
                     }`}
                   >
                     {isSelected ? <Check className="h-4 w-4" /> : null}
@@ -197,7 +436,6 @@ export function GroupsPage() {
             </div>
           </div>
 
-          {notice ? <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{notice}</p> : null}
           {error ? <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
 
           <Button type="submit" className="mt-5" disabled={isSubmitting || !name.trim() || !branch.trim()}>
@@ -221,60 +459,62 @@ export function GroupsPage() {
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {filteredGroups.map((group, groupIndex) => {
-          const isActive = group.isActive;
-          return (
-            <article
-              key={group.id}
-              className={`rounded-xl border p-5 transition-all shadow-sm ${
-                isActive
-                  ? 'border-emerald-300 bg-emerald-50/80 hover:border-emerald-400 hover:bg-emerald-50'
-                  : 'border-red-300 bg-red-50/80 hover:border-red-400 hover:bg-red-50'
-              }`}
-            >
-              <div className="flex items-start justify-between gap-3">
+        {filteredGroups.map((group) => (
+          <button
+            key={group.id}
+            type="button"
+            onClick={() => openGroup(group.id)}
+            className="rounded-lg border border-line bg-white p-5 text-left transition hover:border-brand/50 hover:bg-panel/50 hover:shadow-soft focus:outline-none focus:ring-2 focus:ring-brand/20"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
                 <h3 className="text-lg font-bold text-ink">{group.name}</h3>
-                <span
-                  className={`rounded-md border px-2.5 py-1 text-xs font-bold ${
-                    isActive
-                      ? 'border-emerald-300 bg-emerald-100 text-emerald-800'
-                      : 'border-red-300 bg-red-100 text-red-800'
-                  }`}
-                >
-                  {isActive ? 'Фаъол' : 'Хомӯш'}
-                </span>
+                <p className="mt-1 text-sm text-muted">{group.description || 'Бе тавсиф'}</p>
               </div>
+              <span className={`rounded-md px-2 py-1 text-xs font-bold ${group.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                {group.isActive ? 'Фаъол' : 'Ғайрифаъол'}
+              </span>
+            </div>
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                <span className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white/90 px-3 py-1.5 text-sm font-semibold text-slate-700 shadow-xs">
-                  <Building2 className="h-4 w-4 text-slate-500" />
-                  {group.branch}
-                </span>
-                <span className="rounded-lg border border-indigo-100 bg-white/90 px-3 py-1.5 text-sm font-semibold text-indigo-700 shadow-xs">
-                  {group.studentCount} хонанда
-                </span>
-              </div>
-
-              <div className="mt-3 flex flex-wrap gap-2">
-                {group.subjects.length > 0 ? (
-                  group.subjects.map((subject, subjectIndex) => (
-                    <span
-                      key={subject.id}
-                      className={`rounded-lg border bg-white/90 px-3 py-1.5 text-sm font-semibold ${badgeColors[(groupIndex + subjectIndex) % badgeColors.length]}`}
-                    >
-                      {subject.name}
-                    </span>
-                  ))
-                ) : (
-                  <span className="rounded-lg border border-line bg-white/80 px-3 py-1.5 text-sm font-semibold text-muted">
-                    Фан нест
-                  </span>
-                )}
-              </div>
-            </article>
-          );
-        })}
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-semibold text-slate-700">
+                <Building2 className="h-4 w-4" />
+                {group.branch}
+              </span>
+              <span className="rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-1.5 text-sm font-semibold text-indigo-700">
+                {group.studentCount} хонанда
+              </span>
+            </div>
+          </button>
+        ))}
       </div>
     </section>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  icon: Icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex h-11 items-center gap-2 border-b-2 px-3 text-sm font-semibold transition ${
+        active
+          ? 'border-brand text-brand'
+          : 'border-transparent text-muted hover:border-line hover:text-ink'
+      }`}
+    >
+      <Icon className="h-4 w-4" />
+      {label}
+    </button>
   );
 }

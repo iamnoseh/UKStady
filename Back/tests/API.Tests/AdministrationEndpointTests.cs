@@ -57,6 +57,10 @@ public sealed class AdministrationEndpointTests : IClassFixture<TestApiFactory>
             null);
         Assert.Equal(HttpStatusCode.NoContent, addStudentResponse.StatusCode);
 
+        var updatedGroup = await client.GetFromJsonAsync<GroupDto>($"/api/groups/{group.Id}");
+        Assert.NotNull(updatedGroup);
+        Assert.Contains(updatedGroup.Students, item => item.Id == student.Id);
+
         using var assignmentResponse = await client.PostAsJsonAsync(
             "/api/teacher-assignments",
             new AssignTeacherRequest(teacher.Id, subject.Id, group.Id));
