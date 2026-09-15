@@ -392,6 +392,9 @@ public sealed class TeachingService : ITeachingService
                             todayGrade?.AttendanceStatus.ToString() ?? "NoGrade",
                             lessonScores);
                     })
+                    .OrderByDescending(student => student.AverageScore.HasValue)
+                    .ThenByDescending(student => student.AverageScore)
+                    .ThenBy(student => student.FullName)
                     .ToList();
 
                 var subjectAverage = subjectGrades.Count == 0
