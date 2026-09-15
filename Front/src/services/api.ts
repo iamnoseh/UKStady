@@ -10,6 +10,8 @@ import type {
   TeacherSubjectAssignmentDto,
   TopicDto,
   UpdateGroupRequest,
+  UpdateSubjectRequest,
+  UpdateTopicRequest,
   UserDto,
 } from '../types/admin';
 import type { AuthResult, LoginRequest } from '../types/auth';
@@ -89,6 +91,19 @@ export function createSubject(token: string, body: CreateSubjectRequest): Promis
   });
 }
 
+export function updateSubject(token: string, subjectId: string, body: UpdateSubjectRequest): Promise<SubjectDto> {
+  return request<SubjectDto>(`/api/subjects/${subjectId}`, token, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteSubject(token: string, subjectId: string): Promise<void> {
+  return request<void>(`/api/subjects/${subjectId}`, token, {
+    method: 'DELETE',
+  });
+}
+
 export function getTopics(token: string): Promise<TopicDto[]> {
   return request<TopicDto[]>('/api/topics', token);
 }
@@ -97,6 +112,19 @@ export function createTopic(token: string, body: CreateTopicRequest): Promise<To
   return request<TopicDto>('/api/topics', token, {
     method: 'POST',
     body: JSON.stringify(body),
+  });
+}
+
+export function updateTopic(token: string, topicId: string, body: UpdateTopicRequest): Promise<TopicDto> {
+  return request<TopicDto>(`/api/topics/${topicId}`, token, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteTopic(token: string, topicId: string): Promise<void> {
+  return request<void>(`/api/topics/${topicId}`, token, {
+    method: 'DELETE',
   });
 }
 

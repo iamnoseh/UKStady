@@ -57,6 +57,16 @@ public static class TeachingEndpoints
             return result is null ? Results.NotFound() : Results.Ok(result);
         })
         .WithName("UpdateTopic");
+
+        group.MapDelete("/{id:guid}", async (
+            Guid id,
+            ITeachingService service,
+            CancellationToken cancellationToken) =>
+        {
+            var deactivated = await service.DeactivateTopicAsync(id, cancellationToken);
+            return deactivated ? Results.NoContent() : Results.NotFound();
+        })
+        .WithName("DeactivateTopic");
     }
 
     private static void MapQuestionEndpoints(this IEndpointRouteBuilder endpoints)
@@ -201,4 +211,3 @@ public static class TeachingEndpoints
         };
     }
 }
-

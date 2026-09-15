@@ -8,6 +8,8 @@ public interface ITeachingService
 
     Task<TopicDto?> UpdateTopicAsync(Guid id, UpdateTopicRequest request, CancellationToken cancellationToken);
 
+    Task<bool> DeactivateTopicAsync(Guid id, CancellationToken cancellationToken);
+
     Task<IReadOnlyList<QuestionDto>> GetQuestionsAsync(Guid topicId, CancellationToken cancellationToken);
 
     Task<QuestionDto?> CreateQuestionAsync(CreateQuestionRequest request, CancellationToken cancellationToken);
@@ -22,4 +24,3 @@ public interface ITeachingService
 
     Task<TeacherDashboardDto> GetTeacherDashboardAsync(CancellationToken cancellationToken);
 }
-

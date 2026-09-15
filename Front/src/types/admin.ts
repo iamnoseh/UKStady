@@ -38,6 +38,12 @@ export interface CreateSubjectRequest {
   description: string | null;
 }
 
+export interface UpdateSubjectRequest {
+  name: string;
+  description: string | null;
+  isActive: boolean;
+}
+
 export interface TopicDto {
   id: string;
   subjectId: string;
@@ -56,6 +62,14 @@ export interface CreateTopicRequest {
   description: string | null;
   source: string | null;
   grade: string | null;
+}
+
+export interface UpdateTopicRequest {
+  title: string;
+  description: string | null;
+  source: string | null;
+  grade: string | null;
+  isActive: boolean;
 }
 
 export interface GroupSubjectDto {

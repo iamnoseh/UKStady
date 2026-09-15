@@ -1,8 +1,8 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { BookOpen, ListTree, Plus, Search } from 'lucide-react';
+import { BookOpen, Edit3, ListTree, Plus, Search, Trash2, XCircle } from 'lucide-react';
 import { Button } from '../components/Button';
 import { Pagination, paginate } from '../components/Pagination';
-import { createSubject, getSubjects } from '../services/api';
+import { createSubject, deleteSubject, getSubjects, updateSubject } from '../services/api';
 import type { SubjectDto } from '../types/admin';
 import { useAuth } from '../context/AuthContext';
 
@@ -11,9 +11,12 @@ export function SubjectsPage({ onOpenTopics }: { onOpenTopics: (subject: Subject
   const [subjects, setSubjects] = useState<SubjectDto[]>([]);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [isActive, setIsActive] = useState(true);
+  const [editingSubject, setEditingSubject] = useState<SubjectDto | null>(null);
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -45,18 +48,64 @@ export function SubjectsPage({ onOpenTopics }: { onOpenTopics: (subject: Subject
 
     setIsSubmitting(true);
     setError('');
+    setNotice('');
     try {
-      const subject = await createSubject(auth.accessToken, {
-        name: name.trim(),
-        description: description.trim() || null,
-      });
-      setSubjects((current) => [subject, ...current]);
-      setName('');
-      setDescription('');
+      if (editingSubject) {
+        const subject = await updateSubject(auth.accessToken, editingSubject.id, {
+          name: name.trim(),
+          description: description.trim() || null,
+          isActive,
+        });
+        setSubjects((current) => current.map((item) => item.id === subject.id ? subject : item));
+        setNotice('Фан таҳрир шуд.');
+      } else {
+        const subject = await createSubject(auth.accessToken, {
+          name: name.trim(),
+          description: description.trim() || null,
+        });
+        setSubjects((current) => [subject, ...current]);
+        setNotice('Фан сохта шуд.');
+      }
+      resetForm();
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Фан сохта нашуд.');
+      setError(error instanceof Error ? error.message : editingSubject ? 'Фан таҳрир нашуд.' : 'Фан сохта нашуд.');
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  function startEdit(subject: SubjectDto) {
+    setEditingSubject(subject);
+    setName(subject.name);
+    setDescription(subject.description ?? '');
+    setIsActive(subject.isActive);
+    setNotice('');
+    setError('');
+  }
+
+  function resetForm() {
+    setEditingSubject(null);
+    setName('');
+    setDescription('');
+    setIsActive(true);
+  }
+
+  async function handleDelete(subject: SubjectDto) {
+    if (!auth || !window.confirm(`Фан "${subject.name}" ғайрифаъол карда шавад?`)) {
+      return;
+    }
+
+    setError('');
+    setNotice('');
+    try {
+      await deleteSubject(auth.accessToken, subject.id);
+      setSubjects((current) => current.map((item) => item.id === subject.id ? { ...item, isActive: false } : item));
+      if (editingSubject?.id === subject.id) {
+        resetForm();
+      }
+      setNotice('Фан ғайрифаъол карда шуд.');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Фан нест карда нашуд.');
     }
   }
 
@@ -97,11 +146,11 @@ export function SubjectsPage({ onOpenTopics }: { onOpenTopics: (subject: Subject
         <form onSubmit={handleSubmit} className="rounded-lg border border-line bg-white p-5">
           <div className="mb-5 flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-lg bg-brand/10 text-brand">
-              <BookOpen className="h-5 w-5" />
+              {editingSubject ? <Edit3 className="h-5 w-5" /> : <BookOpen className="h-5 w-5" />}
             </div>
             <div>
-              <h3 className="font-bold">Фани нав</h3>
-              <p className="text-sm text-muted">Барои мавзӯъ ва саволҳо асос мешавад.</p>
+              <h3 className="font-bold">{editingSubject ? 'Таҳрири фан' : 'Фани нав'}</h3>
+              <p className="text-sm text-muted">{editingSubject ? 'Маълумот ва ҳолати фанро нав кунед.' : 'Барои мавзӯъ ва саволҳо асос мешавад.'}</p>
             </div>
           </div>
 
@@ -125,17 +174,50 @@ export function SubjectsPage({ onOpenTopics }: { onOpenTopics: (subject: Subject
             />
           </label>
 
+          {editingSubject ? (
+            <div className="mt-4">
+              <span className="text-sm font-semibold">Ҳолат</span>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsActive(true)}
+                  className={`h-10 rounded-lg border text-sm font-bold transition ${
+                    isActive ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-line bg-white text-muted hover:bg-panel'
+                  }`}
+                >
+                  Фаъол
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsActive(false)}
+                  className={`h-10 rounded-lg border text-sm font-bold transition ${
+                    !isActive ? 'border-red-200 bg-red-50 text-red-700' : 'border-line bg-white text-muted hover:bg-panel'
+                  }`}
+                >
+                  Ғайрифаъол
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {notice ? <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{notice}</p> : null}
           {error ? <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
 
           <Button type="submit" className="mt-5 w-full" disabled={isSubmitting || !name.trim()}>
-            <Plus className="h-4 w-4" />
-            {isSubmitting ? 'Сохта истодааст...' : 'Сохтани фан'}
+            {editingSubject ? <Edit3 className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            {isSubmitting ? 'Нигоҳ дошта истодааст...' : editingSubject ? 'Нигоҳ доштан' : 'Сохтани фан'}
           </Button>
+          {editingSubject ? (
+            <Button type="button" variant="secondary" className="mt-3 w-full" onClick={resetForm}>
+              <XCircle className="h-4 w-4" />
+              Бекор кардан
+            </Button>
+          ) : null}
         </form>
 
         <div className="min-w-0">
           <div className="min-h-[420px] overflow-hidden rounded-lg border border-line bg-white">
-            <div className="grid grid-cols-[1.3fr_120px_120px_150px] border-b border-line bg-panel px-4 py-3 text-xs font-bold uppercase text-muted">
+            <div className="grid grid-cols-[1.3fr_110px_120px_260px] border-b border-line bg-panel px-4 py-3 text-xs font-bold uppercase text-muted">
               <span>Фан</span>
               <span>Мавзӯъҳо</span>
               <span>Ҳолат</span>
@@ -149,7 +231,7 @@ export function SubjectsPage({ onOpenTopics }: { onOpenTopics: (subject: Subject
             ) : null}
 
             {pagedSubjects.items.map((subject) => (
-              <div key={subject.id} className="grid grid-cols-[1.3fr_120px_120px_150px] items-center border-b border-line px-4 py-4 text-sm last:border-0">
+              <div key={subject.id} className="grid grid-cols-[1.3fr_110px_120px_260px] items-center border-b border-line px-4 py-4 text-sm last:border-0">
                 <div>
                   <p className="font-semibold">{subject.name}</p>
                   <p className="text-muted">{subject.description || 'Бе тавсиф'}</p>
@@ -158,10 +240,18 @@ export function SubjectsPage({ onOpenTopics }: { onOpenTopics: (subject: Subject
                 <span className={`w-fit rounded-md px-2 py-1 text-xs font-bold ${subject.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
                   {subject.isActive ? 'Фаъол' : 'Ғайрифаъол'}
                 </span>
-                <Button type="button" variant="secondary" className="h-9 px-3" onClick={() => onOpenTopics(subject)}>
-                  <ListTree className="h-4 w-4" />
-                  Мавзӯъҳо
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="secondary" className="h-9 px-3" onClick={() => onOpenTopics(subject)}>
+                    <ListTree className="h-4 w-4" />
+                    Мавзӯъҳо
+                  </Button>
+                  <Button type="button" variant="secondary" className="h-9 px-3" onClick={() => startEdit(subject)}>
+                    <Edit3 className="h-4 w-4" />
+                  </Button>
+                  <Button type="button" variant="secondary" className="h-9 px-3 text-red-600 hover:bg-red-50" onClick={() => void handleDelete(subject)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             ))}
           </div>

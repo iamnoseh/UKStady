@@ -93,6 +93,19 @@ public sealed class TeachingService : ITeachingService
         return await GetTopicDtoAsync(topic.Id, cancellationToken);
     }
 
+    public async Task<bool> DeactivateTopicAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var topic = await _dbContext.Topics.FirstOrDefaultAsync(candidate => candidate.Id == id, cancellationToken);
+        if (topic is null || !await CanUseSubjectAsync(topic.SubjectId, cancellationToken))
+        {
+            return false;
+        }
+
+        topic.IsActive = false;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     public async Task<IReadOnlyList<QuestionDto>> GetQuestionsAsync(Guid topicId, CancellationToken cancellationToken)
     {
         var topic = await _dbContext.Topics

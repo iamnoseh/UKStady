@@ -1,8 +1,8 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, BookMarked, Layers, Link2, Plus, Search } from 'lucide-react';
+import { ArrowLeft, BookMarked, Edit3, Layers, Link2, Plus, Search, Trash2, XCircle } from 'lucide-react';
 import { Button } from '../components/Button';
 import { Pagination, paginate } from '../components/Pagination';
-import { createTopic, getTopics } from '../services/api';
+import { createTopic, deleteTopic, getTopics, updateTopic } from '../services/api';
 import type { SubjectDto, TopicDto } from '../types/admin';
 import { useAuth } from '../context/AuthContext';
 
@@ -19,6 +19,8 @@ export function TopicsPage({
   const [source, setSource] = useState('');
   const [grade, setGrade] = useState('');
   const [description, setDescription] = useState('');
+  const [isActive, setIsActive] = useState(true);
+  const [editingTopic, setEditingTopic] = useState<TopicDto | null>(null);
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const [notice, setNotice] = useState('');
@@ -57,23 +59,71 @@ export function TopicsPage({
     setError('');
     setNotice('');
     try {
-      const topic = await createTopic(auth.accessToken, {
-        subjectId: subject.id,
-        title: title.trim(),
-        description: description.trim() || null,
-        source: source.trim() || null,
-        grade: grade.trim() || null,
-      });
-      setTopics((current) => [topic, ...current]);
-      setTitle('');
-      setSource('');
-      setGrade('');
-      setDescription('');
-      setNotice('Мавзӯъ сохта шуд.');
+      if (editingTopic) {
+        const topic = await updateTopic(auth.accessToken, editingTopic.id, {
+          title: title.trim(),
+          description: description.trim() || null,
+          source: source.trim() || null,
+          grade: grade.trim() || null,
+          isActive,
+        });
+        setTopics((current) => current.map((item) => item.id === topic.id ? topic : item));
+        setNotice('Мавзӯъ таҳрир шуд.');
+      } else {
+        const topic = await createTopic(auth.accessToken, {
+          subjectId: subject.id,
+          title: title.trim(),
+          description: description.trim() || null,
+          source: source.trim() || null,
+          grade: grade.trim() || null,
+        });
+        setTopics((current) => [topic, ...current]);
+        setNotice('Мавзӯъ сохта шуд.');
+      }
+      resetForm();
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Мавзӯъ сохта нашуд.');
+      setError(error instanceof Error ? error.message : editingTopic ? 'Мавзӯъ таҳрир нашуд.' : 'Мавзӯъ сохта нашуд.');
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  function startEdit(topic: TopicDto) {
+    setEditingTopic(topic);
+    setTitle(topic.title);
+    setSource(topic.source ?? '');
+    setGrade(topic.grade ?? '');
+    setDescription(topic.description ?? '');
+    setIsActive(topic.isActive);
+    setNotice('');
+    setError('');
+  }
+
+  function resetForm() {
+    setEditingTopic(null);
+    setTitle('');
+    setSource('');
+    setGrade('');
+    setDescription('');
+    setIsActive(true);
+  }
+
+  async function handleDelete(topic: TopicDto) {
+    if (!auth || !window.confirm(`Мавзӯъ "${topic.title}" ғайрифаъол карда шавад?`)) {
+      return;
+    }
+
+    setError('');
+    setNotice('');
+    try {
+      await deleteTopic(auth.accessToken, topic.id);
+      setTopics((current) => current.map((item) => item.id === topic.id ? { ...item, isActive: false } : item));
+      if (editingTopic?.id === topic.id) {
+        resetForm();
+      }
+      setNotice('Мавзӯъ ғайрифаъол карда шуд.');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Мавзӯъ нест карда нашуд.');
     }
   }
 
@@ -120,11 +170,11 @@ export function TopicsPage({
         <form onSubmit={handleSubmit} className="rounded-lg border border-line bg-white p-5">
           <div className="mb-5 flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-lg bg-brand/10 text-brand">
-              <BookMarked className="h-5 w-5" />
+              {editingTopic ? <Edit3 className="h-5 w-5" /> : <BookMarked className="h-5 w-5" />}
             </div>
             <div>
-              <h3 className="font-bold">Мавзӯи нав</h3>
-              <p className="text-sm text-muted">Мавзӯъ барои саволҳо ва дарси рӯз истифода мешавад.</p>
+              <h3 className="font-bold">{editingTopic ? 'Таҳрири мавзӯъ' : 'Мавзӯи нав'}</h3>
+              <p className="text-sm text-muted">{editingTopic ? 'Мавзӯъ ва ҳолати онро нав кунед.' : 'Мавзӯъ барои саволҳо ва дарси рӯз истифода мешавад.'}</p>
             </div>
           </div>
 
@@ -168,22 +218,55 @@ export function TopicsPage({
             />
           </label>
 
+          {editingTopic ? (
+            <div className="mt-4">
+              <span className="text-sm font-semibold">Ҳолат</span>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsActive(true)}
+                  className={`h-10 rounded-lg border text-sm font-bold transition ${
+                    isActive ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-line bg-white text-muted hover:bg-panel'
+                  }`}
+                >
+                  Фаъол
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsActive(false)}
+                  className={`h-10 rounded-lg border text-sm font-bold transition ${
+                    !isActive ? 'border-red-200 bg-red-50 text-red-700' : 'border-line bg-white text-muted hover:bg-panel'
+                  }`}
+                >
+                  Ғайрифаъол
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           {notice ? <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{notice}</p> : null}
           {error ? <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
 
           <Button type="submit" className="mt-5 w-full" disabled={isSubmitting || !title.trim()}>
-            <Plus className="h-4 w-4" />
-            {isSubmitting ? 'Сохта истодааст...' : 'Сохтани мавзӯъ'}
+            {editingTopic ? <Edit3 className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            {isSubmitting ? 'Нигоҳ дошта истодааст...' : editingTopic ? 'Нигоҳ доштан' : 'Сохтани мавзӯъ'}
           </Button>
+          {editingTopic ? (
+            <Button type="button" variant="secondary" className="mt-3 w-full" onClick={resetForm}>
+              <XCircle className="h-4 w-4" />
+              Бекор кардан
+            </Button>
+          ) : null}
         </form>
 
         <div className="min-w-0">
           <div className="min-h-[420px] overflow-hidden rounded-lg border border-line bg-white">
-            <div className="grid grid-cols-[1.4fr_1fr_1fr_120px] border-b border-line bg-panel px-4 py-3 text-xs font-bold uppercase text-muted">
+            <div className="grid grid-cols-[1.3fr_1fr_110px_120px_140px] border-b border-line bg-panel px-4 py-3 text-xs font-bold uppercase text-muted">
               <span>Мавзӯъ</span>
               <span>Манбаъ</span>
               <span>Синф</span>
-              <span>Саволҳо</span>
+              <span>Ҳолат</span>
+              <span>Амал</span>
             </div>
 
             {isLoading ? <p className="px-4 py-5 text-sm text-muted">Бор шуда истодааст...</p> : null}
@@ -193,10 +276,10 @@ export function TopicsPage({
             ) : null}
 
             {pagedTopics.items.map((topic) => (
-              <div key={topic.id} className="grid grid-cols-[1.4fr_1fr_1fr_120px] items-center border-b border-line px-4 py-4 text-sm last:border-0">
+              <div key={topic.id} className="grid grid-cols-[1.3fr_1fr_110px_120px_140px] items-center border-b border-line px-4 py-4 text-sm last:border-0">
                 <div>
                   <p className="font-semibold">{topic.title}</p>
-                  <p className="text-muted">{topic.description || 'Бе тавсиф'}</p>
+                  <p className="text-muted">{topic.questionCount} савол · {topic.description || 'Бе тавсиф'}</p>
                 </div>
                 <span className="inline-flex min-w-0 items-center gap-2 text-muted">
                   <Link2 className="h-4 w-4 shrink-0" />
@@ -206,7 +289,17 @@ export function TopicsPage({
                   <Layers className="h-4 w-4" />
                   {topic.grade || 'Нест'}
                 </span>
-                <span className="text-muted">{topic.questionCount}</span>
+                <span className={`w-fit rounded-md px-2 py-1 text-xs font-bold ${topic.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                  {topic.isActive ? 'Фаъол' : 'Ғайрифаъол'}
+                </span>
+                <div className="flex gap-2">
+                  <Button type="button" variant="secondary" className="h-9 px-3" onClick={() => startEdit(topic)}>
+                    <Edit3 className="h-4 w-4" />
+                  </Button>
+                  <Button type="button" variant="secondary" className="h-9 px-3 text-red-600 hover:bg-red-50" onClick={() => void handleDelete(topic)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
