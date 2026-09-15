@@ -68,6 +68,14 @@ export interface CreateGroupRequest {
   subjectIds: string[];
 }
 
+export interface UpdateGroupRequest {
+  name: string;
+  description: string | null;
+  branch: string;
+  isActive: boolean;
+  subjectIds: string[];
+}
+
 export interface AssignTeacherSubjectRequest {
   teacherId: string;
   subjectId: string;

@@ -1,17 +1,19 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
-  BookOpen,
   Building2,
   Check,
+  CheckCircle2,
   ClipboardList,
   Edit3,
   Layers,
   Plus,
   Search,
+  SlidersHorizontal,
   Trash2,
   Users,
   X,
+  XCircle,
 } from 'lucide-react';
 import { Button } from '../components/Button';
 import {
@@ -21,11 +23,12 @@ import {
   getSubjects,
   getUsers,
   removeStudentFromGroup,
+  updateGroup,
 } from '../services/api';
 import type { GroupDto, SubjectDto, UserDto } from '../types/admin';
 import { useAuth } from '../context/AuthContext';
 
-type GroupTab = 'students' | 'journals' | 'edit';
+type GroupTab = 'students' | 'journals' | 'edit' | 'other';
 
 const subjectBadgeColors = [
   'bg-violet-50 text-violet-700 border-violet-100',
@@ -48,6 +51,12 @@ export function GroupsPage() {
   const [description, setDescription] = useState('');
   const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [editName, setEditName] = useState('');
+  const [editBranch, setEditBranch] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editIsActive, setEditIsActive] = useState(true);
+  const [editSubjectIds, setEditSubjectIds] = useState<string[]>([]);
+  const [subjectToAddId, setSubjectToAddId] = useState('');
   const [query, setQuery] = useState('');
   const [studentQuery, setStudentQuery] = useState('');
   const [error, setError] = useState('');
@@ -55,6 +64,7 @@ export function GroupsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isStudentSubmitting, setIsStudentSubmitting] = useState(false);
+  const [isEditSubmitting, setIsEditSubmitting] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   useEffect(() => {
@@ -85,12 +95,18 @@ export function GroupsPage() {
   }
 
   function openGroup(groupId: string) {
+    const group = groups.find((candidate) => candidate.id === groupId);
     setSelectedGroupId(groupId);
     setActiveTab('students');
     setNotice('');
     setError('');
     setSelectedStudentId('');
     setStudentQuery('');
+    setSubjectToAddId('');
+
+    if (group) {
+      syncEditFields(group);
+    }
   }
 
   function closeGroup() {
@@ -105,6 +121,27 @@ export function GroupsPage() {
         ? current.filter((id) => id !== subjectId)
         : [...current, subjectId],
     );
+  }
+
+  function addEditSubject(subjectId: string) {
+    if (!subjectId) {
+      return;
+    }
+
+    setEditSubjectIds((current) => current.includes(subjectId) ? current : [...current, subjectId]);
+    setSubjectToAddId('');
+  }
+
+  function removeEditSubject(subjectId: string) {
+    setEditSubjectIds((current) => current.filter((id) => id !== subjectId));
+  }
+
+  function syncEditFields(group: GroupDto) {
+    setEditName(group.name);
+    setEditBranch(group.branch);
+    setEditDescription(group.description ?? '');
+    setEditIsActive(group.isActive);
+    setEditSubjectIds(group.subjects.map((subject) => subject.id));
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -177,6 +214,33 @@ export function GroupsPage() {
     }
   }
 
+  async function handleUpdateGroup(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!auth || !selectedGroup || !editName.trim() || !editBranch.trim()) {
+      return;
+    }
+
+    setIsEditSubmitting(true);
+    setError('');
+    setNotice('');
+    try {
+      const updatedGroup = await updateGroup(auth.accessToken, selectedGroup.id, {
+        name: editName.trim(),
+        branch: editBranch.trim(),
+        description: editDescription.trim() || null,
+        isActive: editIsActive,
+        subjectIds: editSubjectIds,
+      });
+      setGroups((current) => current.map((group) => (group.id === updatedGroup.id ? updatedGroup : group)));
+      syncEditFields(updatedGroup);
+      setNotice('Гурӯҳ таҳрир шуд.');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Гурӯҳ таҳрир нашуд.');
+    } finally {
+      setIsEditSubmitting(false);
+    }
+  }
+
   const filteredGroups = useMemo(() => {
     const value = query.trim().toLowerCase();
     if (!value) {
@@ -239,6 +303,13 @@ export function GroupsPage() {
                 <span className="rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-1.5 text-sm font-semibold text-indigo-700">
                   {selectedGroup.studentCount} хонанда
                 </span>
+                <span className={`rounded-lg border px-3 py-1.5 text-sm font-bold ${
+                  selectedGroup.isActive
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                    : 'border-red-200 bg-red-50 text-red-700'
+                }`}>
+                  {selectedGroup.isActive ? 'Фаъол' : 'Анҷомёфта'}
+                </span>
               </div>
             </div>
           </div>
@@ -248,6 +319,7 @@ export function GroupsPage() {
           <TabButton active={activeTab === 'students'} onClick={() => setActiveTab('students')} icon={Users} label="Хонандагон" />
           <TabButton active={activeTab === 'journals'} onClick={() => setActiveTab('journals')} icon={ClipboardList} label="Журналҳо" />
           <TabButton active={activeTab === 'edit'} onClick={() => setActiveTab('edit')} icon={Edit3} label="Таҳрир кардан" />
+          <TabButton active={activeTab === 'other'} onClick={() => setActiveTab('other')} icon={SlidersHorizontal} label="Дигар қисмҳо" />
         </div>
 
         {notice ? <p className="mb-5 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{notice}</p> : null}
@@ -336,9 +408,154 @@ export function GroupsPage() {
         ) : null}
 
         {activeTab === 'edit' ? (
-          <div className="rounded-lg border border-line bg-white px-4 py-5 text-sm text-muted">
-            Таҳрир кардани гурӯҳ дар қадами баъдӣ илова мешавад.
-          </div>
+          <form onSubmit={handleUpdateGroup} className="rounded-lg border border-line bg-white p-5">
+            <div className="mb-5 flex items-center gap-3">
+              <div className="grid h-10 w-10 place-items-center rounded-lg bg-brand/10 text-brand">
+                <Edit3 className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-bold">Таҳрир кардани гурӯҳ</h3>
+                <p className="text-sm text-muted">Ном, филиал ва тавсифи гурӯҳро тағйир диҳед.</p>
+              </div>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-3">
+              <label className="block">
+                <span className="text-sm font-semibold">Номи гурӯҳ</span>
+                <input
+                  value={editName}
+                  onChange={(event) => setEditName(event.target.value)}
+                  className="mt-2 h-11 w-full rounded-lg border border-line px-3 outline-none focus:border-brand"
+                  placeholder="Гурӯҳи A"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-sm font-semibold">Филиал</span>
+                <input
+                  value={editBranch}
+                  onChange={(event) => setEditBranch(event.target.value)}
+                  className="mt-2 h-11 w-full rounded-lg border border-line px-3 outline-none focus:border-brand"
+                  placeholder="Марказӣ"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-sm font-semibold">Тавсиф</span>
+                <input
+                  value={editDescription}
+                  onChange={(event) => setEditDescription(event.target.value)}
+                  className="mt-2 h-11 w-full rounded-lg border border-line px-3 outline-none focus:border-brand"
+                  placeholder="Тавсифи кӯтоҳ"
+                />
+              </label>
+            </div>
+
+            <Button type="submit" className="mt-5" disabled={isEditSubmitting || !editName.trim() || !editBranch.trim()}>
+              <Check className="h-4 w-4" />
+              {isEditSubmitting ? 'Нигоҳ дошта истодааст...' : 'Нигоҳ доштан'}
+            </Button>
+          </form>
+        ) : null}
+
+        {activeTab === 'other' ? (
+          <form onSubmit={handleUpdateGroup} className="rounded-lg border border-line bg-white p-5">
+            <div className="mb-5 flex items-center gap-3">
+              <div className="flex items-center gap-3">
+                <div className="grid h-10 w-10 place-items-center rounded-lg bg-brand/10 text-brand">
+                  <SlidersHorizontal className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold">Дигар қисмҳо</h3>
+                  <p className="text-sm text-muted">Фанҳои гурӯҳ ва ҳолати фаъолиятро идора кунед.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-5 xl:grid-cols-[360px_1fr]">
+              <div className="rounded-lg border border-line p-4">
+                <p className="text-sm font-semibold">Статуси гурӯҳ</p>
+                <div className="mt-3 grid grid-cols-2 gap-2 rounded-lg bg-panel p-1">
+                  <button
+                    type="button"
+                    onClick={() => setEditIsActive(true)}
+                    className={`inline-flex h-11 items-center justify-center gap-2 rounded-md text-sm font-bold transition ${
+                      editIsActive
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'text-muted hover:bg-white hover:text-emerald-700'
+                    }`}
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                    Фаъол
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditIsActive(false)}
+                    className={`inline-flex h-11 items-center justify-center gap-2 rounded-md text-sm font-bold transition ${
+                      !editIsActive
+                        ? 'bg-red-600 text-white shadow-sm'
+                        : 'text-muted hover:bg-white hover:text-red-700'
+                    }`}
+                  >
+                    <XCircle className="h-4 w-4" />
+                    Анҷом бахшидан
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-line p-4">
+                <label className="block">
+                  <span className="text-sm font-semibold">Илова кардани фан</span>
+                  <select
+                    value={subjectToAddId}
+                    onChange={(event) => addEditSubject(event.target.value)}
+                    className="mt-2 h-11 w-full rounded-lg border border-line bg-white px-3 outline-none focus:border-brand"
+                  >
+                    <option value="">Фанро интихоб кунед</option>
+                    {subjects
+                      .filter((subject) => subject.isActive && !editSubjectIds.includes(subject.id))
+                      .map((subject) => (
+                        <option key={subject.id} value={subject.id}>
+                          {subject.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {editSubjectIds.length > 0 ? (
+                    editSubjectIds.map((subjectId, index) => {
+                      const subject = subjects.find((candidate) => candidate.id === subjectId);
+                      return (
+                        <span
+                          key={subjectId}
+                          className={`inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-semibold ${subjectBadgeColors[index % subjectBadgeColors.length]}`}
+                        >
+                          {subject?.name ?? 'Фан'}
+                          <button
+                            type="button"
+                            onClick={() => removeEditSubject(subjectId)}
+                            className="grid h-5 w-5 place-items-center rounded-full hover:bg-black/5"
+                            aria-label="Гирифтани фан"
+                            title="Гирифтани фан"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </span>
+                      );
+                    })
+                  ) : (
+                    <span className="text-sm text-muted">Ба ин гурӯҳ ҳоло фан илова нашудааст.</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <Button type="submit" className="mt-5" disabled={isEditSubmitting || !editName.trim() || !editBranch.trim()}>
+              <Check className="h-4 w-4" />
+              {isEditSubmitting ? 'Нигоҳ дошта истодааст...' : 'Нигоҳ доштан'}
+            </Button>
+          </form>
         ) : null}
       </section>
     );
@@ -471,8 +688,12 @@ export function GroupsPage() {
                 <h3 className="text-lg font-bold text-ink">{group.name}</h3>
                 <p className="mt-1 text-sm text-muted">{group.description || 'Бе тавсиф'}</p>
               </div>
-              <span className={`rounded-md px-2 py-1 text-xs font-bold ${group.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
-                {group.isActive ? 'Фаъол' : 'Ғайрифаъол'}
+              <span className={`rounded-md border px-2 py-1 text-xs font-bold ${
+                group.isActive
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                  : 'border-red-200 bg-red-50 text-red-700'
+              }`}>
+                {group.isActive ? 'Фаъол' : 'Анҷомёфта'}
               </span>
             </div>
 

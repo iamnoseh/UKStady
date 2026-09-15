@@ -7,6 +7,7 @@ import type {
   AssignTeacherSubjectRequest,
   SubjectDto,
   TeacherSubjectAssignmentDto,
+  UpdateGroupRequest,
   UserDto,
 } from '../types/admin';
 import type { AuthResult, LoginRequest } from '../types/auth';
@@ -93,6 +94,13 @@ export function getGroups(token: string): Promise<GroupDto[]> {
 export function createGroup(token: string, body: CreateGroupRequest): Promise<GroupDto> {
   return request<GroupDto>('/api/groups', token, {
     method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateGroup(token: string, groupId: string, body: UpdateGroupRequest): Promise<GroupDto> {
+  return request<GroupDto>(`/api/groups/${groupId}`, token, {
+    method: 'PUT',
     body: JSON.stringify(body),
   });
 }

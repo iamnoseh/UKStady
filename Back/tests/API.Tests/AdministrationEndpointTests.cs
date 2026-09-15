@@ -102,6 +102,22 @@ public sealed class AdministrationEndpointTests : IClassFixture<TestApiFactory>
         Assert.NotNull(group);
         Assert.Equal("Central branch", group.Branch);
         Assert.Equal(2, group.Subjects.Count);
+
+        using var updateResponse = await client.PutAsJsonAsync(
+            $"/api/groups/{group.Id}",
+            new UpdateGroupRequest(
+                group.Name,
+                group.Description,
+                "North branch",
+                false,
+                [firstSubject.Id]));
+
+        updateResponse.EnsureSuccessStatusCode();
+        var updatedGroup = await updateResponse.Content.ReadFromJsonAsync<GroupDto>();
+        Assert.NotNull(updatedGroup);
+        Assert.Equal("North branch", updatedGroup.Branch);
+        Assert.False(updatedGroup.IsActive);
+        Assert.Single(updatedGroup.Subjects);
     }
 
     [Fact]
