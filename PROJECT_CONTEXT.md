@@ -69,7 +69,7 @@ Subject -> Topic -> Question Bank -> Daily Lesson -> Randomized Test -> GradeEnt
 
 ## Ҳудуди MVP
 
-- Login бо JWT ва RBAC.
+- Login бо рақами телефон, password, JWT ва RBAC.
 - 5 нақши корбар.
 - Идоракунии users, groups, subjects, topics.
 - Бонки саволҳои тестӣ.
@@ -80,7 +80,14 @@ Subject -> Topic -> Question Bank -> Daily Lesson -> Randomized Test -> GradeEnt
 - Gradebook барои teacher, manager, admin ва student history.
 - Dashboard-и содда барои ҳар нақш.
 
+## Қоидаи account-и донишҷӯ ва муаллим
+
+- Админ ё менеджер ҳангоми сохтани донишҷӯ/муаллим рақами телефонро ҳамчун login ворид мекунад.
+- Password аз тугмаи алоҳида generated мешавад.
+- Қоидаи password-и generated: 6 рамз, яъне 5 рақам ва 1 ҳарфи англисӣ.
+- Агар админ password-и generated-ро қабул кунад, ҳамон password hash шуда дар database нигоҳ дошта мешавад.
+- Корбар баъд бо рақами телефон ва password ворид мешавад.
+
 ## Берун аз MVP
 
 Чат, видеодарс, сертификат, рейтинг, gamification, mobile app, analytics-и мураккаб, question import/export, proctoring, push notification.
-

@@ -53,6 +53,10 @@ public static class AdministrationEndpoints
         })
         .WithName("CreateUser");
 
+        group.MapGet("/generated-password", (IAdministrationService service) =>
+            Results.Ok(service.GenerateUserPassword()))
+            .WithName("GenerateUserPassword");
+
         group.MapPut("/{id:guid}", async (
             Guid id,
             [FromBody] UpdateUserRequest request,
@@ -280,16 +284,15 @@ public static class AdministrationEndpoints
     {
         if (string.IsNullOrWhiteSpace(request.FirstName) ||
             string.IsNullOrWhiteSpace(request.LastName) ||
-            string.IsNullOrWhiteSpace(request.UserName) ||
-            string.IsNullOrWhiteSpace(request.Email) ||
+            string.IsNullOrWhiteSpace(request.PhoneNumber) ||
             string.IsNullOrWhiteSpace(request.Password))
         {
-            return "FirstName, LastName, UserName, Email and Password are required.";
+            return "FirstName, LastName, PhoneNumber and Password are required.";
         }
 
-        if (request.Password.Length < 8)
+        if (!IsGeneratedPasswordShape(request.Password))
         {
-            return "Password must contain at least 8 characters.";
+            return "Password must contain exactly 5 digits and 1 English letter.";
         }
 
         return null;
@@ -299,13 +302,28 @@ public static class AdministrationEndpoints
     {
         if (string.IsNullOrWhiteSpace(request.FirstName) ||
             string.IsNullOrWhiteSpace(request.LastName) ||
-            string.IsNullOrWhiteSpace(request.UserName) ||
-            string.IsNullOrWhiteSpace(request.Email))
+            string.IsNullOrWhiteSpace(request.PhoneNumber))
         {
-            return "FirstName, LastName, UserName and Email are required.";
+            return "FirstName, LastName and PhoneNumber are required.";
         }
 
         return null;
     }
-}
 
+    private static bool IsGeneratedPasswordShape(string password)
+    {
+        return password.Length == 6 &&
+            password.Count(IsAsciiDigit) == 5 &&
+            password.Count(IsEnglishLetter) == 1;
+    }
+
+    private static bool IsAsciiDigit(char value)
+    {
+        return value is >= '0' and <= '9';
+    }
+
+    private static bool IsEnglishLetter(char value)
+    {
+        return value is >= 'A' and <= 'Z' or >= 'a' and <= 'z';
+    }
+}

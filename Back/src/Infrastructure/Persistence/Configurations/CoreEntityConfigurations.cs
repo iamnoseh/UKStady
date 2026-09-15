@@ -14,18 +14,21 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(user => user.FirstName).HasMaxLength(100).IsRequired();
         builder.Property(user => user.LastName).HasMaxLength(100).IsRequired();
         builder.Property(user => user.MiddleName).HasMaxLength(100);
+        builder.Property(user => user.PhoneNumber).HasMaxLength(30).IsRequired();
         builder.Property(user => user.UserName).HasMaxLength(80).IsRequired();
         builder.Property(user => user.Email).HasMaxLength(255).IsRequired();
         builder.Property(user => user.PasswordHash).HasMaxLength(500).IsRequired();
         builder.Property(user => user.Role).HasConversion<string>().HasMaxLength(30).IsRequired();
         builder.HasIndex(user => user.UserName).IsUnique();
         builder.HasIndex(user => user.Email).IsUnique();
+        builder.HasIndex(user => user.PhoneNumber).IsUnique();
 
         builder.HasData(new User
         {
             Id = SeedIds.SuperAdminUserId,
             FirstName = "System",
             LastName = "Administrator",
+            PhoneNumber = "+992000000000",
             UserName = "superadmin",
             Email = "superadmin@ukstady.local",
             PasswordHash = "$2b$10$RzitZs5gDWdUufRQfxvAm.M2Bm64tpJOPBd/JCQMcKX4qBuvOcL5.",

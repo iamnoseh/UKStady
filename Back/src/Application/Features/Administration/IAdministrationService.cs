@@ -6,6 +6,8 @@ public interface IAdministrationService
 
     Task<UserDto?> GetUserAsync(Guid id, CancellationToken cancellationToken);
 
+    GeneratedPasswordDto GenerateUserPassword();
+
     Task<UserDto> CreateUserAsync(CreateUserRequest request, CancellationToken cancellationToken);
 
     Task<UserDto?> UpdateUserAsync(Guid id, UpdateUserRequest request, CancellationToken cancellationToken);
@@ -48,4 +50,3 @@ public interface IAdministrationService
 
     Task<DashboardSummaryDto> GetDashboardSummaryAsync(CancellationToken cancellationToken);
 }
-

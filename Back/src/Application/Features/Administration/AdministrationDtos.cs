@@ -7,6 +7,7 @@ public sealed record UserDto(
     string FirstName,
     string LastName,
     string? MiddleName,
+    string PhoneNumber,
     string UserName,
     string Email,
     UserRole Role,
@@ -16,19 +17,23 @@ public sealed record CreateUserRequest(
     string FirstName,
     string LastName,
     string? MiddleName,
-    string UserName,
-    string Email,
+    string PhoneNumber,
     string Password,
-    UserRole Role);
+    UserRole Role,
+    string? UserName = null,
+    string? Email = null);
 
 public sealed record UpdateUserRequest(
     string FirstName,
     string LastName,
     string? MiddleName,
-    string UserName,
-    string Email,
+    string PhoneNumber,
     UserRole Role,
-    bool IsActive);
+    bool IsActive,
+    string? UserName = null,
+    string? Email = null);
+
+public sealed record GeneratedPasswordDto(string Password);
 
 public sealed record GroupDto(Guid Id, string Name, string? Description, bool IsActive, int StudentCount);
 
@@ -60,4 +65,3 @@ public sealed record DashboardSummaryDto(
     int ActiveGroups,
     int ActiveSubjects,
     int TeacherAssignments);
-

@@ -35,7 +35,7 @@ Endpoint-ҳои skeleton:
 - `GET /swagger` дар Development
 - `GET /api/system/info`
 
-Login-и seed барои development:
+Login-и seed барои development бо рақами телефон:
 
-- username: `superadmin`
+- phone: `+992000000000`
 - password: `Admin123!`

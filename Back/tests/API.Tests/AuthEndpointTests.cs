@@ -21,7 +21,7 @@ public sealed class AuthEndpointTests : IClassFixture<TestApiFactory>
 
         using var response = await client.PostAsJsonAsync(
             "/api/auth/login",
-            new LoginRequest("teacher", TestApiFactory.TestPassword));
+            new LoginRequest("+992111111111", TestApiFactory.TestPassword));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
@@ -38,7 +38,7 @@ public sealed class AuthEndpointTests : IClassFixture<TestApiFactory>
 
         using var response = await client.PostAsJsonAsync(
             "/api/auth/login",
-            new LoginRequest("superadmin", "Admin123!"));
+            new LoginRequest("+992000000000", "Admin123!"));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
@@ -54,7 +54,7 @@ public sealed class AuthEndpointTests : IClassFixture<TestApiFactory>
 
         using var response = await client.PostAsJsonAsync(
             "/api/auth/login",
-            new LoginRequest("teacher", "wrong-password"));
+            new LoginRequest("+992111111111", "wrong-password"));
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
@@ -75,7 +75,7 @@ public sealed class AuthEndpointTests : IClassFixture<TestApiFactory>
         using var client = _factory.CreateClient();
         var login = await client.PostAsJsonAsync(
             "/api/auth/login",
-            new LoginRequest("teacher@ukstady.local", TestApiFactory.TestPassword));
+            new LoginRequest("+992111111111", TestApiFactory.TestPassword));
         var result = await login.Content.ReadFromJsonAsync<AuthResult>();
 
         client.DefaultRequestHeaders.Authorization =
@@ -91,7 +91,7 @@ public sealed class AuthEndpointTests : IClassFixture<TestApiFactory>
         using var client = _factory.CreateClient();
         var login = await client.PostAsJsonAsync(
             "/api/auth/login",
-            new LoginRequest("superadmin", "Admin123!"));
+            new LoginRequest("+992000000000", "Admin123!"));
         var result = await login.Content.ReadFromJsonAsync<AuthResult>();
 
         return result?.AccessToken ?? throw new InvalidOperationException("SuperAdmin login failed.");

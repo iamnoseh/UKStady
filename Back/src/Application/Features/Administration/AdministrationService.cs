@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
 using UKStady.Application.Common.Interfaces;
 using UKStady.Domain.Entities;
 using UKStady.Domain.Enums;
@@ -7,6 +8,7 @@ namespace UKStady.Application.Features.Administration;
 
 public sealed class AdministrationService : IAdministrationService
 {
+    private const string EnglishLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
     private readonly IAppDbContext _dbContext;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IDateTimeProvider _dateTimeProvider;
@@ -40,15 +42,37 @@ public sealed class AdministrationService : IAdministrationService
             .FirstOrDefaultAsync(cancellationToken);
     }
 
+    public GeneratedPasswordDto GenerateUserPassword()
+    {
+        Span<char> password = stackalloc char[6];
+
+        for (var index = 0; index < 5; index++)
+        {
+            password[index] = (char)('0' + RandomNumberGenerator.GetInt32(0, 10));
+        }
+
+        password[5] = EnglishLetters[RandomNumberGenerator.GetInt32(0, EnglishLetters.Length)];
+
+        for (var index = password.Length - 1; index > 0; index--)
+        {
+            var swapIndex = RandomNumberGenerator.GetInt32(0, index + 1);
+            (password[index], password[swapIndex]) = (password[swapIndex], password[index]);
+        }
+
+        return new GeneratedPasswordDto(password.ToString());
+    }
+
     public async Task<UserDto> CreateUserAsync(CreateUserRequest request, CancellationToken cancellationToken)
     {
+        var phoneNumber = NormalizePhoneNumber(request.PhoneNumber);
         var user = new User
         {
             FirstName = request.FirstName.Trim(),
             LastName = request.LastName.Trim(),
             MiddleName = string.IsNullOrWhiteSpace(request.MiddleName) ? null : request.MiddleName.Trim(),
-            UserName = request.UserName.Trim(),
-            Email = request.Email.Trim(),
+            PhoneNumber = phoneNumber,
+            UserName = string.IsNullOrWhiteSpace(request.UserName) ? phoneNumber : request.UserName.Trim(),
+            Email = string.IsNullOrWhiteSpace(request.Email) ? $"{phoneNumber}@ukstady.local" : request.Email.Trim(),
             PasswordHash = _passwordHasher.Hash(request.Password),
             Role = request.Role,
             IsActive = true
@@ -71,8 +95,9 @@ public sealed class AdministrationService : IAdministrationService
         user.FirstName = request.FirstName.Trim();
         user.LastName = request.LastName.Trim();
         user.MiddleName = string.IsNullOrWhiteSpace(request.MiddleName) ? null : request.MiddleName.Trim();
-        user.UserName = request.UserName.Trim();
-        user.Email = request.Email.Trim();
+        user.PhoneNumber = NormalizePhoneNumber(request.PhoneNumber);
+        user.UserName = string.IsNullOrWhiteSpace(request.UserName) ? user.PhoneNumber : request.UserName.Trim();
+        user.Email = string.IsNullOrWhiteSpace(request.Email) ? $"{user.PhoneNumber}@ukstady.local" : request.Email.Trim();
         user.Role = request.Role;
         user.IsActive = request.IsActive;
 
@@ -400,10 +425,15 @@ public sealed class AdministrationService : IAdministrationService
             user.FirstName,
             user.LastName,
             user.MiddleName,
+            user.PhoneNumber,
             user.UserName,
             user.Email,
             user.Role,
             user.IsActive);
     }
-}
 
+    private static string NormalizePhoneNumber(string phoneNumber)
+    {
+        return phoneNumber.Trim().Replace(" ", string.Empty);
+    }
+}

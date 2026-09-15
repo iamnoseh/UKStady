@@ -30,7 +30,7 @@ public sealed class AdministrationEndpointTests : IClassFixture<TestApiFactory>
     public async Task Users_WithTeacherToken_ReturnsForbidden()
     {
         using var client = _factory.CreateClient();
-        await AuthorizeAsync(client, "teacher", TestApiFactory.TestPassword);
+        await AuthorizeAsync(client, "+992111111111", TestApiFactory.TestPassword);
 
         using var response = await client.GetAsync("/api/users");
 
@@ -41,10 +41,14 @@ public sealed class AdministrationEndpointTests : IClassFixture<TestApiFactory>
     public async Task ManagerWorkflow_CreatesCoreAdministrationRecords()
     {
         using var client = _factory.CreateClient();
-        await AuthorizeAsync(client, "superadmin", "Admin123!");
+        await AuthorizeAsync(client, "+992000000000", "Admin123!");
 
-        var teacher = await CreateUserAsync(client, UserRole.Teacher, "teacher-admin-flow");
-        var student = await CreateUserAsync(client, UserRole.Student, "student-admin-flow");
+        var generatedPassword = await client.GetFromJsonAsync<GeneratedPasswordDto>("/api/users/generated-password");
+        Assert.NotNull(generatedPassword);
+        Assert.True(IsGeneratedPasswordShape(generatedPassword.Password));
+
+        var teacher = await CreateUserAsync(client, UserRole.Teacher, "teacher-admin-flow", "+992200000001", generatedPassword.Password);
+        var student = await CreateUserAsync(client, UserRole.Student, "student-admin-flow", "+992200000002", "12345A");
         var group = await CreateGroupAsync(client);
         var subject = await CreateSubjectAsync(client);
 
@@ -79,7 +83,12 @@ public sealed class AdministrationEndpointTests : IClassFixture<TestApiFactory>
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", result?.AccessToken);
     }
 
-    private static async Task<UserDto> CreateUserAsync(HttpClient client, UserRole role, string userName)
+    private static async Task<UserDto> CreateUserAsync(
+        HttpClient client,
+        UserRole role,
+        string userName,
+        string phoneNumber,
+        string password)
     {
         using var response = await client.PostAsJsonAsync(
             "/api/users",
@@ -87,10 +96,11 @@ public sealed class AdministrationEndpointTests : IClassFixture<TestApiFactory>
                 "Test",
                 role.ToString(),
                 null,
+                phoneNumber,
+                password,
+                role,
                 userName,
-                $"{userName}@ukstady.local",
-                "Password123!",
-                role));
+                $"{userName}@ukstady.local"));
 
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<UserDto>()
@@ -118,5 +128,21 @@ public sealed class AdministrationEndpointTests : IClassFixture<TestApiFactory>
         return await response.Content.ReadFromJsonAsync<SubjectDto>()
             ?? throw new InvalidOperationException("Subject response was empty.");
     }
-}
 
+    private static bool IsGeneratedPasswordShape(string password)
+    {
+        return password.Length == 6 &&
+            password.Count(IsAsciiDigit) == 5 &&
+            password.Count(IsEnglishLetter) == 1;
+    }
+
+    private static bool IsAsciiDigit(char value)
+    {
+        return value is >= '0' and <= '9';
+    }
+
+    private static bool IsEnglishLetter(char value)
+    {
+        return value is >= 'A' and <= 'Z' or >= 'a' and <= 'z';
+    }
+}

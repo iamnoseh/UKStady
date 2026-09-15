@@ -44,6 +44,7 @@ public sealed class TestApiFactory : WebApplicationFactory<Program>
                 Id = Guid.Parse("22222222-2222-2222-2222-222222222222"),
                 FirstName = "Test",
                 LastName = "Teacher",
+                PhoneNumber = "+992111111111",
                 UserName = "teacher",
                 Email = "teacher@ukstady.local",
                 PasswordHash = passwordHasher.Hash(TestPassword),

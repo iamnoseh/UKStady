@@ -16,10 +16,10 @@ public static class AuthEndpoints
             IAuthService authService,
             CancellationToken cancellationToken) =>
         {
-            if (string.IsNullOrWhiteSpace(request.UserNameOrEmail) ||
+            if (string.IsNullOrWhiteSpace(request.PhoneNumber) ||
                 string.IsNullOrWhiteSpace(request.Password))
             {
-                return Results.BadRequest(new { message = "UserNameOrEmail and Password are required." });
+                return Results.BadRequest(new { message = "PhoneNumber and Password are required." });
             }
 
             var result = await authService.LoginAsync(request, cancellationToken);
@@ -43,4 +43,3 @@ public static class AuthEndpoints
         return endpoints;
     }
 }
-

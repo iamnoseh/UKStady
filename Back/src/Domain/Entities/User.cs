@@ -11,6 +11,8 @@ public sealed class User : AuditableEntity
 
     public string? MiddleName { get; set; }
 
+    public string PhoneNumber { get; set; } = string.Empty;
+
     public string UserName { get; set; } = string.Empty;
 
     public string Email { get; set; } = string.Empty;
@@ -31,4 +33,3 @@ public sealed class User : AuditableEntity
 
     public ICollection<GradeEntry> GradeEntries { get; set; } = [];
 }
-

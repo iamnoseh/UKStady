@@ -21,13 +21,13 @@ public sealed class AuthService : IAuthService
 
     public async Task<AuthResult?> LoginAsync(LoginRequest request, CancellationToken cancellationToken)
     {
-        var login = request.UserNameOrEmail.Trim();
+        var phoneNumber = NormalizePhoneNumber(request.PhoneNumber);
 
         var user = await _dbContext.Users
             .AsNoTracking()
             .FirstOrDefaultAsync(candidate =>
                 candidate.IsActive &&
-                (candidate.UserName == login || candidate.Email == login),
+                candidate.PhoneNumber == phoneNumber,
                 cancellationToken);
 
         if (user is null || !_passwordHasher.Verify(request.Password, user.PasswordHash))
@@ -42,11 +42,16 @@ public sealed class AuthService : IAuthService
 
         return new AuthResult(
             user.Id,
+            user.PhoneNumber,
             user.UserName,
             user.Email,
             fullName,
             user.Role,
             _jwtTokenGenerator.GenerateToken(user));
     }
-}
 
+    private static string NormalizePhoneNumber(string phoneNumber)
+    {
+        return phoneNumber.Trim().Replace(" ", string.Empty);
+    }
+}
