@@ -1,6 +1,8 @@
 import type {
   CreateSubjectRequest,
   CreateTopicRequest,
+  DashboardDailyResultsDto,
+  DashboardDailyResultsSort,
   CreateQuestionRequest,
   CreateGroupRequest,
   CreateUserRequest,
@@ -189,6 +191,25 @@ export function removeStudentFromGroup(token: string, groupId: string, studentId
 
 export function getGroupJournal(token: string, groupId: string): Promise<GroupJournalDto> {
   return request<GroupJournalDto>(`/api/group-journals/${groupId}`, token);
+}
+
+export function getDashboardDailyResults(
+  token: string,
+  filters: { date?: string; groupId?: string; sort?: DashboardDailyResultsSort },
+): Promise<DashboardDailyResultsDto> {
+  const searchParams = new URLSearchParams();
+  if (filters.date) {
+    searchParams.set('date', filters.date);
+  }
+  if (filters.groupId) {
+    searchParams.set('groupId', filters.groupId);
+  }
+  if (filters.sort) {
+    searchParams.set('sort', filters.sort);
+  }
+
+  const query = searchParams.toString();
+  return request<DashboardDailyResultsDto>(`/api/admin/dashboard/daily-results${query ? `?${query}` : ''}`, token);
 }
 
 export function createTodayGroupLesson(

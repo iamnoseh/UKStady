@@ -311,6 +311,17 @@ public static class AdministrationEndpoints
             .WithTags("Dashboard")
             .RequireAuthorization(AuthorizationPolicies.Managers)
             .WithName("GetAdminDashboard");
+
+        endpoints.MapGet("/api/admin/dashboard/daily-results", async (
+            [FromQuery] DateOnly? date,
+            [FromQuery] Guid? groupId,
+            [FromQuery] string? sort,
+            IAdministrationService service,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await service.GetDashboardDailyResultsAsync(date, groupId, sort, cancellationToken)))
+            .WithTags("Dashboard")
+            .RequireAuthorization(AuthorizationPolicies.Managers)
+            .WithName("GetAdminDashboardDailyResults");
     }
 
     private static string? ValidateCreateUser(CreateUserRequest request)

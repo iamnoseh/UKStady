@@ -83,3 +83,25 @@ public sealed record DashboardSummaryDto(
     int ActiveGroups,
     int ActiveSubjects,
     int TeacherAssignments);
+
+public sealed record DashboardDailyResultsDto(
+    DateOnly Date,
+    int TotalResults,
+    decimal? AverageScore,
+    IReadOnlyList<DashboardDailyStudentResultDto> Results);
+
+public sealed record DashboardDailyStudentResultDto(
+    Guid StudentId,
+    string StudentName,
+    string PhoneNumber,
+    Guid GroupId,
+    string GroupName,
+    string Branch,
+    Guid SubjectId,
+    string SubjectName,
+    Guid DailyLessonId,
+    string LessonTitle,
+    Guid? TopicId,
+    string? TopicTitle,
+    decimal Score,
+    string AttendanceStatus);

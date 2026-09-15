@@ -12,15 +12,18 @@ public sealed class AdministrationService : IAdministrationService
     private readonly IAppDbContext _dbContext;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IDateTimeProvider _dateTimeProvider;
+    private readonly ITimeZoneProvider _timeZoneProvider;
 
     public AdministrationService(
         IAppDbContext dbContext,
         IPasswordHasher passwordHasher,
-        IDateTimeProvider dateTimeProvider)
+        IDateTimeProvider dateTimeProvider,
+        ITimeZoneProvider timeZoneProvider)
     {
         _dbContext = dbContext;
         _passwordHasher = passwordHasher;
         _dateTimeProvider = dateTimeProvider;
+        _timeZoneProvider = timeZoneProvider;
     }
 
     public async Task<IReadOnlyList<UserDto>> GetUsersAsync(CancellationToken cancellationToken)
@@ -534,6 +537,84 @@ public sealed class AdministrationService : IAdministrationService
             teacherAssignments);
     }
 
+    public async Task<DashboardDailyResultsDto> GetDashboardDailyResultsAsync(
+        DateOnly? date,
+        Guid? groupId,
+        string? sort,
+        CancellationToken cancellationToken)
+    {
+        var targetDate = date ?? GetBusinessToday().AddDays(-1);
+        var normalizedSort = string.IsNullOrWhiteSpace(sort) ? "scoreAsc" : sort.Trim();
+
+        var query = _dbContext.TestAssignments
+            .AsNoTracking()
+            .Where(assignment => assignment.DailyLesson.LessonDate == targetDate);
+
+        if (groupId.HasValue)
+        {
+            query = query.Where(assignment => assignment.GroupId == groupId.Value);
+        }
+
+        var resultsQuery = query.SelectMany(
+            assignment => assignment.DailyLesson.GradeEntries
+                .Where(grade => assignment.Group.Students.Any(groupStudent => groupStudent.StudentId == grade.StudentId)),
+            (assignment, grade) => new
+            {
+                grade.StudentId,
+                StudentName = grade.Student.FirstName + " " + grade.Student.LastName,
+                grade.Student.PhoneNumber,
+                assignment.GroupId,
+                GroupName = assignment.Group.Name,
+                assignment.Group.Branch,
+                assignment.DailyLesson.SubjectId,
+                SubjectName = assignment.DailyLesson.Subject.Name,
+                assignment.DailyLessonId,
+                LessonTitle = assignment.DailyLesson.Title,
+                assignment.DailyLesson.TopicId,
+                TopicTitle = assignment.DailyLesson.Topic == null ? null : assignment.DailyLesson.Topic.Title,
+                Score = grade.FinalScore ?? grade.AutoScore,
+                grade.AttendanceStatus
+            });
+
+        resultsQuery = string.Equals(normalizedSort, "scoreDesc", StringComparison.OrdinalIgnoreCase)
+            ? resultsQuery
+                .OrderByDescending(result => result.Score)
+                .ThenBy(result => result.StudentName)
+                .ThenBy(result => result.SubjectName)
+            : resultsQuery
+                .OrderBy(result => result.Score)
+                .ThenBy(result => result.StudentName)
+                .ThenBy(result => result.SubjectName);
+
+        var rows = await resultsQuery.ToListAsync(cancellationToken);
+        var results = rows
+            .Select(row => new DashboardDailyStudentResultDto(
+                row.StudentId,
+                row.StudentName,
+                row.PhoneNumber,
+                row.GroupId,
+                row.GroupName,
+                row.Branch,
+                row.SubjectId,
+                row.SubjectName,
+                row.DailyLessonId,
+                row.LessonTitle,
+                row.TopicId,
+                row.TopicTitle,
+                row.Score,
+                row.AttendanceStatus.ToString()))
+            .ToList();
+        var averageScore = results.Count == 0
+            ? (decimal?)null
+            : Math.Round(results.Average(result => result.Score), 2);
+
+        return new DashboardDailyResultsDto(
+            targetDate,
+            results.Count,
+            averageScore,
+            results);
+    }
+
     private static UserDto ToUserDto(User user)
     {
         return new UserDto(
@@ -576,5 +657,11 @@ public sealed class AdministrationService : IAdministrationService
     private static string NormalizePhoneNumber(string phoneNumber)
     {
         return phoneNumber.Trim().Replace(" ", string.Empty);
+    }
+
+    private DateOnly GetBusinessToday()
+    {
+        var localNow = TimeZoneInfo.ConvertTime(_dateTimeProvider.UtcNow, _timeZoneProvider.BusinessTimeZone);
+        return DateOnly.FromDateTime(localNow.DateTime);
     }
 }

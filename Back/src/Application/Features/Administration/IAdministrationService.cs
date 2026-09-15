@@ -60,4 +60,10 @@ public interface IAdministrationService
     Task<IReadOnlyList<TeacherAssignmentDto>> GetTeacherAssignmentsAsync(CancellationToken cancellationToken);
 
     Task<DashboardSummaryDto> GetDashboardSummaryAsync(CancellationToken cancellationToken);
+
+    Task<DashboardDailyResultsDto> GetDashboardDailyResultsAsync(
+        DateOnly? date,
+        Guid? groupId,
+        string? sort,
+        CancellationToken cancellationToken);
 }

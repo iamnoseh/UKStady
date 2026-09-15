@@ -33,7 +33,9 @@ public sealed class JwtTokenGenerator : IJwtTokenGenerator
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SigningKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-        var expires = _dateTimeProvider.UtcNow.AddMinutes(_options.ExpirationMinutes).UtcDateTime;
+        var expires = _options.ExpirationMinutes <= 0
+            ? (DateTime?)null
+            : _dateTimeProvider.UtcNow.AddMinutes(_options.ExpirationMinutes).UtcDateTime;
 
         var token = new JwtSecurityToken(
             issuer: _options.Issuer,
