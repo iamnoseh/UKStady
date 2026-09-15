@@ -34,3 +34,8 @@ Endpoint-ҳои skeleton:
 - `GET /openapi/v1.json` дар Development
 - `GET /swagger` дар Development
 - `GET /api/system/info`
+
+Login-и seed барои development:
+
+- username: `superadmin`
+- password: `Admin123!`

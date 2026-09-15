@@ -427,7 +427,7 @@ namespace UKStady.Infrastructure.Persistence.Migrations
             migrationBuilder.InsertData(
                 table: "users",
                 columns: new[] { "Id", "CreatedAtUtc", "Email", "FirstName", "IsActive", "LastName", "MiddleName", "PasswordHash", "Role", "UpdatedAtUtc", "UserName" },
-                values: new object[] { new Guid("11111111-1111-1111-1111-111111111111"), new DateTimeOffset(new DateTime(2026, 9, 15, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), "superadmin@ukstady.local", "System", true, "Administrator", null, "CHANGE_ME_AFTER_AUTH_IS_IMPLEMENTED", "SuperAdmin", null, "superadmin" });
+                values: new object[] { new Guid("11111111-1111-1111-1111-111111111111"), new DateTimeOffset(new DateTime(2026, 9, 15, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)), "superadmin@ukstady.local", "System", true, "Administrator", null, "$2b$10$RzitZs5gDWdUufRQfxvAm.M2Bm64tpJOPBd/JCQMcKX4qBuvOcL5.", "SuperAdmin", null, "superadmin" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_attempt_questions_QuestionId",

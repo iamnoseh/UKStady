@@ -45,12 +45,12 @@
 
 ## Марҳилаи 3: Authentication ва RBAC
 
-- [ ] Password hashing service.
-- [ ] JWT generator.
-- [ ] Login endpoint.
-- [ ] Current user service.
-- [ ] Authorization policies барои 5 нақш.
-- [ ] Integration tests барои unauthorized/forbidden cases.
+- [x] Password hashing service.
+- [x] JWT generator.
+- [x] Login endpoint.
+- [x] Current user service.
+- [x] Authorization policies барои 5 нақш.
+- [x] Integration tests барои unauthorized/forbidden cases.
 
 ## Марҳилаи 4: Admin/Manager APIs
 

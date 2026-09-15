@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using UKStady.Application.Common.Interfaces;
+using UKStady.Infrastructure.Auth;
 using UKStady.Infrastructure.Persistence;
 using UKStady.Infrastructure.Services;
 
@@ -13,6 +14,11 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        services.Configure<JwtOptions>(options =>
+        {
+            configuration.GetSection(JwtOptions.SectionName).Bind(options);
+        });
+
         var connectionString = configuration.GetConnectionString("DefaultConnection")
             ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
 
@@ -22,6 +28,8 @@ public static class DependencyInjection
         services.AddScoped<IAppDbContext>(provider => provider.GetRequiredService<AppDbContext>());
         services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
         services.AddSingleton<ITimeZoneProvider, TimeZoneProvider>();
+        services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
+        services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 
         return services;
     }

@@ -583,7 +583,7 @@ namespace UKStady.Infrastructure.Persistence.Migrations
                             FirstName = "System",
                             IsActive = true,
                             LastName = "Administrator",
-                            PasswordHash = "CHANGE_ME_AFTER_AUTH_IS_IMPLEMENTED",
+                            PasswordHash = "$2b$10$RzitZs5gDWdUufRQfxvAm.M2Bm64tpJOPBd/JCQMcKX4qBuvOcL5.",
                             Role = "SuperAdmin",
                             UserName = "superadmin"
                         });

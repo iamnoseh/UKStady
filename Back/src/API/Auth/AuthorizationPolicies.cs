@@ -1,0 +1,30 @@
+using Microsoft.AspNetCore.Authorization;
+using UKStady.Domain.Enums;
+
+namespace UKStady.API.Auth;
+
+public static class AuthorizationPolicies
+{
+    public const string Administrators = nameof(Administrators);
+    public const string Managers = nameof(Managers);
+    public const string Teachers = nameof(Teachers);
+    public const string Students = nameof(Students);
+
+    public static void AddRolePolicies(this AuthorizationOptions options)
+    {
+        options.AddPolicy(Administrators, policy =>
+            policy.RequireRole(UserRole.SuperAdmin.ToString(), UserRole.Admin.ToString()));
+
+        options.AddPolicy(Managers, policy =>
+            policy.RequireRole(
+                UserRole.SuperAdmin.ToString(),
+                UserRole.Admin.ToString(),
+                UserRole.Manager.ToString()));
+
+        options.AddPolicy(Teachers, policy =>
+            policy.RequireRole(UserRole.Teacher.ToString()));
+
+        options.AddPolicy(Students, policy =>
+            policy.RequireRole(UserRole.Student.ToString()));
+    }
+}

@@ -28,7 +28,7 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             LastName = "Administrator",
             UserName = "superadmin",
             Email = "superadmin@ukstady.local",
-            PasswordHash = "CHANGE_ME_AFTER_AUTH_IS_IMPLEMENTED",
+            PasswordHash = "$2b$10$RzitZs5gDWdUufRQfxvAm.M2Bm64tpJOPBd/JCQMcKX4qBuvOcL5.",
             Role = UserRole.SuperAdmin,
             IsActive = true,
             CreatedAtUtc = SeedIds.SeedCreatedAtUtc
@@ -307,4 +307,3 @@ internal static class SeedIds
 
     public static readonly DateTimeOffset SeedCreatedAtUtc = new(2026, 9, 15, 0, 0, 0, TimeSpan.Zero);
 }
-
