@@ -153,7 +153,7 @@ public sealed class TeachingEndpointTests : IClassFixture<TestApiFactory>
     {
         using var response = await client.PostAsJsonAsync(
             "/api/topics",
-            new CreateTopicRequest(subjectId, "Mechanics", null));
+            new CreateTopicRequest(subjectId, "Mechanics", null, null, null));
 
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<TopicDto>()

@@ -103,6 +103,8 @@ public sealed class TopicConfiguration : IEntityTypeConfiguration<Topic>
         builder.HasKey(topic => topic.Id);
         builder.Property(topic => topic.Title).HasMaxLength(200).IsRequired();
         builder.Property(topic => topic.Description).HasMaxLength(1000);
+        builder.Property(topic => topic.Source).HasMaxLength(500);
+        builder.Property(topic => topic.Grade).HasMaxLength(100);
         builder.HasOne(topic => topic.Subject)
             .WithMany(subject => subject.Topics)
             .HasForeignKey(topic => topic.SubjectId)

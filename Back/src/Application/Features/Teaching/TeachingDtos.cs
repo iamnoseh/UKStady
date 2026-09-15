@@ -8,12 +8,14 @@ public sealed record TopicDto(
     string SubjectName,
     string Title,
     string? Description,
+    string? Source,
+    string? Grade,
     bool IsActive,
     int QuestionCount);
 
-public sealed record CreateTopicRequest(Guid SubjectId, string Title, string? Description);
+public sealed record CreateTopicRequest(Guid SubjectId, string Title, string? Description, string? Source, string? Grade);
 
-public sealed record UpdateTopicRequest(string Title, string? Description, bool IsActive);
+public sealed record UpdateTopicRequest(string Title, string? Description, string? Source, string? Grade, bool IsActive);
 
 public sealed record QuestionOptionDto(Guid Id, string Text, bool IsCorrect, int SortOrder);
 
@@ -69,4 +71,3 @@ public sealed record TeacherDashboardDto(
     int ActiveQuestions,
     int DailyLessons,
     int AssignedGroups);
-

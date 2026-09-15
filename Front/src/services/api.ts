@@ -1,5 +1,6 @@
 import type {
   CreateSubjectRequest,
+  CreateTopicRequest,
   CreateGroupRequest,
   CreateUserRequest,
   GeneratedPasswordDto,
@@ -7,6 +8,7 @@ import type {
   AssignTeacherSubjectRequest,
   SubjectDto,
   TeacherSubjectAssignmentDto,
+  TopicDto,
   UpdateGroupRequest,
   UserDto,
 } from '../types/admin';
@@ -82,6 +84,17 @@ export function getSubjects(token: string): Promise<SubjectDto[]> {
 
 export function createSubject(token: string, body: CreateSubjectRequest): Promise<SubjectDto> {
   return request<SubjectDto>('/api/subjects', token, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function getTopics(token: string): Promise<TopicDto[]> {
+  return request<TopicDto[]>('/api/topics', token);
+}
+
+export function createTopic(token: string, body: CreateTopicRequest): Promise<TopicDto> {
+  return request<TopicDto>('/api/topics', token, {
     method: 'POST',
     body: JSON.stringify(body),
   });

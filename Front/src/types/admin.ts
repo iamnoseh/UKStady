@@ -38,6 +38,26 @@ export interface CreateSubjectRequest {
   description: string | null;
 }
 
+export interface TopicDto {
+  id: string;
+  subjectId: string;
+  subjectName: string;
+  title: string;
+  description: string | null;
+  source: string | null;
+  grade: string | null;
+  isActive: boolean;
+  questionCount: number;
+}
+
+export interface CreateTopicRequest {
+  subjectId: string;
+  title: string;
+  description: string | null;
+  source: string | null;
+  grade: string | null;
+}
+
 export interface GroupSubjectDto {
   id: string;
   name: string;

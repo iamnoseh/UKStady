@@ -44,6 +44,8 @@ public sealed class TeachingService : ITeachingService
                 topic.Subject.Name,
                 topic.Title,
                 topic.Description,
+                topic.Source,
+                topic.Grade,
                 topic.IsActive,
                 topic.Questions.Count))
             .ToListAsync(cancellationToken);
@@ -61,6 +63,8 @@ public sealed class TeachingService : ITeachingService
             SubjectId = request.SubjectId,
             Title = request.Title.Trim(),
             Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(),
+            Source = string.IsNullOrWhiteSpace(request.Source) ? null : request.Source.Trim(),
+            Grade = string.IsNullOrWhiteSpace(request.Grade) ? null : request.Grade.Trim(),
             IsActive = true
         };
 
@@ -80,6 +84,8 @@ public sealed class TeachingService : ITeachingService
 
         topic.Title = request.Title.Trim();
         topic.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
+        topic.Source = string.IsNullOrWhiteSpace(request.Source) ? null : request.Source.Trim();
+        topic.Grade = string.IsNullOrWhiteSpace(request.Grade) ? null : request.Grade.Trim();
         topic.IsActive = request.IsActive;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -310,6 +316,8 @@ public sealed class TeachingService : ITeachingService
                 topic.Subject.Name,
                 topic.Title,
                 topic.Description,
+                topic.Source,
+                topic.Grade,
                 topic.IsActive,
                 topic.Questions.Count))
             .FirstOrDefaultAsync(cancellationToken);
