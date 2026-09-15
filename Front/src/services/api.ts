@@ -1,15 +1,18 @@
 import type {
   CreateSubjectRequest,
   CreateTopicRequest,
+  CreateQuestionRequest,
   CreateGroupRequest,
   CreateUserRequest,
   GeneratedPasswordDto,
   GroupDto,
   AssignTeacherSubjectRequest,
+  QuestionDto,
   SubjectDto,
   TeacherSubjectAssignmentDto,
   TopicDto,
   UpdateGroupRequest,
+  UpdateQuestionRequest,
   UpdateSubjectRequest,
   UpdateTopicRequest,
   UserDto,
@@ -124,6 +127,30 @@ export function updateTopic(token: string, topicId: string, body: UpdateTopicReq
 
 export function deleteTopic(token: string, topicId: string): Promise<void> {
   return request<void>(`/api/topics/${topicId}`, token, {
+    method: 'DELETE',
+  });
+}
+
+export function getQuestionsByTopic(token: string, topicId: string): Promise<QuestionDto[]> {
+  return request<QuestionDto[]>(`/api/questions/by-topic/${topicId}`, token);
+}
+
+export function createQuestion(token: string, body: CreateQuestionRequest): Promise<QuestionDto> {
+  return request<QuestionDto>('/api/questions', token, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateQuestion(token: string, questionId: string, body: UpdateQuestionRequest): Promise<QuestionDto> {
+  return request<QuestionDto>(`/api/questions/${questionId}`, token, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteQuestion(token: string, questionId: string): Promise<void> {
+  return request<void>(`/api/questions/${questionId}`, token, {
     method: 'DELETE',
   });
 }

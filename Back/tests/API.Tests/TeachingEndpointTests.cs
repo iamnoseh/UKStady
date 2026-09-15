@@ -72,7 +72,9 @@ public sealed class TeachingEndpointTests : IClassFixture<TestApiFactory>
                 1,
                 [
                     new CreateQuestionOptionRequest("A", true, 1),
-                    new CreateQuestionOptionRequest("B", true, 2)
+                    new CreateQuestionOptionRequest("B", true, 2),
+                    new CreateQuestionOptionRequest("C", false, 3),
+                    new CreateQuestionOptionRequest("D", false, 4)
                 ]));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -171,7 +173,9 @@ public sealed class TeachingEndpointTests : IClassFixture<TestApiFactory>
                 1,
                 [
                     new CreateQuestionOptionRequest("Mass times acceleration", true, 1),
-                    new CreateQuestionOptionRequest("Distance over time", false, 2)
+                    new CreateQuestionOptionRequest("Distance over time", false, 2),
+                    new CreateQuestionOptionRequest("Energy over time", false, 3),
+                    new CreateQuestionOptionRequest("Force over area", false, 4)
                 ]));
 
         response.EnsureSuccessStatusCode();

@@ -47,7 +47,7 @@ public sealed class TeachingService : ITeachingService
                 topic.Source,
                 topic.Grade,
                 topic.IsActive,
-                topic.Questions.Count))
+                topic.Questions.Count(question => question.IsActive)))
             .ToListAsync(cancellationToken);
     }
 
@@ -332,7 +332,7 @@ public sealed class TeachingService : ITeachingService
                 topic.Source,
                 topic.Grade,
                 topic.IsActive,
-                topic.Questions.Count))
+                topic.Questions.Count(question => question.IsActive)))
             .FirstOrDefaultAsync(cancellationToken);
     }
 

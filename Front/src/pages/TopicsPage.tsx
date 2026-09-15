@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, BookMarked, Edit3, Layers, Link2, Plus, Search, Trash2, XCircle } from 'lucide-react';
+import { ArrowLeft, BookMarked, Edit3, Layers, Link2, ListChecks, Plus, Search, Trash2, XCircle } from 'lucide-react';
 import { Button } from '../components/Button';
 import { Pagination, paginate } from '../components/Pagination';
 import { createTopic, deleteTopic, getTopics, updateTopic } from '../services/api';
@@ -8,9 +8,11 @@ import { useAuth } from '../context/AuthContext';
 
 export function TopicsPage({
   subject,
+  onOpenQuestions,
   onBack,
 }: {
   subject: SubjectDto;
+  onOpenQuestions: (topic: TopicDto) => void;
   onBack: () => void;
 }) {
   const { auth } = useAuth();
@@ -261,11 +263,12 @@ export function TopicsPage({
 
         <div className="min-w-0">
           <div className="min-h-[420px] overflow-hidden rounded-lg border border-line bg-white">
-            <div className="grid grid-cols-[1.3fr_1fr_110px_120px_140px] border-b border-line bg-panel px-4 py-3 text-xs font-bold uppercase text-muted">
+            <div className="grid grid-cols-[1.2fr_1fr_110px_120px_120px_250px] border-b border-line bg-panel px-4 py-3 text-xs font-bold uppercase text-muted">
               <span>Мавзӯъ</span>
               <span>Манбаъ</span>
               <span>Синф</span>
               <span>Ҳолат</span>
+              <span>Саволҳо</span>
               <span>Амал</span>
             </div>
 
@@ -276,10 +279,10 @@ export function TopicsPage({
             ) : null}
 
             {pagedTopics.items.map((topic) => (
-              <div key={topic.id} className="grid grid-cols-[1.3fr_1fr_110px_120px_140px] items-center border-b border-line px-4 py-4 text-sm last:border-0">
+              <div key={topic.id} className="grid grid-cols-[1.2fr_1fr_110px_120px_120px_250px] items-center border-b border-line px-4 py-4 text-sm last:border-0">
                 <div>
                   <p className="font-semibold">{topic.title}</p>
-                  <p className="text-muted">{topic.questionCount} савол · {topic.description || 'Бе тавсиф'}</p>
+                  <p className="text-muted">{topic.description || 'Бе тавсиф'}</p>
                 </div>
                 <span className="inline-flex min-w-0 items-center gap-2 text-muted">
                   <Link2 className="h-4 w-4 shrink-0" />
@@ -292,7 +295,15 @@ export function TopicsPage({
                 <span className={`w-fit rounded-md px-2 py-1 text-xs font-bold ${topic.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
                   {topic.isActive ? 'Фаъол' : 'Ғайрифаъол'}
                 </span>
-                <div className="flex gap-2">
+                <span className="inline-flex w-fit items-center gap-2 rounded-md bg-indigo-50 px-2 py-1 font-semibold text-indigo-700">
+                  <ListChecks className="h-4 w-4" />
+                  {topic.questionCount} савол
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="secondary" className="h-9 px-3" onClick={() => onOpenQuestions(topic)}>
+                    <ListChecks className="h-4 w-4" />
+                    Саволҳо
+                  </Button>
                   <Button type="button" variant="secondary" className="h-9 px-3" onClick={() => startEdit(topic)}>
                     <Edit3 className="h-4 w-4" />
                   </Button>

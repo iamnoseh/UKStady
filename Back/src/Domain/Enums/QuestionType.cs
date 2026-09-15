@@ -5,6 +5,7 @@ namespace UKStady.Domain.Enums;
 [JsonConverter(typeof(JsonStringEnumConverter<QuestionType>))]
 public enum QuestionType
 {
-    SingleChoice = 1,
-    MultipleChoice = 2
+    ClosedAnswer = 1,
+    OpenAnswer = 1,
+    SingleChoice = 2
 }

@@ -186,11 +186,6 @@ public static class TeachingEndpoints
             return "Question points must be positive.";
         }
 
-        if (options.Count < 2)
-        {
-            return "At least two options are required.";
-        }
-
         if (options.Any(option => string.IsNullOrWhiteSpace(option.Text)))
         {
             return "Every option must have text.";
@@ -205,8 +200,10 @@ public static class TeachingEndpoints
 
         return type switch
         {
+            QuestionType.ClosedAnswer when options.Count != 1 || correctCount != 1 => "Closed answer questions require exactly one correct text answer.",
+            QuestionType.OpenAnswer when options.Count != 1 || correctCount != 1 => "Closed answer questions require exactly one correct text answer.",
+            QuestionType.SingleChoice when options.Count != 4 => "Single choice questions require exactly four options.",
             QuestionType.SingleChoice when correctCount != 1 => "Single choice questions require exactly one correct option.",
-            QuestionType.MultipleChoice when correctCount < 1 => "Multiple choice questions require at least one correct option.",
             _ => null
         };
     }

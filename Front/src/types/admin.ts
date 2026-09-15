@@ -72,6 +72,47 @@ export interface UpdateTopicRequest {
   isActive: boolean;
 }
 
+export type QuestionType = 'ClosedAnswer' | 'SingleChoice';
+
+export interface QuestionOptionDto {
+  id: string;
+  text: string;
+  isCorrect: boolean;
+  sortOrder: number;
+}
+
+export interface QuestionDto {
+  id: string;
+  topicId: string;
+  text: string;
+  type: QuestionType;
+  points: number;
+  isActive: boolean;
+  options: QuestionOptionDto[];
+}
+
+export interface CreateQuestionOptionRequest {
+  text: string;
+  isCorrect: boolean;
+  sortOrder: number;
+}
+
+export interface CreateQuestionRequest {
+  topicId: string;
+  text: string;
+  type: QuestionType;
+  points: number;
+  options: CreateQuestionOptionRequest[];
+}
+
+export interface UpdateQuestionRequest {
+  text: string;
+  type: QuestionType;
+  points: number;
+  isActive: boolean;
+  options: CreateQuestionOptionRequest[];
+}
+
 export interface GroupSubjectDto {
   id: string;
   name: string;
