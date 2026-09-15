@@ -8,6 +8,7 @@ public static class AuthorizationPolicies
     public const string Administrators = nameof(Administrators);
     public const string Managers = nameof(Managers);
     public const string Teachers = nameof(Teachers);
+    public const string EducationStaff = nameof(EducationStaff);
     public const string Students = nameof(Students);
 
     public static void AddRolePolicies(this AuthorizationOptions options)
@@ -23,6 +24,13 @@ public static class AuthorizationPolicies
 
         options.AddPolicy(Teachers, policy =>
             policy.RequireRole(UserRole.Teacher.ToString()));
+
+        options.AddPolicy(EducationStaff, policy =>
+            policy.RequireRole(
+                UserRole.SuperAdmin.ToString(),
+                UserRole.Admin.ToString(),
+                UserRole.Manager.ToString(),
+                UserRole.Teacher.ToString()));
 
         options.AddPolicy(Students, policy =>
             policy.RequireRole(UserRole.Student.ToString()));

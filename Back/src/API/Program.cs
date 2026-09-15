@@ -95,6 +95,7 @@ app.MapGet("/api/system/info", () => Results.Ok(new
 
 app.MapAuthEndpoints();
 app.MapAdministrationEndpoints();
+app.MapTeachingEndpoints();
 
 app.Run();
 

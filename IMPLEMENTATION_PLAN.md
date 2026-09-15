@@ -63,12 +63,12 @@
 
 ## Марҳилаи 5: Teacher education workflow
 
-- [ ] CRUD topics scoped by teacher subject/group assignment.
-- [ ] CRUD questions and options.
-- [ ] Validation барои single/multiple correct answers.
-- [ ] Create daily lesson.
-- [ ] Assign daily lesson to group with question count.
-- [ ] Teacher dashboard: active lessons, submitted/absent counts.
+- [x] CRUD topics scoped by teacher subject/group assignment.
+- [x] CRUD questions and options.
+- [x] Validation барои single/multiple correct answers.
+- [x] Create daily lesson.
+- [x] Assign daily lesson to group with question count.
+- [x] Teacher dashboard: active lessons, submitted/absent counts.
 
 ## Марҳилаи 6: Student test workflow
 
