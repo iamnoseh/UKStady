@@ -6,7 +6,6 @@ import {
   Layers,
   LogOut,
   Menu,
-  Settings,
   Shield,
   Users,
 } from 'lucide-react';
@@ -29,8 +28,6 @@ const navigation: Array<{
   { label: 'Гурӯҳҳо', view: 'groups', icon: Layers, roles: ['SuperAdmin', 'Admin', 'Manager'] },
   { label: 'Фанҳо', view: 'subjects', icon: BookOpen, roles: ['SuperAdmin', 'Admin', 'Manager'] },
   { label: 'Тестҳо', view: 'dashboard', icon: ClipboardCheck, roles: ['Teacher', 'Student'] },
-  { label: 'Журнал', view: 'dashboard', icon: GraduationCap, roles: ['SuperAdmin', 'Admin', 'Manager', 'Teacher', 'Student'] },
-  { label: 'Танзимот', view: 'dashboard', icon: Settings, roles: ['SuperAdmin', 'Admin'] },
 ];
 
 export function AppShell({

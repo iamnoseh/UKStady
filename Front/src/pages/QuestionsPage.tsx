@@ -4,11 +4,14 @@ import {
   Check,
   CircleDot,
   Edit3,
+  FileText,
   Keyboard,
   ListChecks,
   Plus,
   Search,
   Trash2,
+  Upload,
+  Wand2,
   XCircle,
 } from 'lucide-react';
 import { Button } from '../components/Button';
@@ -21,6 +24,15 @@ interface DraftOption {
   id: string;
   text: string;
   isCorrect: boolean;
+}
+
+interface ImportQuestionDraft {
+  id: string;
+  text: string;
+  type: QuestionType;
+  points: number;
+  options: DraftOption[];
+  error: string | null;
 }
 
 const createDraftOption = (index: number): DraftOption => ({
@@ -57,6 +69,11 @@ export function QuestionsPage({
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isImportPage, setIsImportPage] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importDrafts, setImportDrafts] = useState<ImportQuestionDraft[]>([]);
+  const [isAnalyzingImport, setIsAnalyzingImport] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
 
   useEffect(() => {
     void loadQuestions();
@@ -232,6 +249,102 @@ export function QuestionsPage({
     }
   }
 
+  async function handleAnalyzeImport() {
+    if (!importFile) {
+      setError('Аввал файли DOCX-ро интихоб кунед.');
+      return;
+    }
+
+    setIsAnalyzingImport(true);
+    setError('');
+    setNotice('');
+    try {
+      const rawText = await extractImportText(importFile);
+      const parsedDrafts = parseImportedQuestions(rawText);
+      setImportDrafts(parsedDrafts);
+      setNotice(`${parsedDrafts.length} савол барои таҳрир омода шуд.`);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Файл анализ нашуд.');
+    } finally {
+      setIsAnalyzingImport(false);
+    }
+  }
+
+  function updateImportDraft(id: string, patch: Partial<Pick<ImportQuestionDraft, 'text' | 'points'>>) {
+    setImportDrafts((current) => current.map((draft) => (
+      draft.id === id ? validateImportDraft({ ...draft, ...patch }) : draft
+    )));
+  }
+
+  function updateImportOption(draftId: string, optionId: string, patch: Partial<Pick<DraftOption, 'text' | 'isCorrect'>>) {
+    setImportDrafts((current) => current.map((draft) => {
+      if (draft.id !== draftId) {
+        return draft;
+      }
+
+      const nextOptions = draft.options.map((option) => {
+        if (option.id !== optionId) {
+          return option;
+        }
+
+        return { ...option, ...patch };
+      });
+      const normalizedOptions = draft.type === 'SingleChoice' && patch.isCorrect
+        ? nextOptions.map((option) => ({ ...option, isCorrect: option.id === optionId }))
+        : nextOptions;
+
+      return validateImportDraft({ ...draft, options: normalizedOptions });
+    }));
+  }
+
+  async function handleConfirmImport() {
+    if (!auth) {
+      return;
+    }
+
+    const validDrafts = importDrafts.map(validateImportDraft).filter((draft) => !draft.error);
+    if (validDrafts.length === 0) {
+      setError('Барои сабт саволи дуруст ёфт нашуд.');
+      return;
+    }
+
+    setIsImporting(true);
+    setError('');
+    setNotice('');
+    try {
+      const createdQuestions = await Promise.all(
+        validDrafts.map((draft) => createQuestion(auth.accessToken, {
+          topicId: topic.id,
+          text: draft.text.trim(),
+          type: draft.type,
+          points: draft.points,
+          options: draft.options.map((option, index) => ({
+            text: option.text.trim(),
+            isCorrect: draft.type === 'ClosedAnswer' ? true : option.isCorrect,
+            sortOrder: index + 1,
+          })),
+        })),
+      );
+      setQuestions((current) => [...createdQuestions, ...current]);
+      setImportDrafts([]);
+      setImportFile(null);
+      setIsImportPage(false);
+      setNotice(`${createdQuestions.length} савол импорт шуд.`);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Саволҳо импорт нашуданд.');
+    } finally {
+      setIsImporting(false);
+    }
+  }
+
+  function cancelImport() {
+    setImportFile(null);
+    setImportDrafts([]);
+    setError('');
+    setNotice('');
+    setIsImportPage(false);
+  }
+
   const filteredQuestions = useMemo(() => {
     const value = query.trim().toLowerCase();
     if (!value) {
@@ -248,6 +361,129 @@ export function QuestionsPage({
     setPage(1);
   }, [query, questions.length, topic.id]);
 
+  if (isImportPage) {
+    return (
+      <section className="px-4 py-6 lg:px-6">
+        <div className="mb-5 flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
+          <div>
+            <Button type="button" variant="ghost" className="mb-3 h-9 px-2" onClick={() => setIsImportPage(false)}>
+              <ArrowLeft className="h-4 w-4" />
+              Бозгашт ба саволҳо
+            </Button>
+            <p className="text-sm font-semibold text-muted">{subject.name} / {topic.title}</p>
+            <h2 className="mt-1 text-2xl font-bold">Импорти саволҳо</h2>
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <label className="inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-bold text-ink transition hover:bg-panel">
+              <FileText className="h-4 w-4" />
+              {importFile ? importFile.name : 'Интихоби файл'}
+              <input
+                type="file"
+                accept=".docx,.doc,.txt"
+                className="hidden"
+                onChange={(event) => {
+                  setImportFile(event.target.files?.[0] ?? null);
+                  setImportDrafts([]);
+                }}
+              />
+            </label>
+            <Button type="button" onClick={() => void handleAnalyzeImport()} disabled={!importFile || isAnalyzingImport}>
+              <Wand2 className="h-4 w-4" />
+              {isAnalyzingImport ? 'Анализ...' : 'Анализ'}
+            </Button>
+            {importDrafts.length > 0 ? (
+              <Button type="button" onClick={() => void handleConfirmImport()} disabled={isImporting || importDrafts.every((draft) => draft.error)}>
+                <Check className="h-4 w-4" />
+                {isImporting ? 'Сабт...' : `Тасдиқ (${importDrafts.filter((draft) => !draft.error).length})`}
+              </Button>
+            ) : null}
+            <Button type="button" variant="secondary" onClick={cancelImport} disabled={isAnalyzingImport || isImporting}>
+              <XCircle className="h-4 w-4" />
+              Бекор кардан
+            </Button>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-line bg-white p-5">
+          <div className="flex items-center gap-3">
+            <div className="grid h-10 w-10 place-items-center rounded-lg bg-brand/10 text-brand">
+              <FileText className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="font-bold">Import Docx</h3>
+              <p className="text-sm text-muted">Формат: савол дар `&lt;/&lt;Матни савол&gt;/&gt;`, ҷавоби дуруст бо `---`.</p>
+            </div>
+          </div>
+
+          {notice ? <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{notice}</p> : null}
+          {error ? <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
+
+          {importDrafts.length > 0 ? (
+            <div className="mt-5 space-y-3">
+              {importDrafts.map((draft, index) => (
+                <div key={draft.id} className={`rounded-lg border p-4 ${draft.error ? 'border-red-200 bg-red-50/40' : 'border-line bg-panel/30'}`}>
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                    <span className="text-sm font-bold">Савол {index + 1} · {questionTypeLabels[draft.type]}</span>
+                    <span className={`rounded-md px-2 py-1 text-xs font-bold ${draft.error ? 'bg-red-100 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                      {draft.error ?? 'Омода'}
+                    </span>
+                  </div>
+
+                  <textarea
+                    value={draft.text}
+                    onChange={(event) => updateImportDraft(draft.id, { text: event.target.value })}
+                    className="min-h-20 w-full resize-none rounded-lg border border-line bg-white px-3 py-2 outline-none focus:border-brand"
+                  />
+
+                  <div className="mt-3 grid gap-3 md:grid-cols-[100px_1fr]">
+                    <label className="block">
+                      <span className="text-xs font-bold uppercase text-muted">Хол</span>
+                      <input
+                        type="number"
+                        min={1}
+                        value={draft.points}
+                        onChange={(event) => updateImportDraft(draft.id, { points: Number(event.target.value) })}
+                        className="mt-1 h-10 w-full rounded-lg border border-line bg-white px-3 outline-none focus:border-brand"
+                      />
+                    </label>
+                    <div className="space-y-2">
+                      <span className="text-xs font-bold uppercase text-muted">Ҷавобҳо</span>
+                      {draft.options.map((option) => (
+                        <div key={option.id} className="grid grid-cols-[40px_1fr] gap-2">
+                          <button
+                            type="button"
+                            onClick={() => updateImportOption(draft.id, option.id, { isCorrect: true })}
+                            className={`grid h-10 w-10 place-items-center rounded-lg border transition ${
+                              option.isCorrect ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-line bg-white text-muted hover:bg-panel'
+                            }`}
+                            title="Ҷавоби дуруст"
+                            aria-label="Ҷавоби дуруст"
+                          >
+                            <Check className="h-4 w-4" />
+                          </button>
+                          <input
+                            value={option.text}
+                            onChange={(event) => updateImportOption(draft.id, option.id, { text: event.target.value })}
+                            className="h-10 min-w-0 rounded-lg border border-line bg-white px-3 outline-none focus:border-brand"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-5 rounded-lg border border-dashed border-line bg-panel/40 px-4 py-8 text-center text-sm text-muted">
+              Файли DOCX-ро интихоб карда, аввал анализ кунед.
+            </p>
+          )}
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="px-4 py-6 lg:px-6">
       <div className="mb-5 flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
@@ -260,14 +496,24 @@ export function QuestionsPage({
           <h2 className="mt-1 text-2xl font-bold">Саволҳо</h2>
         </div>
 
-        <div className="flex h-11 w-full items-center gap-3 rounded-lg border border-line bg-white px-3 xl:w-[360px]">
-          <Search className="h-5 w-5 text-muted" />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            className="h-full flex-1 outline-none"
-            placeholder="Ҷустуҷӯи савол"
-          />
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setIsImportPage(true)}
+          >
+            <Upload className="h-4 w-4" />
+            Import Docx
+          </Button>
+          <div className="flex h-11 w-full items-center gap-3 rounded-lg border border-line bg-white px-3 xl:w-[360px]">
+            <Search className="h-5 w-5 text-muted" />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              className="h-full flex-1 outline-none"
+              placeholder="Ҷустуҷӯи савол"
+            />
+          </div>
         </div>
       </div>
 
@@ -469,4 +715,144 @@ export function QuestionsPage({
       </div>
     </section>
   );
+}
+
+async function extractImportText(file: File) {
+  const extension = file.name.split('.').pop()?.toLowerCase();
+  if (extension === 'docx') {
+    const mammothModule = await import('mammoth');
+    const mammoth = mammothModule.default ?? mammothModule;
+    const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+    return result.value;
+  }
+
+  if (extension === 'txt' || extension === 'doc') {
+    return await file.text();
+  }
+
+  throw new Error('Танҳо файлҳои .docx, .doc ё .txt қабул мешаванд.');
+}
+
+function parseImportedQuestions(rawText: string): ImportQuestionDraft[] {
+  const normalizedText = rawText
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n');
+  const markerRegex = /<\/<([\s\S]*?)>\/>/g;
+  const matches = [...normalizedText.matchAll(markerRegex)];
+
+  if (matches.length === 0) {
+    throw new Error('Дар файл савол бо формати </<Матни савол>/> ёфт нашуд.');
+  }
+
+  return matches.map((match, index) => {
+    const nextMatch = matches[index + 1];
+    const blockStart = (match.index ?? 0) + match[0].length;
+    const blockEnd = nextMatch?.index ?? normalizedText.length;
+    const parsedOptions = parseImportOptions(normalizedText.slice(blockStart, blockEnd));
+    const type: QuestionType = parsedOptions.length === 1 ? 'ClosedAnswer' : 'SingleChoice';
+    const options = type === 'ClosedAnswer'
+      ? parsedOptions.slice(0, 1).map((option) => ({ ...option, isCorrect: true }))
+      : parsedOptions.slice(0, 4);
+
+    return validateImportDraft({
+      id: createImportId(index),
+      text: cleanImportText(match[1]),
+      type,
+      points: 1,
+      options,
+      error: null,
+    });
+  });
+}
+
+function parseImportOptions(blockText: string): DraftOption[] {
+  const lines = blockText
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const lineOptions = lines
+    .map((line, optionIndex) => parseImportOption(line, optionIndex))
+    .filter((option): option is DraftOption => Boolean(option));
+  const inlineOptions = parseInlineImportOptions(blockText);
+
+  return inlineOptions.length > lineOptions.length ? inlineOptions : lineOptions;
+}
+
+function parseInlineImportOptions(blockText: string): DraftOption[] {
+  const compactText = blockText.replace(/\s+/g, ' ').trim();
+  const optionMarkerRegex = /(?:^|\s)((?:-{2,3}|—)\s*)?([A-DАБВГСД])\s*[\).:\-]\s*/giu;
+  const matches = [...compactText.matchAll(optionMarkerRegex)];
+
+  if (matches.length === 0) {
+    return [];
+  }
+
+  return matches
+    .map((match, index) => {
+      const start = (match.index ?? 0) + match[0].length;
+      const end = matches[index + 1]?.index ?? compactText.length;
+      let value = compactText.slice(start, end).trim();
+      let isCorrect = Boolean(match[1]);
+
+      if (/^(?:-{2,3}|—)\s*/u.test(value)) {
+        isCorrect = true;
+        value = value.replace(/^(?:-{2,3}|—)\s*/u, '');
+      }
+
+      value = cleanImportText(value);
+      return value ? { id: createImportId(index), text: value, isCorrect } : null;
+    })
+    .filter((option): option is DraftOption => Boolean(option));
+}
+
+function parseImportOption(line: string, index: number): DraftOption | null {
+  let value = line.trim();
+  if (!value) {
+    return null;
+  }
+
+  let isCorrect = false;
+  if (/^(?:-{2,3}|—)\s*/u.test(value)) {
+    isCorrect = true;
+    value = value.replace(/^(?:-{2,3}|—)\s*/u, '');
+  }
+
+  value = value.replace(/^[A-DАБВГСД]\s*[\).:\-]\s*/iu, '');
+
+  if (/^(?:-{2,3}|—)\s*/u.test(value)) {
+    isCorrect = true;
+    value = value.replace(/^(?:-{2,3}|—)\s*/u, '');
+  }
+
+  value = cleanImportText(value);
+  return value ? { id: createImportId(index), text: value, isCorrect } : null;
+}
+
+function validateImportDraft(draft: ImportQuestionDraft): ImportQuestionDraft {
+  const cleanOptions = draft.options.map((option) => ({ ...option, text: option.text.trim() }));
+  let error: string | null = null;
+
+  if (!draft.text.trim()) {
+    error = 'Матни савол нест';
+  } else if (draft.points <= 0) {
+    error = 'Хол нодуруст аст';
+  } else if (draft.type === 'ClosedAnswer') {
+    if (cleanOptions.length !== 1 || !cleanOptions[0]?.text) {
+      error = 'Барои пӯшида 1 ҷавоб лозим';
+    }
+  } else if (cleanOptions.length !== 4 || cleanOptions.some((option) => !option.text)) {
+    error = 'Барои кушода 4 вариант лозим';
+  } else if (cleanOptions.filter((option) => option.isCorrect).length !== 1) {
+    error = 'Ҷавоби дуруст бо --- ишора шавад';
+  }
+
+  return { ...draft, options: cleanOptions, error };
+}
+
+function cleanImportText(value: string) {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+function createImportId(index: number) {
+  return `${Date.now()}-${index}-${Math.random().toString(16).slice(2)}`;
 }
