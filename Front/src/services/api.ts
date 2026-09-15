@@ -2,7 +2,9 @@ import type {
   CreateSubjectRequest,
   CreateUserRequest,
   GeneratedPasswordDto,
+  AssignTeacherSubjectRequest,
   SubjectDto,
+  TeacherSubjectAssignmentDto,
   UserDto,
 } from '../types/admin';
 import type { AuthResult, LoginRequest } from '../types/auth';
@@ -82,7 +84,20 @@ export function createSubject(token: string, body: CreateSubjectRequest): Promis
   });
 }
 
+export function getTeacherSubjects(token: string): Promise<TeacherSubjectAssignmentDto[]> {
+  return request<TeacherSubjectAssignmentDto[]>('/api/teacher-subjects', token);
+}
+
+export function assignTeacherSubject(
+  token: string,
+  body: AssignTeacherSubjectRequest,
+): Promise<TeacherSubjectAssignmentDto> {
+  return request<TeacherSubjectAssignmentDto>('/api/teacher-subjects', token, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
 export function getSystemInfo(token: string): Promise<{ name: string; version: string }> {
   return request<{ name: string; version: string }>('/api/system/info', token);
 }
-

@@ -9,7 +9,6 @@ public sealed record UserDto(
     string? MiddleName,
     string PhoneNumber,
     string UserName,
-    string Email,
     UserRole Role,
     bool IsActive);
 
@@ -20,8 +19,7 @@ public sealed record CreateUserRequest(
     string PhoneNumber,
     string Password,
     UserRole Role,
-    string? UserName = null,
-    string? Email = null);
+    string? UserName = null);
 
 public sealed record UpdateUserRequest(
     string FirstName,
@@ -30,8 +28,7 @@ public sealed record UpdateUserRequest(
     string PhoneNumber,
     UserRole Role,
     bool IsActive,
-    string? UserName = null,
-    string? Email = null);
+    string? UserName = null);
 
 public sealed record GeneratedPasswordDto(string Password);
 

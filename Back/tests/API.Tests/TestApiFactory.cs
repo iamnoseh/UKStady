@@ -46,7 +46,6 @@ public sealed class TestApiFactory : WebApplicationFactory<Program>
                 LastName = "Teacher",
                 PhoneNumber = "+992111111111",
                 UserName = "teacher",
-                Email = "teacher@ukstady.local",
                 PasswordHash = passwordHasher.Hash(TestPassword),
                 Role = UserRole.Teacher,
                 IsActive = true

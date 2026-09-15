@@ -75,6 +75,32 @@ public sealed class AdministrationEndpointTests : IClassFixture<TestApiFactory>
         Assert.True(dashboard.TeacherAssignments >= 1);
     }
 
+    [Fact]
+    public async Task TeacherSubjects_AssignsTeacherToSubject()
+    {
+        using var client = _factory.CreateClient();
+        await AuthorizeAsync(client, "+992000000000", "Admin123!");
+
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var teacher = await CreateUserAsync(
+            client,
+            UserRole.Teacher,
+            $"teacher-subject-{suffix}",
+            $"+99221{suffix[..7]}",
+            "12345A");
+        var subject = await CreateSubjectAsync(client, $"Teacher Subject {suffix}");
+
+        using var response = await client.PostAsJsonAsync(
+            "/api/teacher-subjects",
+            new AssignTeacherSubjectRequest(teacher.Id, subject.Id));
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var assignment = await response.Content.ReadFromJsonAsync<TeacherSubjectAssignmentDto>();
+        Assert.NotNull(assignment);
+        Assert.Equal(teacher.Id, assignment.TeacherId);
+        Assert.Equal(subject.Id, assignment.SubjectId);
+    }
+
     private static async Task AuthorizeAsync(HttpClient client, string login, string password)
     {
         var response = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest(login, password));
@@ -99,8 +125,7 @@ public sealed class AdministrationEndpointTests : IClassFixture<TestApiFactory>
                 phoneNumber,
                 password,
                 role,
-                userName,
-                $"{userName}@ukstady.local"));
+                userName));
 
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<UserDto>()
@@ -123,6 +148,17 @@ public sealed class AdministrationEndpointTests : IClassFixture<TestApiFactory>
         using var response = await client.PostAsJsonAsync(
             "/api/subjects",
             new CreateSubjectRequest("Mathematics", "Daily assessment subject"));
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<SubjectDto>()
+            ?? throw new InvalidOperationException("Subject response was empty.");
+    }
+
+    private static async Task<SubjectDto> CreateSubjectAsync(HttpClient client, string name)
+    {
+        using var response = await client.PostAsJsonAsync(
+            "/api/subjects",
+            new CreateSubjectRequest(name, "Teacher assignment subject"));
 
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<SubjectDto>()

@@ -11,6 +11,7 @@ const cards: Array<{
   roles: UserRole[];
 }> = [
   { title: 'Хонандагон', value: 'Student accounts', view: 'students', icon: Users, roles: ['SuperAdmin', 'Admin', 'Manager'] },
+  { title: 'Муаллимон', value: 'Teacher subjects', view: 'teachers', icon: GraduationCap, roles: ['SuperAdmin', 'Admin', 'Manager'] },
   { title: 'Фанҳо', value: 'Subject catalog', view: 'subjects', icon: BookOpen, roles: ['SuperAdmin', 'Admin', 'Manager'] },
   { title: 'Тестҳо', value: '20:00 - 07:00', view: 'dashboard', icon: ClipboardCheck, roles: ['Teacher', 'Student'] },
   { title: 'Журнал', value: '0 - 100 хол', view: 'dashboard', icon: GraduationCap, roles: ['SuperAdmin', 'Admin', 'Manager', 'Teacher', 'Student'] },

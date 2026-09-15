@@ -78,6 +78,29 @@ public sealed class TeachingEndpointTests : IClassFixture<TestApiFactory>
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    [Fact]
+    public async Task TeacherWithSubjectAssignment_CanCreateTopic()
+    {
+        using var client = _factory.CreateClient();
+        await AuthorizeAsync(client, "+992000000000", "Admin123!");
+
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var teacherPhone = $"+99231{suffix[..7]}";
+        var teacher = await CreateUserAsync(client, UserRole.Teacher, $"direct-subject-teacher-{suffix}", teacherPhone);
+        var subject = await CreateSubjectAsync(client, $"Biology {suffix}");
+
+        using var assignmentResponse = await client.PostAsJsonAsync(
+            "/api/teacher-subjects",
+            new AssignTeacherSubjectRequest(teacher.Id, subject.Id));
+        assignmentResponse.EnsureSuccessStatusCode();
+
+        await AuthorizeAsync(client, teacherPhone, "12345A");
+
+        var topic = await CreateTopicAsync(client, subject.Id);
+
+        Assert.Equal(subject.Id, topic.SubjectId);
+    }
+
     private static async Task AuthorizeAsync(HttpClient client, string phoneNumber, string password)
     {
         var response = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest(phoneNumber, password));
@@ -97,8 +120,7 @@ public sealed class TeachingEndpointTests : IClassFixture<TestApiFactory>
                 phoneNumber,
                 "12345A",
                 role,
-                userName,
-                $"{userName}@ukstady.local"));
+                userName));
 
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<UserDto>()
@@ -157,4 +179,3 @@ public sealed class TeachingEndpointTests : IClassFixture<TestApiFactory>
             ?? throw new InvalidOperationException("Question response was empty.");
     }
 }
-

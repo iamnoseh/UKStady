@@ -15,7 +15,7 @@ import { useAuth } from '../context/AuthContext';
 import type { UserRole } from '../types/auth';
 import { Button } from './Button';
 
-export type AppView = 'dashboard' | 'students' | 'subjects';
+export type AppView = 'dashboard' | 'students' | 'teachers' | 'subjects';
 
 const navigation: Array<{
   label: string;
@@ -25,6 +25,7 @@ const navigation: Array<{
 }> = [
   { label: 'Dashboard', view: 'dashboard', icon: Home, roles: ['SuperAdmin', 'Admin', 'Manager', 'Teacher', 'Student'] },
   { label: 'Хонандагон', view: 'students', icon: Users, roles: ['SuperAdmin', 'Admin', 'Manager'] },
+  { label: 'Муаллимон', view: 'teachers', icon: GraduationCap, roles: ['SuperAdmin', 'Admin', 'Manager'] },
   { label: 'Гурӯҳҳо', view: 'dashboard', icon: Layers, roles: ['SuperAdmin', 'Admin', 'Manager'] },
   { label: 'Фанҳо', view: 'subjects', icon: BookOpen, roles: ['SuperAdmin', 'Admin', 'Manager'] },
   { label: 'Тестҳо', view: 'dashboard', icon: ClipboardCheck, roles: ['Teacher', 'Student'] },

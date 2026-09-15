@@ -44,7 +44,6 @@ public sealed class AuthService : IAuthService
             user.Id,
             user.PhoneNumber,
             user.UserName,
-            user.Email,
             fullName,
             user.Role,
             _jwtTokenGenerator.GenerateToken(user));

@@ -7,7 +7,6 @@ export interface UserDto {
   middleName: string | null;
   phoneNumber: string;
   userName: string;
-  email: string;
   role: UserRole;
   isActive: boolean;
 }
@@ -20,7 +19,6 @@ export interface CreateUserRequest {
   password: string;
   role: UserRole;
   userName?: string | null;
-  email?: string | null;
 }
 
 export interface GeneratedPasswordDto {
@@ -40,3 +38,15 @@ export interface CreateSubjectRequest {
   description: string | null;
 }
 
+export interface AssignTeacherSubjectRequest {
+  teacherId: string;
+  subjectId: string;
+}
+
+export interface TeacherSubjectAssignmentDto {
+  teacherId: string;
+  teacherName: string;
+  subjectId: string;
+  subjectName: string;
+  assignedAtUtc: string;
+}

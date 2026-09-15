@@ -6,7 +6,6 @@ public sealed record AuthResult(
     Guid UserId,
     string PhoneNumber,
     string UserName,
-    string Email,
     string FullName,
     UserRole Role,
     string AccessToken);

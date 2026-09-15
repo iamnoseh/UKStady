@@ -72,7 +72,6 @@ public sealed class AdministrationService : IAdministrationService
             MiddleName = string.IsNullOrWhiteSpace(request.MiddleName) ? null : request.MiddleName.Trim(),
             PhoneNumber = phoneNumber,
             UserName = string.IsNullOrWhiteSpace(request.UserName) ? phoneNumber : request.UserName.Trim(),
-            Email = string.IsNullOrWhiteSpace(request.Email) ? $"{phoneNumber}@ukstady.local" : request.Email.Trim(),
             PasswordHash = _passwordHasher.Hash(request.Password),
             Role = request.Role,
             IsActive = true
@@ -97,7 +96,6 @@ public sealed class AdministrationService : IAdministrationService
         user.MiddleName = string.IsNullOrWhiteSpace(request.MiddleName) ? null : request.MiddleName.Trim();
         user.PhoneNumber = NormalizePhoneNumber(request.PhoneNumber);
         user.UserName = string.IsNullOrWhiteSpace(request.UserName) ? user.PhoneNumber : request.UserName.Trim();
-        user.Email = string.IsNullOrWhiteSpace(request.Email) ? $"{user.PhoneNumber}@ukstady.local" : request.Email.Trim();
         user.Role = request.Role;
         user.IsActive = request.IsActive;
 
@@ -501,7 +499,6 @@ public sealed class AdministrationService : IAdministrationService
             user.MiddleName,
             user.PhoneNumber,
             user.UserName,
-            user.Email,
             user.Role,
             user.IsActive);
     }
