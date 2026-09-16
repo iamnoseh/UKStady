@@ -238,6 +238,25 @@ public static class TeachingEndpoints
             .WithTags("Teacher Dashboard")
             .RequireAuthorization(AuthorizationPolicies.EducationStaff)
             .WithName("GetTeacherDashboard");
+
+        endpoints.MapGet("/api/teacher/dashboard/groups", async (
+            ITeachingService service,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await service.GetTeacherDashboardGroupsAsync(cancellationToken)))
+            .WithTags("Teacher Dashboard")
+            .RequireAuthorization(AuthorizationPolicies.Teachers)
+            .WithName("GetTeacherDashboardGroups");
+
+        endpoints.MapGet("/api/teacher/dashboard/daily-results", async (
+            [FromQuery] DateOnly? date,
+            [FromQuery] Guid? groupId,
+            [FromQuery] string? sort,
+            ITeachingService service,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await service.GetTeacherDashboardDailyResultsAsync(date, groupId, sort, cancellationToken)))
+            .WithTags("Teacher Dashboard")
+            .RequireAuthorization(AuthorizationPolicies.Teachers)
+            .WithName("GetTeacherDashboardDailyResults");
     }
 
     private static string? ValidateQuestion(

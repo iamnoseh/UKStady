@@ -604,6 +604,109 @@ public sealed class TeachingService : ITeachingService
         return new TeacherDashboardDto(topics, activeQuestions, dailyLessons, assignedGroups);
     }
 
+    public async Task<IReadOnlyList<TeacherDashboardGroupDto>> GetTeacherDashboardGroupsAsync(
+        CancellationToken cancellationToken)
+    {
+        var teacherId = RequireCurrentUserId();
+
+        return await _dbContext.Groups
+            .AsNoTracking()
+            .Where(group => group.IsActive && group.TeacherAssignments.Any(
+                assignment => assignment.TeacherId == teacherId))
+            .OrderBy(group => group.Name)
+            .Select(group => new TeacherDashboardGroupDto(
+                group.Id,
+                group.Name,
+                group.Branch,
+                group.Students.Count))
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<TeacherDashboardDailyResultsDto> GetTeacherDashboardDailyResultsAsync(
+        DateOnly? date,
+        Guid? groupId,
+        string? sort,
+        CancellationToken cancellationToken)
+    {
+        var teacherId = RequireCurrentUserId();
+        var targetDate = date ?? GetBusinessToday().AddDays(-1);
+        var normalizedSort = string.IsNullOrWhiteSpace(sort) ? "scoreAsc" : sort.Trim();
+
+        var query = _dbContext.TestAssignments
+            .AsNoTracking()
+            .Where(assignment =>
+                assignment.DailyLesson.LessonDate == targetDate &&
+                _dbContext.TeacherSubjectGroups.Any(teacherAssignment =>
+                    teacherAssignment.TeacherId == teacherId &&
+                    teacherAssignment.GroupId == assignment.GroupId &&
+                    teacherAssignment.SubjectId == assignment.DailyLesson.SubjectId));
+
+        if (groupId.HasValue)
+        {
+            query = query.Where(assignment => assignment.GroupId == groupId.Value);
+        }
+
+        var resultsQuery = query.SelectMany(
+            assignment => assignment.DailyLesson.GradeEntries
+                .Where(grade => assignment.Group.Students.Any(
+                    groupStudent => groupStudent.StudentId == grade.StudentId)),
+            (assignment, grade) => new
+            {
+                grade.StudentId,
+                StudentName = grade.Student.FirstName + " " + grade.Student.LastName,
+                grade.Student.PhoneNumber,
+                assignment.GroupId,
+                GroupName = assignment.Group.Name,
+                assignment.Group.Branch,
+                assignment.DailyLesson.SubjectId,
+                SubjectName = assignment.DailyLesson.Subject.Name,
+                assignment.DailyLessonId,
+                LessonTitle = assignment.DailyLesson.Title,
+                assignment.DailyLesson.TopicId,
+                TopicTitle = assignment.DailyLesson.Topic == null ? null : assignment.DailyLesson.Topic.Title,
+                Score = grade.FinalScore ?? grade.AutoScore,
+                grade.AttendanceStatus
+            });
+
+        resultsQuery = string.Equals(normalizedSort, "scoreDesc", StringComparison.OrdinalIgnoreCase)
+            ? resultsQuery
+                .OrderByDescending(result => result.Score)
+                .ThenBy(result => result.StudentName)
+                .ThenBy(result => result.SubjectName)
+            : resultsQuery
+                .OrderBy(result => result.Score)
+                .ThenBy(result => result.StudentName)
+                .ThenBy(result => result.SubjectName);
+
+        var rows = await resultsQuery.ToListAsync(cancellationToken);
+        var results = rows
+            .Select(row => new TeacherDashboardStudentResultDto(
+                row.StudentId,
+                row.StudentName,
+                row.PhoneNumber,
+                row.GroupId,
+                row.GroupName,
+                row.Branch,
+                row.SubjectId,
+                row.SubjectName,
+                row.DailyLessonId,
+                row.LessonTitle,
+                row.TopicId,
+                row.TopicTitle,
+                row.Score,
+                row.AttendanceStatus.ToString()))
+            .ToList();
+        var averageScore = results.Count == 0
+            ? (decimal?)null
+            : Math.Round(results.Average(result => result.Score), 2);
+
+        return new TeacherDashboardDailyResultsDto(
+            targetDate,
+            results.Count,
+            averageScore,
+            results);
+    }
+
     private async Task<TopicDto?> GetTopicDtoAsync(Guid id, CancellationToken cancellationToken)
     {
         return await _dbContext.Topics

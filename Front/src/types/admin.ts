@@ -264,3 +264,10 @@ export interface DashboardDailyResultsDto {
   averageScore: number | null;
   results: DashboardDailyStudentResultDto[];
 }
+
+export interface TeacherDashboardGroupDto {
+  id: string;
+  name: string;
+  branch: string;
+  studentCount: number;
+}

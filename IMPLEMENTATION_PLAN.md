@@ -70,6 +70,7 @@
 - [x] Create daily lesson.
 - [x] Assign daily lesson to group with question count.
 - [x] Teacher dashboard: active lessons, submitted/absent counts.
+- [x] Teacher dashboard daily results scoped to assigned groups, subjects and students.
 
 ## Марҳилаи 6: Student test workflow
 
@@ -146,6 +147,8 @@ Endpoint-ҳо ҳангоми implement метавонанд майда тағй�
 | Teacher Assignments | PUT | `/api/teacher-assignments/groups/{groupId}/subjects/{subjectId}` |
 | Teacher Assignments | DELETE | `/api/teacher-assignments/{teacherId}/{subjectId}/{groupId}` |
 | Teacher Subjects | GET | `/api/teacher/subjects` |
+| Teacher Dashboard | GET | `/api/teacher/dashboard/groups` |
+| Teacher Dashboard | GET | `/api/teacher/dashboard/daily-results` |
 | Subjects | GET/POST | `/api/subjects` |
 | Topics | GET/POST | `/api/subjects/{subjectId}/topics` |
 | Questions | GET/POST | `/api/topics/{topicId}/questions` |

@@ -38,4 +38,13 @@ public interface ITeachingService
         CancellationToken cancellationToken);
 
     Task<TeacherDashboardDto> GetTeacherDashboardAsync(CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<TeacherDashboardGroupDto>> GetTeacherDashboardGroupsAsync(
+        CancellationToken cancellationToken);
+
+    Task<TeacherDashboardDailyResultsDto> GetTeacherDashboardDailyResultsAsync(
+        DateOnly? date,
+        Guid? groupId,
+        string? sort,
+        CancellationToken cancellationToken);
 }

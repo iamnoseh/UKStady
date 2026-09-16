@@ -13,6 +13,7 @@ import type {
   QuestionDto,
   SubjectDto,
   TeacherAssignmentDto,
+  TeacherDashboardGroupDto,
   TeacherSubjectAssignmentDto,
   TopicDto,
   UpdateGroupRequest,
@@ -215,6 +216,29 @@ export function getDashboardDailyResults(
 
   const query = searchParams.toString();
   return request<DashboardDailyResultsDto>(`/api/admin/dashboard/daily-results${query ? `?${query}` : ''}`, token);
+}
+
+export function getTeacherDashboardGroups(token: string): Promise<TeacherDashboardGroupDto[]> {
+  return request<TeacherDashboardGroupDto[]>('/api/teacher/dashboard/groups', token);
+}
+
+export function getTeacherDashboardDailyResults(
+  token: string,
+  filters: { date?: string; groupId?: string; sort?: DashboardDailyResultsSort },
+): Promise<DashboardDailyResultsDto> {
+  const searchParams = new URLSearchParams();
+  if (filters.date) {
+    searchParams.set('date', filters.date);
+  }
+  if (filters.groupId) {
+    searchParams.set('groupId', filters.groupId);
+  }
+  if (filters.sort) {
+    searchParams.set('sort', filters.sort);
+  }
+
+  const query = searchParams.toString();
+  return request<DashboardDailyResultsDto>(`/api/teacher/dashboard/daily-results${query ? `?${query}` : ''}`, token);
 }
 
 export function createTodayGroupLesson(
