@@ -9,7 +9,6 @@ import type {
   GeneratedPasswordDto,
   GroupDto,
   GroupJournalDto,
-  AssignTeacherRequest,
   AssignTeacherSubjectRequest,
   QuestionDto,
   SubjectDto,
@@ -255,24 +254,15 @@ export function getTeacherAssignments(token: string): Promise<TeacherAssignmentD
   return request<TeacherAssignmentDto[]>('/api/teacher-assignments', token);
 }
 
-export function assignTeacher(
+export function setTeacherAssignment(
   token: string,
-  body: AssignTeacherRequest,
-): Promise<TeacherAssignmentDto> {
-  return request<TeacherAssignmentDto>('/api/teacher-assignments', token, {
-    method: 'POST',
-    body: JSON.stringify(body),
-  });
-}
-
-export function removeTeacherAssignment(
-  token: string,
-  teacherId: string,
-  subjectId: string,
   groupId: string,
-): Promise<void> {
-  return request<void>(`/api/teacher-assignments/${teacherId}/${subjectId}/${groupId}`, token, {
-    method: 'DELETE',
+  subjectId: string,
+  teacherId: string,
+): Promise<TeacherAssignmentDto> {
+  return request<TeacherAssignmentDto>(`/api/teacher-assignments/groups/${groupId}/subjects/${subjectId}`, token, {
+    method: 'PUT',
+    body: JSON.stringify({ teacherId }),
   });
 }
 
