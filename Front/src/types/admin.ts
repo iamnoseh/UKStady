@@ -228,12 +228,6 @@ export interface TeacherSubjectAssignmentDto {
   assignedAtUtc: string;
 }
 
-export interface AssignTeacherRequest {
-  teacherId: string;
-  subjectId: string;
-  groupId: string;
-}
-
 export interface TeacherAssignmentDto {
   teacherId: string;
   teacherName: string;
