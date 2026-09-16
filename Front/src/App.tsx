@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { hasPermission, type Permission } from './auth/permissions';
 import { AppShell, type AppView } from './components/AppShell';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { DashboardPage } from './pages/DashboardPage';
@@ -21,14 +22,28 @@ const titles: Record<AppView, string> = {
   questions: 'Саволҳо',
 };
 
+const viewPermissions: Record<AppView, Permission> = {
+  dashboard: 'dashboard.view',
+  students: 'students.manage',
+  teachers: 'teachers.manage',
+  groups: 'groups.view',
+  subjects: 'subjects.view',
+  topics: 'subjects.view',
+  questions: 'subjects.view',
+};
+
 function AppContent() {
   const { auth } = useAuth();
   const [activeView, setActiveView] = useState<AppView>('dashboard');
   const [selectedSubject, setSelectedSubject] = useState<SubjectDto | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<TopicDto | null>(null);
 
+  const permittedView = auth && hasPermission(auth.role, viewPermissions[activeView])
+    ? activeView
+    : 'dashboard';
+
   const content = useMemo(() => {
-    switch (activeView) {
+    switch (permittedView) {
       case 'students':
         return <StudentsPage />;
       case 'subjects':
@@ -80,14 +95,14 @@ function AppContent() {
       default:
         return <DashboardPage onViewChange={setActiveView} />;
     }
-  }, [activeView, selectedSubject, selectedTopic]);
+  }, [permittedView, selectedSubject, selectedTopic]);
 
   if (!auth) {
     return <LoginPage />;
   }
 
   return (
-    <AppShell activeView={activeView} onViewChange={setActiveView} title={titles[activeView]}>
+    <AppShell activeView={permittedView} onViewChange={setActiveView} title={titles[permittedView]}>
       {content}
     </AppShell>
   );
