@@ -141,6 +141,9 @@ Endpoint-ҳо ҳангоми implement метавонанд майда тағй�
 | Users | GET/PUT/DELETE | `/api/users/{id}` |
 | Groups | GET/POST | `/api/groups` |
 | Groups | POST/DELETE | `/api/groups/{groupId}/students/{studentId}` |
+| Teacher Assignments | GET/POST | `/api/teacher-assignments` |
+| Teacher Assignments | PUT | `/api/teacher-assignments/groups/{groupId}/subjects/{subjectId}` |
+| Teacher Assignments | DELETE | `/api/teacher-assignments/{teacherId}/{subjectId}/{groupId}` |
 | Subjects | GET/POST | `/api/subjects` |
 | Topics | GET/POST | `/api/subjects/{subjectId}/topics` |
 | Questions | GET/POST | `/api/topics/{topicId}/questions` |
