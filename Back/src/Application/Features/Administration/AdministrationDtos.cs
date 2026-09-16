@@ -58,6 +58,8 @@ public sealed record UpdateSubjectRequest(string Name, string? Description, bool
 
 public sealed record AssignTeacherRequest(Guid TeacherId, Guid SubjectId, Guid GroupId);
 
+public sealed record SetTeacherAssignmentRequest(Guid TeacherId);
+
 public sealed record AssignTeacherSubjectRequest(Guid TeacherId, Guid SubjectId);
 
 public sealed record TeacherSubjectAssignmentDto(
