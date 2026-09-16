@@ -1,10 +1,13 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using Microsoft.Extensions.DependencyInjection;
 using UKStady.Application.Features.Administration;
 using UKStady.Application.Features.Auth;
 using UKStady.Application.Features.Teaching;
+using UKStady.Domain.Entities;
 using UKStady.Domain.Enums;
+using UKStady.Infrastructure.Persistence;
 
 namespace UKStady.API.Tests;
 
@@ -25,8 +28,13 @@ public sealed class TeachingEndpointTests : IClassFixture<TestApiFactory>
 
         var teacherPhone = "+992300000001";
         var teacher = await CreateUserAsync(client, UserRole.Teacher, "teacher-flow", teacherPhone);
-        var group = await CreateGroupAsync(client, "Teacher Flow Group");
         var subject = await CreateSubjectAsync(client, "Physics");
+        var group = await CreateGroupAsync(client, "Teacher Flow Group", [subject.Id]);
+
+        using var teacherSubjectResponse = await client.PostAsJsonAsync(
+            "/api/teacher-subjects",
+            new AssignTeacherSubjectRequest(teacher.Id, subject.Id));
+        teacherSubjectResponse.EnsureSuccessStatusCode();
 
         using var assignmentResponse = await client.PostAsJsonAsync(
             "/api/teacher-assignments",
@@ -99,8 +107,136 @@ public sealed class TeachingEndpointTests : IClassFixture<TestApiFactory>
         await AuthorizeAsync(client, teacherPhone, "12345A");
 
         var topic = await CreateTopicAsync(client, subject.Id);
+        await CreateQuestionAsync(client, topic.Id);
+
+        var teacherSubjects = await client.GetFromJsonAsync<List<TeacherSubjectDto>>("/api/teacher/subjects");
+        Assert.NotNull(teacherSubjects);
+        var teacherSubject = Assert.Single(teacherSubjects);
+        Assert.Equal(subject.Id, teacherSubject.Id);
+        Assert.Equal(1, teacherSubject.TopicCount);
+        Assert.Equal(1, teacherSubject.QuestionCount);
 
         Assert.Equal(subject.Id, topic.SubjectId);
+    }
+
+    [Fact]
+    public async Task Teacher_CanManageTopicsAndImportedQuestions_OnlyForAssignedSubjects()
+    {
+        using var client = _factory.CreateClient();
+        await AuthorizeAsync(client, "+992000000000", "Admin123!");
+
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var teacherPhone = $"+99233{suffix[..7]}";
+        var teacher = await CreateUserAsync(client, UserRole.Teacher, $"content-teacher-{suffix}", teacherPhone);
+        var assignedSubject = await CreateSubjectAsync(client, $"Assigned subject {suffix}");
+        var unassignedSubject = await CreateSubjectAsync(client, $"Unassigned subject {suffix}");
+
+        using var assignmentResponse = await client.PostAsJsonAsync(
+            "/api/teacher-subjects",
+            new AssignTeacherSubjectRequest(teacher.Id, assignedSubject.Id));
+        assignmentResponse.EnsureSuccessStatusCode();
+
+        await AuthorizeAsync(client, teacherPhone, "12345A");
+
+        var topic = await CreateTopicAsync(client, assignedSubject.Id);
+        using var updateTopicResponse = await client.PutAsJsonAsync(
+            $"/api/topics/{topic.Id}",
+            new UpdateTopicRequest("Updated mechanics", "Teacher managed topic", "Book", "Grade 9", true));
+        updateTopicResponse.EnsureSuccessStatusCode();
+        var updatedTopic = await updateTopicResponse.Content.ReadFromJsonAsync<TopicDto>();
+        Assert.NotNull(updatedTopic);
+        Assert.Equal("Updated mechanics", updatedTopic.Title);
+
+        await CreateQuestionAsync(client, topic.Id);
+        await CreateQuestionAsync(client, topic.Id);
+
+        var importedQuestions = await client.GetFromJsonAsync<List<QuestionDto>>($"/api/questions/by-topic/{topic.Id}");
+        Assert.NotNull(importedQuestions);
+        Assert.Equal(2, importedQuestions.Count);
+
+        using var deactivateQuestionResponse = await client.DeleteAsync($"/api/questions/{importedQuestions[0].Id}");
+        Assert.Equal(HttpStatusCode.NoContent, deactivateQuestionResponse.StatusCode);
+
+        using var deactivateTopicResponse = await client.DeleteAsync($"/api/topics/{topic.Id}");
+        Assert.Equal(HttpStatusCode.NoContent, deactivateTopicResponse.StatusCode);
+
+        using var unassignedTopicResponse = await client.PostAsJsonAsync(
+            "/api/topics",
+            new CreateTopicRequest(unassignedSubject.Id, "Forbidden topic", null, null, null));
+        Assert.Equal(HttpStatusCode.NotFound, unassignedTopicResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task TeacherDashboard_ReturnsOnlyAssignedGroupsAndTheirStudents()
+    {
+        using var client = _factory.CreateClient();
+        await AuthorizeAsync(client, "+992000000000", "Admin123!");
+
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var firstTeacherPhone = $"+99234{suffix[..7]}";
+        var secondTeacherPhone = $"+99235{suffix[..7]}";
+        var firstTeacher = await CreateUserAsync(client, UserRole.Teacher, $"dashboard-teacher-a-{suffix}", firstTeacherPhone);
+        var secondTeacher = await CreateUserAsync(client, UserRole.Teacher, $"dashboard-teacher-b-{suffix}", secondTeacherPhone);
+        var firstStudent = await CreateUserAsync(client, UserRole.Student, $"dashboard-student-a-{suffix}", $"+99236{suffix[..7]}");
+        var secondStudent = await CreateUserAsync(client, UserRole.Student, $"dashboard-student-b-{suffix}", $"+99237{suffix[..7]}");
+        var firstSubject = await CreateSubjectAsync(client, $"Dashboard subject A {suffix}");
+        var secondSubject = await CreateSubjectAsync(client, $"Dashboard subject B {suffix}");
+        var firstGroup = await CreateGroupAsync(client, $"Dashboard group A {suffix}", [firstSubject.Id]);
+        var secondGroup = await CreateGroupAsync(client, $"Dashboard group B {suffix}", [secondSubject.Id]);
+
+        await AssignTeacherAsync(client, firstTeacher.Id, firstSubject.Id, firstGroup.Id);
+        await AssignTeacherAsync(client, secondTeacher.Id, secondSubject.Id, secondGroup.Id);
+        (await client.PostAsync($"/api/groups/{firstGroup.Id}/students/{firstStudent.Id}", null)).EnsureSuccessStatusCode();
+        (await client.PostAsync($"/api/groups/{secondGroup.Id}/students/{secondStudent.Id}", null)).EnsureSuccessStatusCode();
+
+        var lessonDate = new DateOnly(2026, 9, 15);
+        await AuthorizeAsync(client, firstTeacherPhone, "12345A");
+        var firstTopic = await CreateTopicAsync(client, firstSubject.Id);
+        await CreateQuestionAsync(client, firstTopic.Id);
+        var firstLesson = await CreateDailyLessonAsync(client, firstSubject.Id, firstTopic.Id, firstGroup.Id, lessonDate);
+
+        await AuthorizeAsync(client, secondTeacherPhone, "12345A");
+        var secondTopic = await CreateTopicAsync(client, secondSubject.Id);
+        await CreateQuestionAsync(client, secondTopic.Id);
+        var secondLesson = await CreateDailyLessonAsync(client, secondSubject.Id, secondTopic.Id, secondGroup.Id, lessonDate);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            dbContext.GradeEntries.AddRange(
+                new GradeEntry
+                {
+                    DailyLessonId = firstLesson.Id,
+                    StudentId = firstStudent.Id,
+                    AttendanceStatus = AttendanceStatus.Present,
+                    AutoScore = 84
+                },
+                new GradeEntry
+                {
+                    DailyLessonId = secondLesson.Id,
+                    StudentId = secondStudent.Id,
+                    AttendanceStatus = AttendanceStatus.Present,
+                    AutoScore = 91
+                });
+            await dbContext.SaveChangesAsync();
+        }
+
+        await AuthorizeAsync(client, firstTeacherPhone, "12345A");
+
+        var groups = await client.GetFromJsonAsync<List<TeacherDashboardGroupDto>>("/api/teacher/dashboard/groups");
+        Assert.NotNull(groups);
+        var dashboardGroup = Assert.Single(groups.Where(group => group.Id == firstGroup.Id));
+        Assert.Equal(1, dashboardGroup.StudentCount);
+        Assert.DoesNotContain(groups, group => group.Id == secondGroup.Id);
+
+        var results = await client.GetFromJsonAsync<TeacherDashboardDailyResultsDto>(
+            $"/api/teacher/dashboard/daily-results?date={lessonDate:yyyy-MM-dd}&sort=scoreAsc");
+        Assert.NotNull(results);
+        var studentResult = Assert.Single(results.Results);
+        Assert.Equal(firstStudent.Id, studentResult.StudentId);
+        Assert.Equal(firstGroup.Id, studentResult.GroupId);
+        Assert.Equal(firstSubject.Id, studentResult.SubjectId);
+        Assert.DoesNotContain(results.Results, result => result.StudentId == secondStudent.Id);
     }
 
     [Fact]
@@ -142,6 +278,38 @@ public sealed class TeachingEndpointTests : IClassFixture<TestApiFactory>
         Assert.NotNull(secondResult);
         Assert.False(secondResult.Created);
         Assert.Equal(firstResult.Lesson.Id, secondResult.Lesson.Id);
+    }
+
+    private static async Task AssignTeacherAsync(
+        HttpClient client,
+        Guid teacherId,
+        Guid subjectId,
+        Guid groupId)
+    {
+        using var subjectResponse = await client.PostAsJsonAsync(
+            "/api/teacher-subjects",
+            new AssignTeacherSubjectRequest(teacherId, subjectId));
+        subjectResponse.EnsureSuccessStatusCode();
+
+        using var groupResponse = await client.PostAsJsonAsync(
+            "/api/teacher-assignments",
+            new AssignTeacherRequest(teacherId, subjectId, groupId));
+        groupResponse.EnsureSuccessStatusCode();
+    }
+
+    private static async Task<DailyLessonDto> CreateDailyLessonAsync(
+        HttpClient client,
+        Guid subjectId,
+        Guid topicId,
+        Guid groupId,
+        DateOnly lessonDate)
+    {
+        using var response = await client.PostAsJsonAsync(
+            "/api/daily-lessons",
+            new CreateDailyLessonRequest(subjectId, topicId, lessonDate, "Dashboard lesson", 1, [groupId]));
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<DailyLessonDto>()
+            ?? throw new InvalidOperationException("Daily lesson response was empty.");
     }
 
     private static async Task AuthorizeAsync(HttpClient client, string phoneNumber, string password)

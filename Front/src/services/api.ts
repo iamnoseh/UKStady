@@ -12,6 +12,8 @@ import type {
   AssignTeacherSubjectRequest,
   QuestionDto,
   SubjectDto,
+  TeacherAssignmentDto,
+  TeacherDashboardGroupDto,
   TeacherSubjectAssignmentDto,
   TopicDto,
   UpdateGroupRequest,
@@ -89,6 +91,10 @@ export function generatePassword(token: string): Promise<GeneratedPasswordDto> {
 
 export function getSubjects(token: string): Promise<SubjectDto[]> {
   return request<SubjectDto[]>('/api/subjects', token);
+}
+
+export function getCurrentTeacherSubjects(token: string): Promise<SubjectDto[]> {
+  return request<SubjectDto[]>('/api/teacher/subjects', token);
 }
 
 export function createSubject(token: string, body: CreateSubjectRequest): Promise<SubjectDto> {
@@ -212,6 +218,29 @@ export function getDashboardDailyResults(
   return request<DashboardDailyResultsDto>(`/api/admin/dashboard/daily-results${query ? `?${query}` : ''}`, token);
 }
 
+export function getTeacherDashboardGroups(token: string): Promise<TeacherDashboardGroupDto[]> {
+  return request<TeacherDashboardGroupDto[]>('/api/teacher/dashboard/groups', token);
+}
+
+export function getTeacherDashboardDailyResults(
+  token: string,
+  filters: { date?: string; groupId?: string; sort?: DashboardDailyResultsSort },
+): Promise<DashboardDailyResultsDto> {
+  const searchParams = new URLSearchParams();
+  if (filters.date) {
+    searchParams.set('date', filters.date);
+  }
+  if (filters.groupId) {
+    searchParams.set('groupId', filters.groupId);
+  }
+  if (filters.sort) {
+    searchParams.set('sort', filters.sort);
+  }
+
+  const query = searchParams.toString();
+  return request<DashboardDailyResultsDto>(`/api/teacher/dashboard/daily-results${query ? `?${query}` : ''}`, token);
+}
+
 export function createTodayGroupLesson(
   token: string,
   groupId: string,
@@ -246,6 +275,22 @@ export function assignTeacherSubject(
   return request<TeacherSubjectAssignmentDto>('/api/teacher-subjects', token, {
     method: 'POST',
     body: JSON.stringify(body),
+  });
+}
+
+export function getTeacherAssignments(token: string): Promise<TeacherAssignmentDto[]> {
+  return request<TeacherAssignmentDto[]>('/api/teacher-assignments', token);
+}
+
+export function setTeacherAssignment(
+  token: string,
+  groupId: string,
+  subjectId: string,
+  teacherId: string,
+): Promise<TeacherAssignmentDto> {
+  return request<TeacherAssignmentDto>(`/api/teacher-assignments/groups/${groupId}/subjects/${subjectId}`, token, {
+    method: 'PUT',
+    body: JSON.stringify({ teacherId }),
   });
 }
 

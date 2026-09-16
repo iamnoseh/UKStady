@@ -2,12 +2,13 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { BookOpen, Edit3, ListTree, Plus, Search, Trash2, XCircle } from 'lucide-react';
 import { Button } from '../components/Button';
 import { Pagination, paginate } from '../components/Pagination';
-import { createSubject, deleteSubject, getSubjects, updateSubject } from '../services/api';
+import { createSubject, deleteSubject, getCurrentTeacherSubjects, getSubjects, updateSubject } from '../services/api';
 import type { SubjectDto } from '../types/admin';
 import { useAuth } from '../context/AuthContext';
 
 export function SubjectsPage({ onOpenTopics }: { onOpenTopics: (subject: SubjectDto) => void }) {
   const { auth } = useAuth();
+  const isTeacher = auth?.role === 'Teacher';
   const [subjects, setSubjects] = useState<SubjectDto[]>([]);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -32,7 +33,9 @@ export function SubjectsPage({ onOpenTopics }: { onOpenTopics: (subject: Subject
     setIsLoading(true);
     setError('');
     try {
-      setSubjects(await getSubjects(auth.accessToken));
+      setSubjects(await (isTeacher
+        ? getCurrentTeacherSubjects(auth.accessToken)
+        : getSubjects(auth.accessToken)));
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Фанҳо гирифта нашуданд.');
     } finally {
@@ -127,8 +130,8 @@ export function SubjectsPage({ onOpenTopics }: { onOpenTopics: (subject: Subject
     <section className="px-4 py-6 lg:px-6">
       <div className="mb-5 flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
         <div>
-          <p className="text-sm font-semibold text-muted">Administrator</p>
-          <h2 className="mt-1 text-2xl font-bold">Фанҳо</h2>
+          <p className="text-sm font-semibold text-muted">{isTeacher ? 'Муаллим' : 'Administrator'}</p>
+          <h2 className="mt-1 text-2xl font-bold">{isTeacher ? 'Фанҳои ман' : 'Фанҳо'}</h2>
         </div>
 
         <div className="flex h-11 w-full items-center gap-3 rounded-lg border border-line bg-white px-3 xl:w-[360px]">
@@ -142,8 +145,9 @@ export function SubjectsPage({ onOpenTopics }: { onOpenTopics: (subject: Subject
         </div>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[390px_1fr]">
-        <form onSubmit={handleSubmit} className="rounded-lg border border-line bg-white p-5">
+      <div className={isTeacher ? 'grid gap-5' : 'grid gap-5 xl:grid-cols-[390px_1fr]'}>
+        {!isTeacher ? (
+          <form onSubmit={handleSubmit} className="rounded-lg border border-line bg-white p-5">
           <div className="mb-5 flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-lg bg-brand/10 text-brand">
               {editingSubject ? <Edit3 className="h-5 w-5" /> : <BookOpen className="h-5 w-5" />}
@@ -213,13 +217,15 @@ export function SubjectsPage({ onOpenTopics }: { onOpenTopics: (subject: Subject
               Бекор кардан
             </Button>
           ) : null}
-        </form>
+          </form>
+        ) : null}
 
         <div className="min-w-0">
           <div className="min-h-[420px] overflow-hidden rounded-lg border border-line bg-white">
-            <div className="grid grid-cols-[1.3fr_110px_120px_260px] border-b border-line bg-panel px-4 py-3 text-xs font-bold uppercase text-muted">
+            <div className="grid grid-cols-[1.3fr_110px_110px_120px_260px] border-b border-line bg-panel px-4 py-3 text-xs font-bold uppercase text-muted">
               <span>Фан</span>
               <span>Мавзӯъҳо</span>
+              <span>Саволҳо</span>
               <span>Ҳолат</span>
               <span>Амал</span>
             </div>
@@ -231,26 +237,31 @@ export function SubjectsPage({ onOpenTopics }: { onOpenTopics: (subject: Subject
             ) : null}
 
             {pagedSubjects.items.map((subject) => (
-              <div key={subject.id} className="grid grid-cols-[1.3fr_110px_120px_260px] items-center border-b border-line px-4 py-4 text-sm last:border-0">
+              <div key={subject.id} className="grid grid-cols-[1.3fr_110px_110px_120px_260px] items-center border-b border-line px-4 py-4 text-sm last:border-0">
                 <div>
                   <p className="font-semibold">{subject.name}</p>
                   <p className="text-muted">{subject.description || 'Бе тавсиф'}</p>
                 </div>
                 <span className="text-muted">{subject.topicCount}</span>
+                <span className="font-semibold text-ink">{subject.questionCount}</span>
                 <span className={`w-fit rounded-md px-2 py-1 text-xs font-bold ${subject.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
                   {subject.isActive ? 'Фаъол' : 'Ғайрифаъол'}
                 </span>
                 <div className="flex flex-wrap gap-2">
                   <Button type="button" variant="secondary" className="h-9 px-3" onClick={() => onOpenTopics(subject)}>
                     <ListTree className="h-4 w-4" />
-                    Мавзӯъҳо
+                    {isTeacher ? 'Саволҳо' : 'Мавзӯъҳо'}
                   </Button>
-                  <Button type="button" variant="secondary" className="h-9 px-3" onClick={() => startEdit(subject)}>
-                    <Edit3 className="h-4 w-4" />
-                  </Button>
-                  <Button type="button" variant="secondary" className="h-9 px-3 text-red-600 hover:bg-red-50" onClick={() => void handleDelete(subject)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {!isTeacher ? (
+                    <>
+                      <Button type="button" variant="secondary" className="h-9 px-3" onClick={() => startEdit(subject)}>
+                        <Edit3 className="h-4 w-4" />
+                      </Button>
+                      <Button type="button" variant="secondary" className="h-9 px-3 text-red-600 hover:bg-red-50" onClick={() => void handleDelete(subject)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </>
+                  ) : null}
                 </div>
               </div>
             ))}

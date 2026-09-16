@@ -205,7 +205,23 @@ public sealed class AdministrationService : IAdministrationService
             .ToListAsync(cancellationToken);
         var existingSubjectIdSet = existingSubjectIds.ToHashSet();
 
-        foreach (var groupSubject in group.Subjects.Where(item => !existingSubjectIdSet.Contains(item.SubjectId)).ToList())
+        var removedGroupSubjects = group.Subjects
+            .Where(item => !existingSubjectIdSet.Contains(item.SubjectId))
+            .ToList();
+        var removedSubjectIds = removedGroupSubjects
+            .Select(item => item.SubjectId)
+            .ToList();
+
+        if (removedSubjectIds.Count > 0)
+        {
+            var obsoleteTeacherAssignments = await _dbContext.TeacherSubjectGroups
+                .Where(assignment =>
+                    assignment.GroupId == group.Id && removedSubjectIds.Contains(assignment.SubjectId))
+                .ToListAsync(cancellationToken);
+            _dbContext.TeacherSubjectGroups.RemoveRange(obsoleteTeacherAssignments);
+        }
+
+        foreach (var groupSubject in removedGroupSubjects)
         {
             group.Subjects.Remove(groupSubject);
         }
@@ -294,7 +310,8 @@ public sealed class AdministrationService : IAdministrationService
                 subject.Name,
                 subject.Description,
                 subject.IsActive,
-                subject.Topics.Count))
+                subject.Topics.Count,
+                subject.Topics.SelectMany(topic => topic.Questions).Count(question => question.IsActive)))
             .ToListAsync(cancellationToken);
     }
 
@@ -308,7 +325,8 @@ public sealed class AdministrationService : IAdministrationService
                 subject.Name,
                 subject.Description,
                 subject.IsActive,
-                subject.Topics.Count))
+                subject.Topics.Count,
+                subject.Topics.SelectMany(topic => topic.Questions).Count(question => question.IsActive)))
             .FirstOrDefaultAsync(cancellationToken);
     }
 
@@ -324,7 +342,7 @@ public sealed class AdministrationService : IAdministrationService
         _dbContext.Subjects.Add(subject);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return new SubjectDto(subject.Id, subject.Name, subject.Description, subject.IsActive, 0);
+        return new SubjectDto(subject.Id, subject.Name, subject.Description, subject.IsActive, 0, 0);
     }
 
     public async Task<SubjectDto?> UpdateSubjectAsync(Guid id, UpdateSubjectRequest request, CancellationToken cancellationToken)
@@ -342,7 +360,10 @@ public sealed class AdministrationService : IAdministrationService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         var topicCount = await _dbContext.Topics.CountAsync(topic => topic.SubjectId == id, cancellationToken);
-        return new SubjectDto(subject.Id, subject.Name, subject.Description, subject.IsActive, topicCount);
+        var questionCount = await _dbContext.Questions.CountAsync(
+            question => question.Topic.SubjectId == id && question.IsActive,
+            cancellationToken);
+        return new SubjectDto(subject.Id, subject.Name, subject.Description, subject.IsActive, topicCount, questionCount);
     }
 
     public async Task<bool> DeactivateSubjectAsync(Guid id, CancellationToken cancellationToken)
@@ -363,10 +384,10 @@ public sealed class AdministrationService : IAdministrationService
         CancellationToken cancellationToken)
     {
         var teacher = await _dbContext.Users.FirstOrDefaultAsync(
-            user => user.Id == request.TeacherId && user.Role == UserRole.Teacher,
+            user => user.Id == request.TeacherId && user.Role == UserRole.Teacher && user.IsActive,
             cancellationToken);
         var subject = await _dbContext.Subjects.FirstOrDefaultAsync(
-            candidate => candidate.Id == request.SubjectId,
+            candidate => candidate.Id == request.SubjectId && candidate.IsActive,
             cancellationToken);
 
         if (teacher is null || subject is null)
@@ -411,6 +432,10 @@ public sealed class AdministrationService : IAdministrationService
             return false;
         }
 
+        var groupAssignments = await _dbContext.TeacherSubjectGroups
+            .Where(item => item.TeacherId == teacherId && item.SubjectId == subjectId)
+            .ToListAsync(cancellationToken);
+        _dbContext.TeacherSubjectGroups.RemoveRange(groupAssignments);
         _dbContext.TeacherSubjects.Remove(assignment);
         await _dbContext.SaveChangesAsync(cancellationToken);
         return true;
@@ -436,39 +461,70 @@ public sealed class AdministrationService : IAdministrationService
         AssignTeacherRequest request,
         CancellationToken cancellationToken)
     {
-        var teacher = await _dbContext.Users.FirstOrDefaultAsync(
-            user => user.Id == request.TeacherId && user.Role == UserRole.Teacher,
+        return await SetTeacherAssignmentAsync(
+            request.GroupId,
+            request.SubjectId,
+            new SetTeacherAssignmentRequest(request.TeacherId),
             cancellationToken);
-        var subject = await _dbContext.Subjects.FirstOrDefaultAsync(
-            candidate => candidate.Id == request.SubjectId,
-            cancellationToken);
-        var group = await _dbContext.Groups.FirstOrDefaultAsync(
-            candidate => candidate.Id == request.GroupId,
-            cancellationToken);
+    }
+
+    public async Task<TeacherAssignmentDto?> SetTeacherAssignmentAsync(
+        Guid groupId,
+        Guid subjectId,
+        SetTeacherAssignmentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var teacher = await _dbContext.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                user => user.Id == request.TeacherId && user.Role == UserRole.Teacher && user.IsActive,
+                cancellationToken);
+        var subject = await _dbContext.Subjects
+            .AsNoTracking()
+            .FirstOrDefaultAsync(candidate => candidate.Id == subjectId && candidate.IsActive, cancellationToken);
+        var group = await _dbContext.Groups
+            .AsNoTracking()
+            .FirstOrDefaultAsync(candidate => candidate.Id == groupId && candidate.IsActive, cancellationToken);
 
         if (teacher is null || subject is null || group is null)
         {
             return null;
         }
 
-        var alreadyExists = await _dbContext.TeacherSubjectGroups.AnyAsync(
-            assignment =>
-                assignment.TeacherId == request.TeacherId &&
-                assignment.SubjectId == request.SubjectId &&
-                assignment.GroupId == request.GroupId,
+        var groupHasSubject = await _dbContext.GroupSubjects.AnyAsync(
+            assignment => assignment.GroupId == groupId && assignment.SubjectId == subjectId,
+            cancellationToken);
+        var teacherHasSubject = await _dbContext.TeacherSubjects.AnyAsync(
+            assignment => assignment.TeacherId == request.TeacherId && assignment.SubjectId == subjectId,
             cancellationToken);
 
-        if (!alreadyExists)
+        if (!groupHasSubject || !teacherHasSubject)
         {
-            _dbContext.TeacherSubjectGroups.Add(new TeacherSubjectGroup
+            return null;
+        }
+
+        var currentAssignments = await _dbContext.TeacherSubjectGroups
+            .Where(assignment => assignment.GroupId == groupId && assignment.SubjectId == subjectId)
+            .ToListAsync(cancellationToken);
+        var selectedAssignment = currentAssignments.FirstOrDefault(
+            assignment => assignment.TeacherId == request.TeacherId);
+
+        _dbContext.TeacherSubjectGroups.RemoveRange(
+            currentAssignments.Where(assignment => assignment.TeacherId != request.TeacherId));
+
+        if (selectedAssignment is null)
+        {
+            selectedAssignment = new TeacherSubjectGroup
             {
                 TeacherId = request.TeacherId,
-                SubjectId = request.SubjectId,
-                GroupId = request.GroupId,
+                SubjectId = subjectId,
+                GroupId = groupId,
                 AssignedAtUtc = _dateTimeProvider.UtcNow
-            });
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            };
+            _dbContext.TeacherSubjectGroups.Add(selectedAssignment);
         }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return new TeacherAssignmentDto(
             teacher.Id,
@@ -477,7 +533,7 @@ public sealed class AdministrationService : IAdministrationService
             subject.Name,
             group.Id,
             group.Name,
-            _dateTimeProvider.UtcNow);
+            selectedAssignment.AssignedAtUtc);
     }
 
     public async Task<bool> RemoveTeacherAssignmentAsync(

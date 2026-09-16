@@ -284,6 +284,30 @@ public static class AdministrationEndpoints
         })
         .WithName("AssignTeacher");
 
+        group.MapPut("/groups/{groupId:guid}/subjects/{subjectId:guid}", async (
+            Guid groupId,
+            Guid subjectId,
+            [FromBody] SetTeacherAssignmentRequest request,
+            IAdministrationService service,
+            CancellationToken cancellationToken) =>
+        {
+            if (request.TeacherId == Guid.Empty)
+            {
+                return Results.BadRequest(new { message = "TeacherId is required." });
+            }
+
+            var result = await service.SetTeacherAssignmentAsync(
+                groupId,
+                subjectId,
+                request,
+                cancellationToken);
+
+            return result is null
+                ? Results.BadRequest(new { message = "Teacher must be active, assigned to the subject, and the subject must belong to the active group." })
+                : Results.Ok(result);
+        })
+        .WithName("SetTeacherAssignment");
+
         group.MapDelete("/{teacherId:guid}/{subjectId:guid}/{groupId:guid}", async (
             Guid teacherId,
             Guid subjectId,

@@ -2,6 +2,8 @@ namespace UKStady.Application.Features.Teaching;
 
 public interface ITeachingService
 {
+    Task<IReadOnlyList<TeacherSubjectDto>> GetTeacherSubjectsAsync(CancellationToken cancellationToken);
+
     Task<IReadOnlyList<TopicDto>> GetTopicsAsync(CancellationToken cancellationToken);
 
     Task<TopicDto?> CreateTopicAsync(CreateTopicRequest request, CancellationToken cancellationToken);
@@ -36,4 +38,13 @@ public interface ITeachingService
         CancellationToken cancellationToken);
 
     Task<TeacherDashboardDto> GetTeacherDashboardAsync(CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<TeacherDashboardGroupDto>> GetTeacherDashboardGroupsAsync(
+        CancellationToken cancellationToken);
+
+    Task<TeacherDashboardDailyResultsDto> GetTeacherDashboardDailyResultsAsync(
+        DateOnly? date,
+        Guid? groupId,
+        string? sort,
+        CancellationToken cancellationToken);
 }

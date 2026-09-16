@@ -65,10 +65,12 @@
 
 - [x] CRUD topics scoped by teacher subject/group assignment.
 - [x] CRUD questions and options.
+- [x] Teacher DOCX/TXT question import through the shared admin question workflow.
 - [x] Validation барои single/multiple correct answers.
 - [x] Create daily lesson.
 - [x] Assign daily lesson to group with question count.
 - [x] Teacher dashboard: active lessons, submitted/absent counts.
+- [x] Teacher dashboard daily results scoped to assigned groups, subjects and students.
 
 ## Марҳилаи 6: Student test workflow
 
@@ -114,7 +116,7 @@
 - [ ] Login.
 - [ ] Admin dashboard and user management.
 - [ ] Manager groups/subjects/teacher assignment.
-- [ ] Teacher question bank.
+- [x] Teacher question bank with topic management and file import.
 - [ ] Teacher daily lesson setup.
 - [ ] Teacher grading queue.
 - [ ] Student current test room.
@@ -141,6 +143,12 @@ Endpoint-ҳо ҳангоми implement метавонанд майда тағй�
 | Users | GET/PUT/DELETE | `/api/users/{id}` |
 | Groups | GET/POST | `/api/groups` |
 | Groups | POST/DELETE | `/api/groups/{groupId}/students/{studentId}` |
+| Teacher Assignments | GET/POST | `/api/teacher-assignments` |
+| Teacher Assignments | PUT | `/api/teacher-assignments/groups/{groupId}/subjects/{subjectId}` |
+| Teacher Assignments | DELETE | `/api/teacher-assignments/{teacherId}/{subjectId}/{groupId}` |
+| Teacher Subjects | GET | `/api/teacher/subjects` |
+| Teacher Dashboard | GET | `/api/teacher/dashboard/groups` |
+| Teacher Dashboard | GET | `/api/teacher/dashboard/daily-results` |
 | Subjects | GET/POST | `/api/subjects` |
 | Topics | GET/POST | `/api/subjects/{subjectId}/topics` |
 | Questions | GET/POST | `/api/topics/{topicId}/questions` |

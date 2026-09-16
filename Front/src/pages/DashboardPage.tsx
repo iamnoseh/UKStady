@@ -4,7 +4,12 @@ import { Button } from '../components/Button';
 import type { AppView } from '../components/AppShell';
 import { Pagination, paginate } from '../components/Pagination';
 import { useAuth } from '../context/AuthContext';
-import { getDashboardDailyResults, getGroups } from '../services/api';
+import {
+  getDashboardDailyResults,
+  getGroups,
+  getTeacherDashboardDailyResults,
+  getTeacherDashboardGroups,
+} from '../services/api';
 import type { DashboardDailyResultsDto, DashboardDailyResultsSort, GroupDto } from '../types/admin';
 
 const sortOptions: Array<{ value: DashboardDailyResultsSort; label: string }> = [
@@ -14,7 +19,8 @@ const sortOptions: Array<{ value: DashboardDailyResultsSort; label: string }> = 
 
 export function DashboardPage({ onViewChange: _onViewChange }: { onViewChange: (view: AppView) => void }) {
   const { auth } = useAuth();
-  const [groups, setGroups] = useState<GroupDto[]>([]);
+  const isTeacher = auth?.role === 'Teacher';
+  const [groups, setGroups] = useState<Array<Pick<GroupDto, 'id' | 'name'>>>([]);
   const [dailyResults, setDailyResults] = useState<DashboardDailyResultsDto | null>(null);
   const [date, setDate] = useState(() => getYesterdayDateValue());
   const [groupId, setGroupId] = useState('');
@@ -23,7 +29,7 @@ export function DashboardPage({ onViewChange: _onViewChange }: { onViewChange: (
   const [page, setPage] = useState(1);
   const [isLoadingResults, setIsLoadingResults] = useState(false);
   const [resultsError, setResultsError] = useState('');
-  const canSeeDailyResults = auth?.role === 'SuperAdmin';
+  const canSeeDailyResults = auth?.role === 'SuperAdmin' || isTeacher;
 
   useEffect(() => {
     if (!auth || !canSeeDailyResults) {
@@ -36,14 +42,16 @@ export function DashboardPage({ onViewChange: _onViewChange }: { onViewChange: (
       }
 
       try {
-        setGroups(await getGroups(auth.accessToken));
+        setGroups(await (isTeacher
+          ? getTeacherDashboardGroups(auth.accessToken)
+          : getGroups(auth.accessToken)));
       } catch (error) {
         setResultsError(error instanceof Error ? error.message : 'Филтрҳо гирифта нашуданд.');
       }
     }
 
     void loadFilters();
-  }, [auth, canSeeDailyResults]);
+  }, [auth, canSeeDailyResults, isTeacher]);
 
   useEffect(() => {
     if (!auth || !canSeeDailyResults) {
@@ -58,7 +66,9 @@ export function DashboardPage({ onViewChange: _onViewChange }: { onViewChange: (
       setIsLoadingResults(true);
       setResultsError('');
       try {
-        setDailyResults(await getDashboardDailyResults(auth.accessToken, { date, groupId, sort }));
+        setDailyResults(await (isTeacher
+          ? getTeacherDashboardDailyResults(auth.accessToken, { date, groupId, sort })
+          : getDashboardDailyResults(auth.accessToken, { date, groupId, sort })));
       } catch (error) {
         setResultsError(error instanceof Error ? error.message : 'Натиҷаҳо гирифта нашуданд.');
       } finally {
@@ -67,7 +77,7 @@ export function DashboardPage({ onViewChange: _onViewChange }: { onViewChange: (
     }
 
     void loadResults();
-  }, [auth, canSeeDailyResults, date, groupId, sort]);
+  }, [auth, canSeeDailyResults, date, groupId, isTeacher, sort]);
 
   const groupOptions = useMemo(() => {
     return groups
@@ -117,8 +127,8 @@ export function DashboardPage({ onViewChange: _onViewChange }: { onViewChange: (
     <section className="px-4 py-6 lg:px-6">
       <div className="mb-5 flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
         <div>
-          <p className="text-sm font-semibold text-muted">SuperAdmin</p>
-          <h2 className="mt-1 text-2xl font-bold">Дашбоарди натиҷаҳо</h2>
+          <p className="text-sm font-semibold text-muted">{isTeacher ? `Муаллим: ${auth?.fullName}` : 'SuperAdmin'}</p>
+          <h2 className="mt-1 text-2xl font-bold">{isTeacher ? 'Натиҷаҳои гурӯҳҳои ман' : 'Дашбоарди натиҷаҳо'}</h2>
         </div>
       </div>
 

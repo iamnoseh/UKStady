@@ -9,6 +9,7 @@ public static class TeachingEndpoints
 {
     public static IEndpointRouteBuilder MapTeachingEndpoints(this IEndpointRouteBuilder endpoints)
     {
+        endpoints.MapTeacherSubjectEndpoints();
         endpoints.MapTopicEndpoints();
         endpoints.MapQuestionEndpoints();
         endpoints.MapDailyLessonEndpoints();
@@ -16,6 +17,17 @@ public static class TeachingEndpoints
         endpoints.MapTeacherDashboardEndpoint();
 
         return endpoints;
+    }
+
+    private static void MapTeacherSubjectEndpoints(this IEndpointRouteBuilder endpoints)
+    {
+        endpoints.MapGet("/api/teacher/subjects", async (
+            ITeachingService service,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await service.GetTeacherSubjectsAsync(cancellationToken)))
+            .WithTags("Teacher Subjects")
+            .RequireAuthorization(AuthorizationPolicies.Teachers)
+            .WithName("GetCurrentTeacherSubjects");
     }
 
     private static void MapTopicEndpoints(this IEndpointRouteBuilder endpoints)
@@ -226,6 +238,25 @@ public static class TeachingEndpoints
             .WithTags("Teacher Dashboard")
             .RequireAuthorization(AuthorizationPolicies.EducationStaff)
             .WithName("GetTeacherDashboard");
+
+        endpoints.MapGet("/api/teacher/dashboard/groups", async (
+            ITeachingService service,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await service.GetTeacherDashboardGroupsAsync(cancellationToken)))
+            .WithTags("Teacher Dashboard")
+            .RequireAuthorization(AuthorizationPolicies.Teachers)
+            .WithName("GetTeacherDashboardGroups");
+
+        endpoints.MapGet("/api/teacher/dashboard/daily-results", async (
+            [FromQuery] DateOnly? date,
+            [FromQuery] Guid? groupId,
+            [FromQuery] string? sort,
+            ITeachingService service,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await service.GetTeacherDashboardDailyResultsAsync(date, groupId, sort, cancellationToken)))
+            .WithTags("Teacher Dashboard")
+            .RequireAuthorization(AuthorizationPolicies.Teachers)
+            .WithName("GetTeacherDashboardDailyResults");
     }
 
     private static string? ValidateQuestion(

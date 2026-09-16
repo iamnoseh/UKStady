@@ -2,6 +2,14 @@ using UKStady.Domain.Enums;
 
 namespace UKStady.Application.Features.Teaching;
 
+public sealed record TeacherSubjectDto(
+    Guid Id,
+    string Name,
+    string? Description,
+    bool IsActive,
+    int TopicCount,
+    int QuestionCount);
+
 public sealed record TopicDto(
     Guid Id,
     Guid SubjectId,
@@ -116,3 +124,31 @@ public sealed record TeacherDashboardDto(
     int ActiveQuestions,
     int DailyLessons,
     int AssignedGroups);
+
+public sealed record TeacherDashboardGroupDto(
+    Guid Id,
+    string Name,
+    string Branch,
+    int StudentCount);
+
+public sealed record TeacherDashboardDailyResultsDto(
+    DateOnly Date,
+    int TotalResults,
+    decimal? AverageScore,
+    IReadOnlyList<TeacherDashboardStudentResultDto> Results);
+
+public sealed record TeacherDashboardStudentResultDto(
+    Guid StudentId,
+    string StudentName,
+    string PhoneNumber,
+    Guid GroupId,
+    string GroupName,
+    string Branch,
+    Guid SubjectId,
+    string SubjectName,
+    Guid DailyLessonId,
+    string LessonTitle,
+    Guid? TopicId,
+    string? TopicTitle,
+    decimal Score,
+    string AttendanceStatus);

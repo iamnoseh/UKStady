@@ -51,6 +51,12 @@ public interface IAdministrationService
 
     Task<TeacherAssignmentDto?> AssignTeacherAsync(AssignTeacherRequest request, CancellationToken cancellationToken);
 
+    Task<TeacherAssignmentDto?> SetTeacherAssignmentAsync(
+        Guid groupId,
+        Guid subjectId,
+        SetTeacherAssignmentRequest request,
+        CancellationToken cancellationToken);
+
     Task<bool> RemoveTeacherAssignmentAsync(
         Guid teacherId,
         Guid subjectId,

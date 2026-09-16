@@ -31,6 +31,7 @@ export interface SubjectDto {
   description: string | null;
   isActive: boolean;
   topicCount: number;
+  questionCount: number;
 }
 
 export interface CreateSubjectRequest {
@@ -228,6 +229,16 @@ export interface TeacherSubjectAssignmentDto {
   assignedAtUtc: string;
 }
 
+export interface TeacherAssignmentDto {
+  teacherId: string;
+  teacherName: string;
+  subjectId: string;
+  subjectName: string;
+  groupId: string;
+  groupName: string;
+  assignedAtUtc: string;
+}
+
 export type DashboardDailyResultsSort = 'scoreAsc' | 'scoreDesc';
 
 export interface DashboardDailyStudentResultDto {
@@ -252,4 +263,11 @@ export interface DashboardDailyResultsDto {
   totalResults: number;
   averageScore: number | null;
   results: DashboardDailyStudentResultDto[];
+}
+
+export interface TeacherDashboardGroupDto {
+  id: string;
+  name: string;
+  branch: string;
+  studentCount: number;
 }

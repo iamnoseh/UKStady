@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   ClipboardList,
   Edit3,
+  GraduationCap,
   Layers,
   Save,
   Plus,
@@ -30,16 +31,30 @@ import {
   getGroupJournal,
   getGroups,
   getSubjects,
+  getTeacherAssignments,
+  getTeacherSubjects,
   getTopics,
   getUsers,
+  setTeacherAssignment,
   removeStudentFromGroup,
   updateGroupLessonTopic,
   updateGroup,
 } from '../services/api';
-import type { GroupDto, GroupJournalDto, GroupJournalLessonDto, GroupSubjectJournalDto, SubjectDto, TopicDto, UserDto } from '../types/admin';
+import type {
+  GroupDto,
+  GroupJournalDto,
+  GroupJournalLessonDto,
+  GroupSubjectDto,
+  GroupSubjectJournalDto,
+  SubjectDto,
+  TeacherAssignmentDto,
+  TeacherSubjectAssignmentDto,
+  TopicDto,
+  UserDto,
+} from '../types/admin';
 import { useAuth } from '../context/AuthContext';
 
-type GroupTab = 'students' | 'journals' | 'edit' | 'other';
+type GroupTab = 'students' | 'journals' | 'teachers' | 'edit' | 'other';
 
 const subjectBadgeColors = [
   'bg-violet-50 text-violet-700 border-violet-100',
@@ -56,6 +71,8 @@ export function GroupsPage() {
   const [subjects, setSubjects] = useState<SubjectDto[]>([]);
   const [topics, setTopics] = useState<TopicDto[]>([]);
   const [users, setUsers] = useState<UserDto[]>([]);
+  const [teacherAssignments, setTeacherAssignments] = useState<TeacherAssignmentDto[]>([]);
+  const [teacherSubjects, setTeacherSubjects] = useState<TeacherSubjectAssignmentDto[]>([]);
   const [journal, setJournal] = useState<GroupJournalDto | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<GroupTab>('students');
@@ -90,6 +107,9 @@ export function GroupsPage() {
   } | null>(null);
   const [topicModalTopicId, setTopicModalTopicId] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [teacherModalSubject, setTeacherModalSubject] = useState<GroupSubjectDto | null>(null);
+  const [selectedTeacherId, setSelectedTeacherId] = useState('');
+  const [isTeacherAssignmentSubmitting, setIsTeacherAssignmentSubmitting] = useState(false);
 
   useEffect(() => {
     void loadData();
@@ -103,16 +123,27 @@ export function GroupsPage() {
     setIsLoading(true);
     setError('');
     try {
-      const [loadedGroups, loadedSubjects, loadedUsers, loadedTopics] = await Promise.all([
+      const [
+        loadedGroups,
+        loadedSubjects,
+        loadedUsers,
+        loadedTopics,
+        loadedTeacherAssignments,
+        loadedTeacherSubjects,
+      ] = await Promise.all([
         getGroups(auth.accessToken),
         getSubjects(auth.accessToken),
         getUsers(auth.accessToken),
         getTopics(auth.accessToken),
+        getTeacherAssignments(auth.accessToken),
+        getTeacherSubjects(auth.accessToken),
       ]);
       setGroups(loadedGroups);
       setSubjects(loadedSubjects);
       setUsers(loadedUsers);
       setTopics(loadedTopics);
+      setTeacherAssignments(loadedTeacherAssignments);
+      setTeacherSubjects(loadedTeacherSubjects);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Гурӯҳҳо гирифта нашуданд.');
     } finally {
@@ -141,6 +172,56 @@ export function GroupsPage() {
     setActiveTab('students');
     setSelectedStudentIds([]);
     setJournal(null);
+  }
+
+  function openTeacherModal(subject: GroupSubjectDto) {
+    if (!selectedGroupId) {
+      return;
+    }
+
+    const currentAssignment = teacherAssignments.find(
+      (assignment) => assignment.groupId === selectedGroupId && assignment.subjectId === subject.id,
+    );
+
+    setTeacherModalSubject(subject);
+    setSelectedTeacherId(currentAssignment?.teacherId ?? '');
+    setError('');
+    setNotice('');
+  }
+
+  function closeTeacherModal() {
+    setTeacherModalSubject(null);
+    setSelectedTeacherId('');
+  }
+
+  async function handleSaveTeacherAssignment() {
+    if (!auth || !selectedGroupId || !teacherModalSubject || !selectedTeacherId) {
+      return;
+    }
+
+    const currentAssignments = teacherAssignments.filter(
+      (assignment) => assignment.groupId === selectedGroupId && assignment.subjectId === teacherModalSubject.id,
+    );
+
+    setIsTeacherAssignmentSubmitting(true);
+    setError('');
+    setNotice('');
+    try {
+      await setTeacherAssignment(
+        auth.accessToken,
+        selectedGroupId,
+        teacherModalSubject.id,
+        selectedTeacherId,
+      );
+
+      setTeacherAssignments(await getTeacherAssignments(auth.accessToken));
+      setNotice(currentAssignments.length > 0 ? 'Муаллими фан иваз карда шуд.' : 'Муаллим ба фан ҳамроҳ карда шуд.');
+      closeTeacherModal();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Муаллим ба фан таъин карда нашуд.');
+    } finally {
+      setIsTeacherAssignmentSubmitting(false);
+    }
   }
 
   async function loadJournal(groupId = selectedGroupId) {
@@ -413,6 +494,33 @@ export function GroupsPage() {
     );
   }, [selectedGroup, studentQuery]);
   const pagedAssignedStudents = paginate(filteredAssignedStudents, studentPage, 8);
+  const selectedGroupTeacherAssignments = useMemo(() => {
+    if (!selectedGroupId) {
+      return [];
+    }
+
+    return teacherAssignments.filter((assignment) => assignment.groupId === selectedGroupId);
+  }, [selectedGroupId, teacherAssignments]);
+  const teacherOptionsForModal = useMemo(() => {
+    if (!teacherModalSubject) {
+      return [];
+    }
+
+    const eligibleTeacherIds = new Set(
+      teacherSubjects
+        .filter((assignment) => assignment.subjectId === teacherModalSubject.id)
+        .map((assignment) => assignment.teacherId),
+    );
+
+    return users
+      .filter((user) => user.role === 'Teacher' && user.isActive && eligibleTeacherIds.has(user.id))
+      .sort((left, right) => `${left.firstName} ${left.lastName}`.localeCompare(`${right.firstName} ${right.lastName}`))
+      .map((teacher) => ({
+        value: teacher.id,
+        label: `${teacher.firstName} ${teacher.lastName}`,
+        meta: teacher.phoneNumber,
+      }));
+  }, [teacherModalSubject, teacherSubjects, users]);
 
   useEffect(() => {
     setPage(1);
@@ -479,6 +587,7 @@ export function GroupsPage() {
         <div className="mb-5 flex flex-wrap gap-2 border-b border-line">
           <TabButton active={activeTab === 'students'} onClick={() => setActiveTab('students')} icon={Users} label="Хонандагон" />
           <TabButton active={activeTab === 'journals'} onClick={() => setActiveTab('journals')} icon={ClipboardList} label="Журналҳо" />
+          <TabButton active={activeTab === 'teachers'} onClick={() => setActiveTab('teachers')} icon={GraduationCap} label="Муаллимон" />
           <TabButton active={activeTab === 'edit'} onClick={() => setActiveTab('edit')} icon={Edit3} label="Таҳрир кардан" />
           <TabButton active={activeTab === 'other'} onClick={() => setActiveTab('other')} icon={SlidersHorizontal} label="Дигар қисмҳо" />
         </div>
@@ -726,6 +835,64 @@ export function GroupsPage() {
           </div>
         ) : null}
 
+        {activeTab === 'teachers' ? (
+          <div className="overflow-hidden rounded-lg border border-line bg-white">
+            <div className="border-b border-line bg-panel px-4 py-4">
+              <h3 className="font-bold">Муаллимони фанҳои гурӯҳ</h3>
+              <p className="mt-1 text-sm text-muted">Барои ҳар фани гурӯҳ муаллими мувофиқро таъин кунед.</p>
+            </div>
+
+            <div className="overflow-x-auto">
+              <div className="min-w-[720px]">
+                <div className="grid grid-cols-[1.2fr_1.3fr_140px_210px] border-b border-line bg-panel/60 px-4 py-3 text-xs font-bold uppercase text-muted">
+                  <span>Фан</span>
+                  <span>Муаллим</span>
+                  <span>Ҳолат</span>
+                  <span>Амал</span>
+                </div>
+
+                {selectedGroup.subjects.length === 0 ? (
+                  <p className="px-4 py-6 text-sm text-muted">Ба ин гурӯҳ ҳоло фан илова нашудааст.</p>
+                ) : null}
+
+                {selectedGroup.subjects.map((subject) => {
+                  const assignments = selectedGroupTeacherAssignments.filter(
+                    (assignment) => assignment.subjectId === subject.id,
+                  );
+                  const assignedTeacherNames = assignments.map((assignment) => assignment.teacherName).join(', ');
+                  const isAssigned = assignments.length > 0;
+
+                  return (
+                    <div
+                      key={subject.id}
+                      className="grid grid-cols-[1.2fr_1.3fr_140px_210px] items-center border-b border-line px-4 py-4 text-sm last:border-0"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="grid h-10 w-10 place-items-center rounded-lg bg-brand/10 text-brand">
+                          <BookOpen className="h-5 w-5" />
+                        </div>
+                        <span className="font-semibold">{subject.name}</span>
+                      </div>
+                      <span className={isAssigned ? 'font-semibold text-ink' : 'text-muted'}>
+                        {assignedTeacherNames || 'Муаллим таъин нашудааст'}
+                      </span>
+                      <span className={`w-fit rounded-md px-2 py-1 text-xs font-bold ${
+                        isAssigned ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                      }`}>
+                        {isAssigned ? 'Таъин шудааст' : 'Нотаъин'}
+                      </span>
+                      <Button type="button" variant="secondary" className="h-9 px-3" onClick={() => openTeacherModal(subject)}>
+                        <GraduationCap className="h-4 w-4" />
+                        {isAssigned ? 'Иваз кардани муаллим' : 'Ҳамроҳ кардани муаллим'}
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         {activeTab === 'edit' ? (
           <form onSubmit={handleUpdateGroup} className="rounded-lg border border-line bg-white p-5">
             <div className="mb-5 flex items-center gap-3">
@@ -909,6 +1076,51 @@ export function GroupsPage() {
                 >
                   <Save className="h-4 w-4" />
                   {journalBusyLessonId === topicModalLesson.lesson.id ? 'Сабт шуда истодааст...' : 'Сабт кардан'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {teacherModalSubject ? (
+          <div className="fixed inset-0 z-50 grid place-items-center bg-ink/25 px-4">
+            <div className="w-full max-w-md rounded-lg border border-line bg-white p-5 shadow-soft">
+              <div className="mb-5 flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-muted">{teacherModalSubject.name}</p>
+                  <h3 className="mt-1 text-lg font-bold">Интихоби муаллим</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeTeacherModal}
+                  className="grid h-9 w-9 place-items-center rounded-lg border border-line text-muted hover:text-ink"
+                  aria-label="Пӯшидан"
+                  title="Пӯшидан"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <SearchableSelect
+                label="Муаллим"
+                value={selectedTeacherId}
+                options={teacherOptionsForModal}
+                placeholder="Ҷустуҷӯ ва интихоби муаллим"
+                emptyText="Барои ин фан муаллими дастрас нест. Аввал муаллимро ба фан пайваст кунед."
+                onChange={setSelectedTeacherId}
+              />
+
+              <div className="mt-5 flex justify-end gap-3">
+                <Button type="button" variant="secondary" onClick={closeTeacherModal} disabled={isTeacherAssignmentSubmitting}>
+                  Бекор кардан
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => void handleSaveTeacherAssignment()}
+                  disabled={!selectedTeacherId || isTeacherAssignmentSubmitting}
+                >
+                  <Save className="h-4 w-4" />
+                  {isTeacherAssignmentSubmitting ? 'Сабт шуда истодааст...' : 'Сабт кардан'}
                 </Button>
               </div>
             </div>

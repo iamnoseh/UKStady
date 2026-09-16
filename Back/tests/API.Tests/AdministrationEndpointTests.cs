@@ -49,8 +49,13 @@ public sealed class AdministrationEndpointTests : IClassFixture<TestApiFactory>
 
         var teacher = await CreateUserAsync(client, UserRole.Teacher, "teacher-admin-flow", "+992200000001", generatedPassword.Password);
         var student = await CreateUserAsync(client, UserRole.Student, "student-admin-flow", "+992200000002", "12345A");
-        var group = await CreateGroupAsync(client);
         var subject = await CreateSubjectAsync(client);
+        var group = await CreateGroupAsync(client, [subject.Id]);
+
+        using var teacherSubjectResponse = await client.PostAsJsonAsync(
+            "/api/teacher-subjects",
+            new AssignTeacherSubjectRequest(teacher.Id, subject.Id));
+        Assert.Equal(HttpStatusCode.Created, teacherSubjectResponse.StatusCode);
 
         using var addStudentResponse = await client.PostAsync(
             $"/api/groups/{group.Id}/students/{student.Id}",
@@ -77,6 +82,55 @@ public sealed class AdministrationEndpointTests : IClassFixture<TestApiFactory>
         Assert.True(dashboard.ActiveGroups >= 1);
         Assert.True(dashboard.ActiveSubjects >= 1);
         Assert.True(dashboard.TeacherAssignments >= 1);
+    }
+
+    [Fact]
+    public async Task TeacherAssignments_Set_ReplacesTeacherForGroupSubject()
+    {
+        using var client = _factory.CreateClient();
+        await AuthorizeAsync(client, "+992000000000", "Admin123!");
+
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var firstTeacher = await CreateUserAsync(
+            client,
+            UserRole.Teacher,
+            $"first-group-teacher-{suffix}",
+            $"+99231{suffix[..7]}",
+            "12345A");
+        var secondTeacher = await CreateUserAsync(
+            client,
+            UserRole.Teacher,
+            $"second-group-teacher-{suffix}",
+            $"+99232{suffix[..7]}",
+            "12345A");
+        var subject = await CreateSubjectAsync(client, $"Group Teacher Subject {suffix}");
+        var group = await CreateGroupAsync(client, [subject.Id], $"Teacher Group {suffix}");
+
+        foreach (var teacher in new[] { firstTeacher, secondTeacher })
+        {
+            using var qualificationResponse = await client.PostAsJsonAsync(
+                "/api/teacher-subjects",
+                new AssignTeacherSubjectRequest(teacher.Id, subject.Id));
+            Assert.Equal(HttpStatusCode.Created, qualificationResponse.StatusCode);
+        }
+
+        using var firstAssignmentResponse = await client.PutAsJsonAsync(
+            $"/api/teacher-assignments/groups/{group.Id}/subjects/{subject.Id}",
+            new SetTeacherAssignmentRequest(firstTeacher.Id));
+        firstAssignmentResponse.EnsureSuccessStatusCode();
+
+        using var replacementResponse = await client.PutAsJsonAsync(
+            $"/api/teacher-assignments/groups/{group.Id}/subjects/{subject.Id}",
+            new SetTeacherAssignmentRequest(secondTeacher.Id));
+        replacementResponse.EnsureSuccessStatusCode();
+
+        var assignments = await client.GetFromJsonAsync<List<TeacherAssignmentDto>>("/api/teacher-assignments");
+        Assert.NotNull(assignments);
+        var groupSubjectAssignments = assignments
+            .Where(assignment => assignment.GroupId == group.Id && assignment.SubjectId == subject.Id)
+            .ToList();
+        var assignment = Assert.Single(groupSubjectAssignments);
+        Assert.Equal(secondTeacher.Id, assignment.TeacherId);
     }
 
     [Fact]
@@ -177,11 +231,14 @@ public sealed class AdministrationEndpointTests : IClassFixture<TestApiFactory>
             ?? throw new InvalidOperationException("User response was empty.");
     }
 
-    private static async Task<GroupDto> CreateGroupAsync(HttpClient client)
+    private static async Task<GroupDto> CreateGroupAsync(
+        HttpClient client,
+        IReadOnlyList<Guid>? subjectIds = null,
+        string name = "Group A")
     {
         using var response = await client.PostAsJsonAsync(
             "/api/groups",
-            new CreateGroupRequest("Group A", "Demo group", "Main branch", []));
+            new CreateGroupRequest(name, "Demo group", "Main branch", subjectIds ?? []));
 
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<GroupDto>()
