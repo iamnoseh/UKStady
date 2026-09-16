@@ -65,6 +65,7 @@
 
 - [x] CRUD topics scoped by teacher subject/group assignment.
 - [x] CRUD questions and options.
+- [x] Teacher DOCX/TXT question import through the shared admin question workflow.
 - [x] Validation барои single/multiple correct answers.
 - [x] Create daily lesson.
 - [x] Assign daily lesson to group with question count.
@@ -114,7 +115,7 @@
 - [ ] Login.
 - [ ] Admin dashboard and user management.
 - [ ] Manager groups/subjects/teacher assignment.
-- [ ] Teacher question bank.
+- [x] Teacher question bank with topic management and file import.
 - [ ] Teacher daily lesson setup.
 - [ ] Teacher grading queue.
 - [ ] Student current test room.

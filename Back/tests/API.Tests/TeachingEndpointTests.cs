@@ -117,6 +117,53 @@ public sealed class TeachingEndpointTests : IClassFixture<TestApiFactory>
     }
 
     [Fact]
+    public async Task Teacher_CanManageTopicsAndImportedQuestions_OnlyForAssignedSubjects()
+    {
+        using var client = _factory.CreateClient();
+        await AuthorizeAsync(client, "+992000000000", "Admin123!");
+
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var teacherPhone = $"+99233{suffix[..7]}";
+        var teacher = await CreateUserAsync(client, UserRole.Teacher, $"content-teacher-{suffix}", teacherPhone);
+        var assignedSubject = await CreateSubjectAsync(client, $"Assigned subject {suffix}");
+        var unassignedSubject = await CreateSubjectAsync(client, $"Unassigned subject {suffix}");
+
+        using var assignmentResponse = await client.PostAsJsonAsync(
+            "/api/teacher-subjects",
+            new AssignTeacherSubjectRequest(teacher.Id, assignedSubject.Id));
+        assignmentResponse.EnsureSuccessStatusCode();
+
+        await AuthorizeAsync(client, teacherPhone, "12345A");
+
+        var topic = await CreateTopicAsync(client, assignedSubject.Id);
+        using var updateTopicResponse = await client.PutAsJsonAsync(
+            $"/api/topics/{topic.Id}",
+            new UpdateTopicRequest("Updated mechanics", "Teacher managed topic", "Book", "Grade 9", true));
+        updateTopicResponse.EnsureSuccessStatusCode();
+        var updatedTopic = await updateTopicResponse.Content.ReadFromJsonAsync<TopicDto>();
+        Assert.NotNull(updatedTopic);
+        Assert.Equal("Updated mechanics", updatedTopic.Title);
+
+        await CreateQuestionAsync(client, topic.Id);
+        await CreateQuestionAsync(client, topic.Id);
+
+        var importedQuestions = await client.GetFromJsonAsync<List<QuestionDto>>($"/api/questions/by-topic/{topic.Id}");
+        Assert.NotNull(importedQuestions);
+        Assert.Equal(2, importedQuestions.Count);
+
+        using var deactivateQuestionResponse = await client.DeleteAsync($"/api/questions/{importedQuestions[0].Id}");
+        Assert.Equal(HttpStatusCode.NoContent, deactivateQuestionResponse.StatusCode);
+
+        using var deactivateTopicResponse = await client.DeleteAsync($"/api/topics/{topic.Id}");
+        Assert.Equal(HttpStatusCode.NoContent, deactivateTopicResponse.StatusCode);
+
+        using var unassignedTopicResponse = await client.PostAsJsonAsync(
+            "/api/topics",
+            new CreateTopicRequest(unassignedSubject.Id, "Forbidden topic", null, null, null));
+        Assert.Equal(HttpStatusCode.NotFound, unassignedTopicResponse.StatusCode);
+    }
+
+    [Fact]
     public async Task GroupJournal_CreateTodayLesson_DoesNotCreateDuplicate()
     {
         using var client = _factory.CreateClient();
