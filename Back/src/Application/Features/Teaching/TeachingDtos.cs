@@ -2,6 +2,14 @@ using UKStady.Domain.Enums;
 
 namespace UKStady.Application.Features.Teaching;
 
+public sealed record TeacherSubjectDto(
+    Guid Id,
+    string Name,
+    string? Description,
+    bool IsActive,
+    int TopicCount,
+    int QuestionCount);
+
 public sealed record TopicDto(
     Guid Id,
     Guid SubjectId,

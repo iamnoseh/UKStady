@@ -144,6 +144,7 @@ Endpoint-ҳо ҳангоми implement метавонанд майда тағй�
 | Teacher Assignments | GET/POST | `/api/teacher-assignments` |
 | Teacher Assignments | PUT | `/api/teacher-assignments/groups/{groupId}/subjects/{subjectId}` |
 | Teacher Assignments | DELETE | `/api/teacher-assignments/{teacherId}/{subjectId}/{groupId}` |
+| Teacher Subjects | GET | `/api/teacher/subjects` |
 | Subjects | GET/POST | `/api/subjects` |
 | Topics | GET/POST | `/api/subjects/{subjectId}/topics` |
 | Questions | GET/POST | `/api/topics/{topicId}/questions` |

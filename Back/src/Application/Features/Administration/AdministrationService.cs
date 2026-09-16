@@ -310,7 +310,8 @@ public sealed class AdministrationService : IAdministrationService
                 subject.Name,
                 subject.Description,
                 subject.IsActive,
-                subject.Topics.Count))
+                subject.Topics.Count,
+                subject.Topics.SelectMany(topic => topic.Questions).Count(question => question.IsActive)))
             .ToListAsync(cancellationToken);
     }
 
@@ -324,7 +325,8 @@ public sealed class AdministrationService : IAdministrationService
                 subject.Name,
                 subject.Description,
                 subject.IsActive,
-                subject.Topics.Count))
+                subject.Topics.Count,
+                subject.Topics.SelectMany(topic => topic.Questions).Count(question => question.IsActive)))
             .FirstOrDefaultAsync(cancellationToken);
     }
 
@@ -340,7 +342,7 @@ public sealed class AdministrationService : IAdministrationService
         _dbContext.Subjects.Add(subject);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return new SubjectDto(subject.Id, subject.Name, subject.Description, subject.IsActive, 0);
+        return new SubjectDto(subject.Id, subject.Name, subject.Description, subject.IsActive, 0, 0);
     }
 
     public async Task<SubjectDto?> UpdateSubjectAsync(Guid id, UpdateSubjectRequest request, CancellationToken cancellationToken)
@@ -358,7 +360,10 @@ public sealed class AdministrationService : IAdministrationService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         var topicCount = await _dbContext.Topics.CountAsync(topic => topic.SubjectId == id, cancellationToken);
-        return new SubjectDto(subject.Id, subject.Name, subject.Description, subject.IsActive, topicCount);
+        var questionCount = await _dbContext.Questions.CountAsync(
+            question => question.Topic.SubjectId == id && question.IsActive,
+            cancellationToken);
+        return new SubjectDto(subject.Id, subject.Name, subject.Description, subject.IsActive, topicCount, questionCount);
     }
 
     public async Task<bool> DeactivateSubjectAsync(Guid id, CancellationToken cancellationToken)

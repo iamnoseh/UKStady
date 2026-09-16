@@ -25,8 +25,13 @@ public sealed class TeachingEndpointTests : IClassFixture<TestApiFactory>
 
         var teacherPhone = "+992300000001";
         var teacher = await CreateUserAsync(client, UserRole.Teacher, "teacher-flow", teacherPhone);
-        var group = await CreateGroupAsync(client, "Teacher Flow Group");
         var subject = await CreateSubjectAsync(client, "Physics");
+        var group = await CreateGroupAsync(client, "Teacher Flow Group", [subject.Id]);
+
+        using var teacherSubjectResponse = await client.PostAsJsonAsync(
+            "/api/teacher-subjects",
+            new AssignTeacherSubjectRequest(teacher.Id, subject.Id));
+        teacherSubjectResponse.EnsureSuccessStatusCode();
 
         using var assignmentResponse = await client.PostAsJsonAsync(
             "/api/teacher-assignments",
@@ -99,6 +104,14 @@ public sealed class TeachingEndpointTests : IClassFixture<TestApiFactory>
         await AuthorizeAsync(client, teacherPhone, "12345A");
 
         var topic = await CreateTopicAsync(client, subject.Id);
+        await CreateQuestionAsync(client, topic.Id);
+
+        var teacherSubjects = await client.GetFromJsonAsync<List<TeacherSubjectDto>>("/api/teacher/subjects");
+        Assert.NotNull(teacherSubjects);
+        var teacherSubject = Assert.Single(teacherSubjects);
+        Assert.Equal(subject.Id, teacherSubject.Id);
+        Assert.Equal(1, teacherSubject.TopicCount);
+        Assert.Equal(1, teacherSubject.QuestionCount);
 
         Assert.Equal(subject.Id, topic.SubjectId);
     }

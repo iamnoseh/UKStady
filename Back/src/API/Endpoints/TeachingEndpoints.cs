@@ -9,6 +9,7 @@ public static class TeachingEndpoints
 {
     public static IEndpointRouteBuilder MapTeachingEndpoints(this IEndpointRouteBuilder endpoints)
     {
+        endpoints.MapTeacherSubjectEndpoints();
         endpoints.MapTopicEndpoints();
         endpoints.MapQuestionEndpoints();
         endpoints.MapDailyLessonEndpoints();
@@ -16,6 +17,17 @@ public static class TeachingEndpoints
         endpoints.MapTeacherDashboardEndpoint();
 
         return endpoints;
+    }
+
+    private static void MapTeacherSubjectEndpoints(this IEndpointRouteBuilder endpoints)
+    {
+        endpoints.MapGet("/api/teacher/subjects", async (
+            ITeachingService service,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await service.GetTeacherSubjectsAsync(cancellationToken)))
+            .WithTags("Teacher Subjects")
+            .RequireAuthorization(AuthorizationPolicies.Teachers)
+            .WithName("GetCurrentTeacherSubjects");
     }
 
     private static void MapTopicEndpoints(this IEndpointRouteBuilder endpoints)

@@ -31,6 +31,7 @@ export interface SubjectDto {
   description: string | null;
   isActive: boolean;
   topicCount: number;
+  questionCount: number;
 }
 
 export interface CreateSubjectRequest {

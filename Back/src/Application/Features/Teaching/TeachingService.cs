@@ -24,6 +24,34 @@ public sealed class TeachingService : ITeachingService
         _timeZoneProvider = timeZoneProvider;
     }
 
+    public async Task<IReadOnlyList<TeacherSubjectDto>> GetTeacherSubjectsAsync(
+        CancellationToken cancellationToken)
+    {
+        var teacherId = RequireCurrentUserId();
+        var directSubjectIds = _dbContext.TeacherSubjects
+            .Where(assignment => assignment.TeacherId == teacherId)
+            .Select(assignment => assignment.SubjectId);
+        var groupSubjectIds = _dbContext.TeacherSubjectGroups
+            .Where(assignment => assignment.TeacherId == teacherId)
+            .Select(assignment => assignment.SubjectId);
+        var assignedSubjectIds = directSubjectIds.Union(groupSubjectIds);
+
+        return await _dbContext.Subjects
+            .AsNoTracking()
+            .Where(subject => subject.IsActive && assignedSubjectIds.Contains(subject.Id))
+            .OrderBy(subject => subject.Name)
+            .Select(subject => new TeacherSubjectDto(
+                subject.Id,
+                subject.Name,
+                subject.Description,
+                subject.IsActive,
+                subject.Topics.Count(topic => topic.IsActive),
+                subject.Topics
+                    .SelectMany(topic => topic.Questions)
+                    .Count(question => question.IsActive)))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<TopicDto>> GetTopicsAsync(CancellationToken cancellationToken)
     {
         var query = _dbContext.Topics.AsNoTracking();

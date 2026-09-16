@@ -92,6 +92,10 @@ export function getSubjects(token: string): Promise<SubjectDto[]> {
   return request<SubjectDto[]>('/api/subjects', token);
 }
 
+export function getCurrentTeacherSubjects(token: string): Promise<SubjectDto[]> {
+  return request<SubjectDto[]>('/api/teacher/subjects', token);
+}
+
 export function createSubject(token: string, body: CreateSubjectRequest): Promise<SubjectDto> {
   return request<SubjectDto>('/api/subjects', token, {
     method: 'POST',

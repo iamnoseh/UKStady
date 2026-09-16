@@ -50,7 +50,13 @@ public sealed record CreateGroupRequest(string Name, string? Description, string
 
 public sealed record UpdateGroupRequest(string Name, string? Description, string Branch, bool IsActive, IReadOnlyList<Guid> SubjectIds);
 
-public sealed record SubjectDto(Guid Id, string Name, string? Description, bool IsActive, int TopicCount);
+public sealed record SubjectDto(
+    Guid Id,
+    string Name,
+    string? Description,
+    bool IsActive,
+    int TopicCount,
+    int QuestionCount);
 
 public sealed record CreateSubjectRequest(string Name, string? Description);
 

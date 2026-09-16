@@ -2,6 +2,8 @@ namespace UKStady.Application.Features.Teaching;
 
 public interface ITeachingService
 {
+    Task<IReadOnlyList<TeacherSubjectDto>> GetTeacherSubjectsAsync(CancellationToken cancellationToken);
+
     Task<IReadOnlyList<TopicDto>> GetTopicsAsync(CancellationToken cancellationToken);
 
     Task<TopicDto?> CreateTopicAsync(CreateTopicRequest request, CancellationToken cancellationToken);
