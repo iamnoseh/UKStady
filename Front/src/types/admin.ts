@@ -228,6 +228,22 @@ export interface TeacherSubjectAssignmentDto {
   assignedAtUtc: string;
 }
 
+export interface AssignTeacherRequest {
+  teacherId: string;
+  subjectId: string;
+  groupId: string;
+}
+
+export interface TeacherAssignmentDto {
+  teacherId: string;
+  teacherName: string;
+  subjectId: string;
+  subjectName: string;
+  groupId: string;
+  groupName: string;
+  assignedAtUtc: string;
+}
+
 export type DashboardDailyResultsSort = 'scoreAsc' | 'scoreDesc';
 
 export interface DashboardDailyStudentResultDto {
