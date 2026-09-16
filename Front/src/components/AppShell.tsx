@@ -9,9 +9,9 @@ import {
   Shield,
   Users,
 } from 'lucide-react';
+import { hasPermission, type Permission } from '../auth/permissions';
 import logo from '../assets/UKStady_Logo.png';
 import { useAuth } from '../context/AuthContext';
-import type { UserRole } from '../types/auth';
 import { Button } from './Button';
 
 export type AppView = 'dashboard' | 'students' | 'teachers' | 'groups' | 'subjects' | 'topics' | 'questions';
@@ -20,14 +20,14 @@ const navigation: Array<{
   label: string;
   view: AppView;
   icon: React.ComponentType<{ className?: string }>;
-  roles: UserRole[];
+  permission: Permission;
 }> = [
-  { label: 'Dashboard', view: 'dashboard', icon: Home, roles: ['SuperAdmin', 'Admin', 'Manager', 'Teacher', 'Student'] },
-  { label: 'Хонандагон', view: 'students', icon: Users, roles: ['SuperAdmin', 'Admin', 'Manager'] },
-  { label: 'Муаллимон', view: 'teachers', icon: GraduationCap, roles: ['SuperAdmin', 'Admin', 'Manager'] },
-  { label: 'Гурӯҳҳо', view: 'groups', icon: Layers, roles: ['SuperAdmin', 'Admin', 'Manager'] },
-  { label: 'Фанҳо', view: 'subjects', icon: BookOpen, roles: ['SuperAdmin', 'Admin', 'Manager'] },
-  { label: 'Тестҳо', view: 'dashboard', icon: ClipboardCheck, roles: ['Teacher', 'Student'] },
+  { label: 'Dashboard', view: 'dashboard', icon: Home, permission: 'dashboard.view' },
+  { label: 'Хонандагон', view: 'students', icon: Users, permission: 'students.manage' },
+  { label: 'Муаллимон', view: 'teachers', icon: GraduationCap, permission: 'teachers.manage' },
+  { label: 'Гурӯҳҳо', view: 'groups', icon: Layers, permission: 'groups.view' },
+  { label: 'Фанҳо', view: 'subjects', icon: BookOpen, permission: 'subjects.view' },
+  { label: 'Тестҳо', view: 'dashboard', icon: ClipboardCheck, permission: 'tests.view' },
 ];
 
 export function AppShell({
@@ -42,7 +42,7 @@ export function AppShell({
   title: string;
 }) {
   const { auth, signOut } = useAuth();
-  const visibleNavigation = navigation.filter((item) => auth && item.roles.includes(auth.role));
+  const visibleNavigation = navigation.filter((item) => auth && hasPermission(auth.role, item.permission));
 
   return (
     <div className="min-h-screen bg-white text-ink">
