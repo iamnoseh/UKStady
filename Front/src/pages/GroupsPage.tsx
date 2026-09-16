@@ -26,7 +26,6 @@ import { SearchableMultiSelect } from '../components/SearchableMultiSelect';
 import { SearchableSelect } from '../components/SearchableSelect';
 import {
   addStudentToGroup,
-  assignTeacher,
   createTodayGroupLesson,
   createGroup,
   getGroupJournal,
@@ -36,7 +35,7 @@ import {
   getTeacherSubjects,
   getTopics,
   getUsers,
-  removeTeacherAssignment,
+  setTeacherAssignment,
   removeStudentFromGroup,
   updateGroupLessonTopic,
   updateGroup,
@@ -201,34 +200,18 @@ export function GroupsPage() {
     }
 
     const currentAssignments = teacherAssignments.filter(
-      (assignment) =>
-        assignment.groupId === selectedGroupId && assignment.subjectId === teacherModalSubject.id,
-    );
-    const selectedAssignmentExists = currentAssignments.some(
-      (assignment) => assignment.teacherId === selectedTeacherId,
+      (assignment) => assignment.groupId === selectedGroupId && assignment.subjectId === teacherModalSubject.id,
     );
 
     setIsTeacherAssignmentSubmitting(true);
     setError('');
     setNotice('');
     try {
-      if (!selectedAssignmentExists) {
-        await assignTeacher(auth.accessToken, {
-          teacherId: selectedTeacherId,
-          subjectId: teacherModalSubject.id,
-          groupId: selectedGroupId,
-        });
-      }
-
-      await Promise.all(
-        currentAssignments
-          .filter((assignment) => assignment.teacherId !== selectedTeacherId)
-          .map((assignment) => removeTeacherAssignment(
-            auth.accessToken,
-            assignment.teacherId,
-            assignment.subjectId,
-            assignment.groupId,
-          )),
+      await setTeacherAssignment(
+        auth.accessToken,
+        selectedGroupId,
+        teacherModalSubject.id,
+        selectedTeacherId,
       );
 
       setTeacherAssignments(await getTeacherAssignments(auth.accessToken));
