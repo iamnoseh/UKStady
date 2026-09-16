@@ -110,6 +110,7 @@ export function GroupsPage() {
   const [teacherModalSubject, setTeacherModalSubject] = useState<GroupSubjectDto | null>(null);
   const [selectedTeacherId, setSelectedTeacherId] = useState('');
   const [isTeacherAssignmentSubmitting, setIsTeacherAssignmentSubmitting] = useState(false);
+  const canManageGroups = auth?.role === 'SuperAdmin' || auth?.role === 'Admin' || auth?.role === 'Manager';
 
   useEffect(() => {
     void loadData();
@@ -123,38 +124,51 @@ export function GroupsPage() {
     setIsLoading(true);
     setError('');
     try {
-      const [
-        loadedGroups,
-        loadedSubjects,
-        loadedUsers,
-        loadedTopics,
-        loadedTeacherAssignments,
-        loadedTeacherSubjects,
-      ] = await Promise.all([
+      if (canManageGroups) {
+        const [
+          loadedGroups,
+          loadedSubjects,
+          loadedUsers,
+          loadedTopics,
+          loadedTeacherAssignments,
+          loadedTeacherSubjects,
+        ] = await Promise.all([
+          getGroups(auth.accessToken),
+          getSubjects(auth.accessToken),
+          getUsers(auth.accessToken),
+          getTopics(auth.accessToken),
+          getTeacherAssignments(auth.accessToken),
+          getTeacherSubjects(auth.accessToken),
+        ]);
+        setGroups(loadedGroups);
+        setSubjects(loadedSubjects);
+        setUsers(loadedUsers);
+        setTopics(loadedTopics);
+        setTeacherAssignments(loadedTeacherAssignments);
+        setTeacherSubjects(loadedTeacherSubjects);
+        return;
+      }
+
+      const [loadedGroups, loadedTopics] = await Promise.all([
         getGroups(auth.accessToken),
-        getSubjects(auth.accessToken),
-        getUsers(auth.accessToken),
         getTopics(auth.accessToken),
-        getTeacherAssignments(auth.accessToken),
-        getTeacherSubjects(auth.accessToken),
       ]);
       setGroups(loadedGroups);
-      setSubjects(loadedSubjects);
-      setUsers(loadedUsers);
       setTopics(loadedTopics);
-      setTeacherAssignments(loadedTeacherAssignments);
-      setTeacherSubjects(loadedTeacherSubjects);
+      setSubjects([]);
+      setUsers([]);
+      setTeacherAssignments([]);
+      setTeacherSubjects([]);
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Гурӯҳҳо гирифта нашуданд.');
+      setError(error instanceof Error ? error.message : 'Groups could not be loaded.');
     } finally {
       setIsLoading(false);
     }
   }
-
   function openGroup(groupId: string) {
     const group = groups.find((candidate) => candidate.id === groupId);
     setSelectedGroupId(groupId);
-    setActiveTab('students');
+    setActiveTab(canManageGroups ? 'students' : 'journals');
     setNotice('');
     setError('');
     setSelectedStudentIds([]);
@@ -169,7 +183,7 @@ export function GroupsPage() {
 
   function closeGroup() {
     setSelectedGroupId(null);
-    setActiveTab('students');
+    setActiveTab(canManageGroups ? 'students' : 'journals');
     setSelectedStudentIds([]);
     setJournal(null);
   }
@@ -531,10 +545,15 @@ export function GroupsPage() {
   }, [studentQuery, selectedGroupId, filteredAssignedStudents.length]);
 
   useEffect(() => {
+    if (!canManageGroups && selectedGroupId && activeTab !== 'journals') {
+      setActiveTab('journals');
+      return;
+    }
+
     if (activeTab === 'journals' && selectedGroupId) {
       void loadJournal(selectedGroupId);
     }
-  }, [activeTab, selectedGroupId]);
+  }, [activeTab, selectedGroupId, canManageGroups]);
 
   useEffect(() => {
     if (!journal?.subjects.length) {
@@ -585,17 +604,24 @@ export function GroupsPage() {
         </div>
 
         <div className="mb-5 flex flex-wrap gap-2 border-b border-line">
-          <TabButton active={activeTab === 'students'} onClick={() => setActiveTab('students')} icon={Users} label="Хонандагон" />
-          <TabButton active={activeTab === 'journals'} onClick={() => setActiveTab('journals')} icon={ClipboardList} label="Журналҳо" />
-          <TabButton active={activeTab === 'teachers'} onClick={() => setActiveTab('teachers')} icon={GraduationCap} label="Муаллимон" />
-          <TabButton active={activeTab === 'edit'} onClick={() => setActiveTab('edit')} icon={Edit3} label="Таҳрир кардан" />
-          <TabButton active={activeTab === 'other'} onClick={() => setActiveTab('other')} icon={SlidersHorizontal} label="Дигар қисмҳо" />
+          {canManageGroups ? (
+            <TabButton active={activeTab === 'students'} onClick={() => setActiveTab('students')} icon={Users} label={"\u0425\u043e\u043d\u0430\u043d\u0434\u0430\u0433\u043e\u043d"} />
+          ) : null}
+          <TabButton active={activeTab === 'journals'} onClick={() => setActiveTab('journals')} icon={ClipboardList} label={"\u0416\u0443\u0440\u043d\u0430\u043b\u04b3\u043e"} />
+          {canManageGroups ? (
+            <TabButton active={activeTab === 'teachers'} onClick={() => setActiveTab('teachers')} icon={GraduationCap} label={"\u041c\u0443\u0430\u043b\u043b\u0438\u043c\u043e\u043d"} />
+          ) : null}
+          {canManageGroups ? (
+            <TabButton active={activeTab === 'edit'} onClick={() => setActiveTab('edit')} icon={Edit3} label={"\u0422\u0430\u04b3\u0440\u0438\u0440 \u043a\u0430\u0440\u0434\u0430\u043d"} />
+          ) : null}
+          {canManageGroups ? (
+            <TabButton active={activeTab === 'other'} onClick={() => setActiveTab('other')} icon={SlidersHorizontal} label={"\u0414\u0438\u0433\u0430\u0440 \u049b\u0438\u0441\u043c\u04b3\u043e"} />
+          ) : null}
         </div>
-
         {notice ? <p className="mb-5 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{notice}</p> : null}
         {error ? <p className="mb-5 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
 
-        {activeTab === 'students' ? (
+        {canManageGroups && activeTab === 'students' ? (
           <div className="grid gap-5 xl:grid-cols-[420px_1fr]">
             <form onSubmit={handleAddStudent} className="rounded-lg border border-line bg-white p-5">
               <div className="mb-5 flex items-center gap-3">
@@ -835,7 +861,7 @@ export function GroupsPage() {
           </div>
         ) : null}
 
-        {activeTab === 'teachers' ? (
+        {canManageGroups && activeTab === 'teachers' ? (
           <div className="overflow-hidden rounded-lg border border-line bg-white">
             <div className="border-b border-line bg-panel px-4 py-4">
               <h3 className="font-bold">Муаллимони фанҳои гурӯҳ</h3>
@@ -893,7 +919,7 @@ export function GroupsPage() {
           </div>
         ) : null}
 
-        {activeTab === 'edit' ? (
+        {canManageGroups && activeTab === 'edit' ? (
           <form onSubmit={handleUpdateGroup} className="rounded-lg border border-line bg-white p-5">
             <div className="mb-5 flex items-center gap-3">
               <div className="grid h-10 w-10 place-items-center rounded-lg bg-brand/10 text-brand">
@@ -944,7 +970,7 @@ export function GroupsPage() {
           </form>
         ) : null}
 
-        {activeTab === 'other' ? (
+        {canManageGroups && activeTab === 'other' ? (
           <form onSubmit={handleUpdateGroup} className="rounded-lg border border-line bg-white p-5">
             <div className="mb-5 flex items-center gap-3">
               <div className="flex items-center gap-3">
@@ -1148,14 +1174,16 @@ export function GroupsPage() {
               placeholder="Ҷустуҷӯи гурӯҳ"
             />
           </div>
-          <Button type="button" onClick={() => setIsCreateOpen((current) => !current)}>
+          {canManageGroups ? (
+            <Button type="button" onClick={() => setIsCreateOpen((current) => !current)}>
             {isCreateOpen ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
             {isCreateOpen ? 'Пӯшидан' : 'Сохтани гурӯҳ'}
-          </Button>
+            </Button>
+          ) : null}
         </div>
       </div>
 
-      {isCreateOpen ? (
+      {canManageGroups && isCreateOpen ? (
         <form onSubmit={handleSubmit} className="mb-5 rounded-lg border border-line bg-white p-5">
           <div className="mb-5 flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-lg bg-brand/10 text-brand">

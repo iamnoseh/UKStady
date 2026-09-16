@@ -340,8 +340,22 @@ public sealed class TeachingService : ITeachingService
         }
 
         var subjectIds = group.Subjects.Select(groupSubject => groupSubject.SubjectId).ToList();
-        var studentIds = group.Students.Select(groupStudent => groupStudent.StudentId).ToList();
+        if (IsTeacher())
+        {
+            var teacherId = RequireCurrentUserId();
+            subjectIds = await _dbContext.TeacherSubjectGroups
+                .AsNoTracking()
+                .Where(assignment =>
+                    assignment.TeacherId == teacherId &&
+                    assignment.GroupId == groupId &&
+                    subjectIds.Contains(assignment.SubjectId))
+                .Select(assignment => assignment.SubjectId)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+        }
 
+        var subjectIdSet = subjectIds.ToHashSet();
+        var studentIds = group.Students.Select(groupStudent => groupStudent.StudentId).ToList();
         var lessons = await _dbContext.DailyLessons
             .AsNoTracking()
             .Include(lesson => lesson.Topic)
@@ -367,6 +381,7 @@ public sealed class TeachingService : ITeachingService
             .ToListAsync(cancellationToken);
 
         var subjects = group.Subjects
+            .Where(groupSubject => subjectIdSet.Contains(groupSubject.SubjectId))
             .OrderBy(groupSubject => groupSubject.Subject.Name)
             .Select(groupSubject =>
             {

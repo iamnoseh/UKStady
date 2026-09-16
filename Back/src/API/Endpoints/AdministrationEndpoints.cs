@@ -89,11 +89,11 @@ public static class AdministrationEndpoints
     private static void MapGroupEndpoints(this IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/groups")
-            .WithTags("Groups")
-            .RequireAuthorization(AuthorizationPolicies.Managers);
+            .WithTags("Groups");
 
         group.MapGet("/", async (IAdministrationService service, CancellationToken cancellationToken) =>
             Results.Ok(await service.GetGroupsAsync(cancellationToken)))
+            .RequireAuthorization(AuthorizationPolicies.EducationStaff)
             .WithName("GetGroups");
 
         group.MapGet("/{id:guid}", async (
@@ -104,6 +104,7 @@ public static class AdministrationEndpoints
             var result = await service.GetGroupAsync(id, cancellationToken);
             return result is null ? Results.NotFound() : Results.Ok(result);
         })
+        .RequireAuthorization(AuthorizationPolicies.EducationStaff)
         .WithName("GetGroup");
 
         group.MapPost("/", async (
@@ -119,6 +120,7 @@ public static class AdministrationEndpoints
             var result = await service.CreateGroupAsync(request, cancellationToken);
             return Results.Created($"/api/groups/{result.Id}", result);
         })
+        .RequireAuthorization(AuthorizationPolicies.Managers)
         .WithName("CreateGroup");
 
         group.MapPut("/{id:guid}", async (
@@ -135,6 +137,7 @@ public static class AdministrationEndpoints
             var result = await service.UpdateGroupAsync(id, request, cancellationToken);
             return result is null ? Results.NotFound() : Results.Ok(result);
         })
+        .RequireAuthorization(AuthorizationPolicies.Managers)
         .WithName("UpdateGroup");
 
         group.MapDelete("/{id:guid}", async (
@@ -145,6 +148,7 @@ public static class AdministrationEndpoints
             var deactivated = await service.DeactivateGroupAsync(id, cancellationToken);
             return deactivated ? Results.NoContent() : Results.NotFound();
         })
+        .RequireAuthorization(AuthorizationPolicies.Managers)
         .WithName("DeactivateGroup");
 
         group.MapPost("/{groupId:guid}/students/{studentId:guid}", async (
@@ -156,6 +160,7 @@ public static class AdministrationEndpoints
             var added = await service.AddStudentToGroupAsync(groupId, studentId, cancellationToken);
             return added ? Results.NoContent() : Results.NotFound();
         })
+        .RequireAuthorization(AuthorizationPolicies.Managers)
         .WithName("AddStudentToGroup");
 
         group.MapDelete("/{groupId:guid}/students/{studentId:guid}", async (
@@ -167,6 +172,7 @@ public static class AdministrationEndpoints
             var removed = await service.RemoveStudentFromGroupAsync(groupId, studentId, cancellationToken);
             return removed ? Results.NoContent() : Results.NotFound();
         })
+        .RequireAuthorization(AuthorizationPolicies.Managers)
         .WithName("RemoveStudentFromGroup");
     }
 

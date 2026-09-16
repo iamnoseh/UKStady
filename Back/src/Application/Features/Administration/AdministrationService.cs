@@ -13,17 +13,20 @@ public sealed class AdministrationService : IAdministrationService
     private readonly IPasswordHasher _passwordHasher;
     private readonly IDateTimeProvider _dateTimeProvider;
     private readonly ITimeZoneProvider _timeZoneProvider;
+    private readonly ICurrentUserService _currentUserService;
 
     public AdministrationService(
         IAppDbContext dbContext,
         IPasswordHasher passwordHasher,
         IDateTimeProvider dateTimeProvider,
-        ITimeZoneProvider timeZoneProvider)
+        ITimeZoneProvider timeZoneProvider,
+        ICurrentUserService currentUserService)
     {
         _dbContext = dbContext;
         _passwordHasher = passwordHasher;
         _dateTimeProvider = dateTimeProvider;
         _timeZoneProvider = timeZoneProvider;
+        _currentUserService = currentUserService;
     }
 
     public async Task<IReadOnlyList<UserDto>> GetUsersAsync(CancellationToken cancellationToken)
@@ -122,32 +125,74 @@ public sealed class AdministrationService : IAdministrationService
 
     public async Task<IReadOnlyList<GroupDto>> GetGroupsAsync(CancellationToken cancellationToken)
     {
-        var groups = await _dbContext.Groups
+        IQueryable<Group> query = _dbContext.Groups
             .AsNoTracking()
             .Include(group => group.Students)
             .ThenInclude(groupStudent => groupStudent.Student)
             .Include(group => group.Subjects)
-            .ThenInclude(groupSubject => groupSubject.Subject)
+            .ThenInclude(groupSubject => groupSubject.Subject);
+
+        Dictionary<Guid, HashSet<Guid>>? teacherSubjectIdsByGroup = null;
+        if (IsTeacher())
+        {
+            var teacherId = RequireCurrentUserId();
+            query = query.Where(group => _dbContext.TeacherSubjectGroups.Any(assignment =>
+                assignment.TeacherId == teacherId && assignment.GroupId == group.Id));
+
+            var assignments = await _dbContext.TeacherSubjectGroups
+                .AsNoTracking()
+                .Where(assignment => assignment.TeacherId == teacherId)
+                .Select(assignment => new { assignment.GroupId, assignment.SubjectId })
+                .ToListAsync(cancellationToken);
+
+            teacherSubjectIdsByGroup = assignments
+                .GroupBy(assignment => assignment.GroupId)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.Select(assignment => assignment.SubjectId).ToHashSet());
+        }
+
+        var groups = await query
             .OrderBy(group => group.Name)
             .ToListAsync(cancellationToken);
 
-        return groups.Select(ToGroupDto).ToList();
+        return groups
+            .Select(group => ToGroupDto(group, teacherSubjectIdsByGroup?.GetValueOrDefault(group.Id)))
+            .ToList();
     }
 
     public async Task<GroupDto?> GetGroupAsync(Guid id, CancellationToken cancellationToken)
     {
-        var group = await _dbContext.Groups
+        IQueryable<Group> query = _dbContext.Groups
             .AsNoTracking()
             .Include(candidate => candidate.Students)
             .ThenInclude(groupStudent => groupStudent.Student)
             .Include(candidate => candidate.Subjects)
             .ThenInclude(groupSubject => groupSubject.Subject)
-            .Where(group => group.Id == id)
-            .FirstOrDefaultAsync(cancellationToken);
+            .Where(group => group.Id == id);
 
-        return group is null ? null : ToGroupDto(group);
+        HashSet<Guid>? teacherSubjectIds = null;
+        if (IsTeacher())
+        {
+            var teacherId = RequireCurrentUserId();
+            var assignments = await _dbContext.TeacherSubjectGroups
+                .AsNoTracking()
+                .Where(assignment => assignment.TeacherId == teacherId && assignment.GroupId == id)
+                .Select(assignment => assignment.SubjectId)
+                .ToListAsync(cancellationToken);
+
+            if (assignments.Count == 0)
+            {
+                return null;
+            }
+
+            teacherSubjectIds = assignments.ToHashSet();
+        }
+
+        var group = await query.FirstOrDefaultAsync(cancellationToken);
+
+        return group is null ? null : ToGroupDto(group, teacherSubjectIds);
     }
-
     public async Task<GroupDto> CreateGroupAsync(CreateGroupRequest request, CancellationToken cancellationToken)
     {
         var subjectIds = request.SubjectIds.Distinct().ToList();
@@ -684,7 +729,7 @@ public sealed class AdministrationService : IAdministrationService
             user.IsActive);
     }
 
-    private static GroupDto ToGroupDto(Group group)
+    private static GroupDto ToGroupDto(Group group, IReadOnlySet<Guid>? subjectIds = null)
     {
         return new GroupDto(
             group.Id,
@@ -694,6 +739,7 @@ public sealed class AdministrationService : IAdministrationService
             group.IsActive,
             group.Students.Count,
             group.Subjects
+                .Where(groupSubject => subjectIds is null || subjectIds.Contains(groupSubject.SubjectId))
                 .OrderBy(groupSubject => groupSubject.Subject.Name)
                 .Select(groupSubject => new GroupSubjectDto(
                     groupSubject.SubjectId,
@@ -720,4 +766,14 @@ public sealed class AdministrationService : IAdministrationService
         var localNow = TimeZoneInfo.ConvertTime(_dateTimeProvider.UtcNow, _timeZoneProvider.BusinessTimeZone);
         return DateOnly.FromDateTime(localNow.DateTime);
     }
-}
+
+    private Guid RequireCurrentUserId()
+    {
+        return _currentUserService.UserId
+            ?? throw new InvalidOperationException("Current user is required for administration operations.");
+    }
+
+    private bool IsTeacher()
+    {
+        return _currentUserService.Role == UserRole.Teacher.ToString();
+    }}
