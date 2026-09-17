@@ -837,7 +837,7 @@ export function GroupsPage() {
                     <button
                       type="button"
                       onClick={() => void handleRemoveStudent(student.id)}
-                      className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-line text-muted transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                      className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-line bg-white text-red-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
                       disabled={isStudentSubmitting}
                       aria-label="Хориҷ кардан"
                       title="Хориҷ кардан"

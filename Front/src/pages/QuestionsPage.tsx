@@ -738,25 +738,25 @@ export function QuestionsPage({
                         <span className="text-muted text-[11px]">{detailText}</span>
                       </div>
 
-                      <div className="flex items-center justify-end gap-1.5 border-t border-line/60 pt-2">
+                      <div className="flex items-center justify-end gap-2 border-t border-line/60 pt-2">
                         <Button
                           type="button"
                           variant="secondary"
                           className="h-8 px-3 text-xs font-semibold"
                           onClick={() => startEdit(question)}
                         >
-                          <Edit3 className="h-3.5 w-3.5" />
+                          <Edit3 className="h-4 w-4" />
                           Таҳрир
                         </Button>
-                        <Button
+                        <button
                           type="button"
-                          variant="secondary"
-                          className="h-8 w-8 p-0 text-red-600 hover:bg-red-50"
                           onClick={() => void handleDelete(question)}
+                          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-line bg-white text-red-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
                           title="Ғайрифаъол кардан"
+                          aria-label="Ғайрифаъол кардан"
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
                     </div>
                   );
@@ -799,24 +799,24 @@ export function QuestionsPage({
                             {question.isActive ? 'Фаъол' : 'Ғайрифаъол'}
                           </span>
                           <div className="flex gap-1.5">
-                            <Button
+                            <button
                               type="button"
-                              variant="secondary"
-                              className="h-8 w-8 p-0"
                               onClick={() => startEdit(question)}
+                              className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-line bg-white text-slate-700 transition hover:border-brand/40 hover:bg-panel hover:text-brand"
                               title="Таҳрир"
+                              aria-label="Таҳрир"
                             >
-                              <Edit3 className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
+                              <Edit3 className="h-4 w-4" />
+                            </button>
+                            <button
                               type="button"
-                              variant="secondary"
-                              className="h-8 w-8 p-0 text-red-600 hover:bg-red-50"
                               onClick={() => void handleDelete(question)}
+                              className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-line bg-white text-red-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
                               title="Ғайрифаъол кардан"
+                              aria-label="Ғайрифаъол кардан"
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
+                              <Trash2 className="h-4 w-4" />
+                            </button>
                           </div>
                         </div>
                       );

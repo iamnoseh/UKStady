@@ -54,4 +54,6 @@ public interface ITeachingService
         Guid? groupId,
         string? sort,
         CancellationToken cancellationToken);
+
+    Task<StudentDashboardDto> GetStudentDashboardAsync(CancellationToken cancellationToken);
 }

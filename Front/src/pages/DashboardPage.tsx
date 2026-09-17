@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { BookOpen, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Lock, PlayCircle, Search } from 'lucide-react';
 import { Button } from '../components/Button';
 import type { AppView } from '../components/AppShell';
 import { Pagination, paginate } from '../components/Pagination';
@@ -7,10 +7,16 @@ import { useAuth } from '../context/AuthContext';
 import {
   getDashboardDailyResults,
   getGroups,
+  getStudentDashboard,
   getTeacherDashboardDailyResults,
   getTeacherDashboardGroups,
 } from '../services/api';
-import type { DashboardDailyResultsDto, DashboardDailyResultsSort } from '../types/admin';
+import type {
+  DashboardDailyResultsDto,
+  DashboardDailyResultsSort,
+  StudentDashboardDto,
+  StudentDashboardSubjectDto,
+} from '../types/admin';
 
 type DashboardGroupOption = { id: string; name: string; isActive?: boolean };
 
@@ -22,16 +28,43 @@ const sortOptions: Array<{ value: DashboardDailyResultsSort; label: string }> = 
 export function DashboardPage({ onViewChange: _onViewChange }: { onViewChange: (view: AppView) => void }) {
   const { auth } = useAuth();
   const isTeacher = auth?.role === 'Teacher';
+  const isStudent = auth?.role === 'Student';
   const [groups, setGroups] = useState<DashboardGroupOption[]>([]);
   const [dailyResults, setDailyResults] = useState<DashboardDailyResultsDto | null>(null);
+  const [studentDashboard, setStudentDashboard] = useState<StudentDashboardDto | null>(null);
   const [date, setDate] = useState(() => getYesterdayDateValue());
   const [groupId, setGroupId] = useState('');
   const [sort, setSort] = useState<DashboardDailyResultsSort>('scoreAsc');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [isLoadingResults, setIsLoadingResults] = useState(false);
+  const [isLoadingStudentDashboard, setIsLoadingStudentDashboard] = useState(false);
   const [resultsError, setResultsError] = useState('');
   const canSeeDailyResults = auth?.role === 'SuperAdmin' || auth?.role === 'Admin' || auth?.role === 'Manager' || isTeacher;
+
+  useEffect(() => {
+    if (!auth || !isStudent) {
+      return;
+    }
+
+    async function loadStudentDashboard() {
+      if (!auth) {
+        return;
+      }
+
+      setIsLoadingStudentDashboard(true);
+      setResultsError('');
+      try {
+        setStudentDashboard(await getStudentDashboard(auth.accessToken));
+      } catch (error) {
+        setResultsError(error instanceof Error ? error.message : 'Маълумоти dashboard гирифта нашуд.');
+      } finally {
+        setIsLoadingStudentDashboard(false);
+      }
+    }
+
+    void loadStudentDashboard();
+  }, [auth, isStudent]);
 
   useEffect(() => {
     if (!auth || !canSeeDailyResults) {
@@ -113,6 +146,17 @@ export function DashboardPage({ onViewChange: _onViewChange }: { onViewChange: (
 
   const pagedResults = paginate(filteredResults, page, 12);
   const maxDate = getYesterdayDateValue();
+
+  if (isStudent) {
+    return (
+      <StudentDashboardView
+        fullName={auth?.fullName ?? ''}
+        dashboard={studentDashboard}
+        isLoading={isLoadingStudentDashboard}
+        error={resultsError}
+      />
+    );
+  }
 
   if (!canSeeDailyResults) {
     return (
@@ -321,6 +365,111 @@ export function DashboardPage({ onViewChange: _onViewChange }: { onViewChange: (
   );
 }
 
+function StudentDashboardView({
+  fullName,
+  dashboard,
+  isLoading,
+  error,
+}: {
+  fullName: string;
+  dashboard: StudentDashboardDto | null;
+  isLoading: boolean;
+  error: string;
+}) {
+  const subjects = dashboard?.subjects ?? [];
+
+  return (
+    <section className="px-3 py-4 sm:px-4 sm:py-6 lg:px-6">
+      <div className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted sm:text-sm">Student</p>
+          <h2 className="mt-0.5 text-xl font-bold text-ink sm:text-2xl">Салом, {fullName}</h2>
+          <p className="mt-1 text-sm text-muted">Фанҳо ва тестҳои дастрас барои имрӯз.</p>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="rounded-xl border border-line bg-white p-6 text-sm text-muted">
+          Dashboard бор шуда истодааст...
+        </div>
+      ) : null}
+
+      {!isLoading && error ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+          {error}
+        </div>
+      ) : null}
+
+      {!isLoading && !error && subjects.length === 0 ? (
+        <div className="rounded-xl border border-line bg-white p-8 text-center text-sm text-muted">
+          Ҳоло барои шумо фан ё гурӯҳ пайваст нашудааст.
+        </div>
+      ) : null}
+
+      {!isLoading && !error && subjects.length > 0 ? (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {subjects.map((subject) => (
+            <StudentSubjectCard key={`${subject.groupId}-${subject.subjectId}`} subject={subject} />
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function StudentSubjectCard({ subject }: { subject: StudentDashboardSubjectDto }) {
+  const Icon = subject.canStart ? PlayCircle : subject.status === 'Available' ? CheckCircle2 : Lock;
+
+  return (
+    <article className="rounded-xl border border-line bg-white p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="mb-3 grid h-11 w-11 place-items-center rounded-lg bg-brand/10 text-brand">
+            <BookOpen className="h-5 w-5" />
+          </div>
+          <h3 className="truncate text-lg font-bold text-ink">{subject.subjectName}</h3>
+          <p className="mt-1 truncate text-sm text-muted">{subject.groupName}</p>
+        </div>
+        <span className={`shrink-0 rounded-lg px-2.5 py-1 text-xs font-bold ${getStudentTestStatusClassName(subject.status)}`}>
+          {getStudentTestStatusLabel(subject.status)}
+        </span>
+      </div>
+
+      <div className="mt-4 space-y-2 rounded-lg border border-line bg-panel/40 p-3 text-sm">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-muted">Мавзӯъ</span>
+          <span className="min-w-0 truncate font-semibold text-ink">{subject.topicTitle ?? 'Ҳанӯз нест'}</span>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-muted">Саволҳо</span>
+          <span className="font-semibold text-ink">{subject.questionCount}</span>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <span className="inline-flex items-center gap-1 text-muted">
+            <Clock3 className="h-4 w-4" />
+            Вақт
+          </span>
+          <span className="text-right text-xs font-semibold text-ink">
+            {formatStudentTestWindow(subject.opensAtUtc, subject.closesAtUtc)}
+          </span>
+        </div>
+      </div>
+
+      <p className="mt-3 min-h-10 text-sm text-muted">{subject.statusText}</p>
+
+      <Button
+        type="button"
+        className="mt-4 w-full justify-center"
+        disabled={!subject.canStart}
+        onClick={() => window.alert('Қисми супоридани тест дар қадами навбатӣ пайваст мешавад.')}
+      >
+        <Icon className="h-4 w-4" />
+        {subject.canStart ? 'Супоридани тест' : 'Тест баста аст'}
+      </Button>
+    </article>
+  );
+}
+
 function getYesterdayDateValue() {
   return addDays(toDateValue(new Date()), -1);
 }
@@ -336,6 +485,55 @@ function toDateValue(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function getStudentTestStatusLabel(status: string) {
+  switch (status) {
+    case 'Available':
+      return 'Кушода';
+    case 'NotOpenYet':
+      return 'Ҳоло не';
+    case 'Closed':
+      return 'Гузашт';
+    case 'NotReady':
+    case 'MissingTopic':
+      return 'Омода нест';
+    default:
+      return 'Нест';
+  }
+}
+
+function getStudentTestStatusClassName(status: string) {
+  switch (status) {
+    case 'Available':
+      return 'bg-emerald-50 text-emerald-700';
+    case 'NotOpenYet':
+      return 'bg-sky-50 text-sky-700';
+    case 'Closed':
+      return 'bg-slate-100 text-slate-600';
+    case 'NotReady':
+    case 'MissingTopic':
+      return 'bg-amber-50 text-amber-700';
+    default:
+      return 'bg-slate-50 text-slate-600';
+  }
+}
+
+function formatStudentTestWindow(opensAtUtc: string | null, closesAtUtc: string | null) {
+  if (!opensAtUtc || !closesAtUtc) {
+    return 'Нест';
+  }
+
+  const opensAt = new Date(opensAtUtc);
+  const closesAt = new Date(closesAtUtc);
+  return `${formatTime(opensAt)} - ${formatTime(closesAt)}`;
+}
+
+function formatTime(date: Date) {
+  return date.toLocaleTimeString('ru-RU', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function getScoreClassName(score: number | null) {

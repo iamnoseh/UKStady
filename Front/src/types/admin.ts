@@ -278,3 +278,25 @@ export interface TeacherDashboardGroupDto {
   branch: string;
   studentCount: number;
 }
+
+export interface StudentDashboardSubjectDto {
+  groupId: string;
+  groupName: string;
+  subjectId: string;
+  subjectName: string;
+  dailyLessonId: string | null;
+  topicId: string | null;
+  topicTitle: string | null;
+  questionCount: number;
+  opensAtUtc: string | null;
+  closesAtUtc: string | null;
+  isReady: boolean;
+  canStart: boolean;
+  status: string;
+  statusText: string;
+}
+
+export interface StudentDashboardDto {
+  serverTimeUtc: string;
+  subjects: StudentDashboardSubjectDto[];
+}

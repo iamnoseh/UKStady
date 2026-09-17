@@ -15,6 +15,7 @@ public static class TeachingEndpoints
         endpoints.MapDailyLessonEndpoints();
         endpoints.MapGroupJournalEndpoints();
         endpoints.MapTeacherDashboardEndpoint();
+        endpoints.MapStudentDashboardEndpoint();
 
         return endpoints;
     }
@@ -276,6 +277,17 @@ public static class TeachingEndpoints
             .WithTags("Teacher Dashboard")
             .RequireAuthorization(AuthorizationPolicies.Teachers)
             .WithName("GetTeacherDashboardDailyResults");
+    }
+
+    private static void MapStudentDashboardEndpoint(this IEndpointRouteBuilder endpoints)
+    {
+        endpoints.MapGet("/api/student/dashboard", async (
+            ITeachingService service,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await service.GetStudentDashboardAsync(cancellationToken)))
+            .WithTags("Student Dashboard")
+            .RequireAuthorization(AuthorizationPolicies.Students)
+            .WithName("GetStudentDashboard");
     }
 
     private static string? ValidateQuestion(

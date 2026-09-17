@@ -5,6 +5,7 @@ export type Permission =
   | 'students.manage'
   | 'teachers.manage'
   | 'groups.view'
+  | 'journal.view'
   | 'subjects.view'
   | 'tests.view';
 
@@ -37,6 +38,8 @@ const rolePermissions: Record<UserRole, ReadonlySet<Permission>> = {
   ]),
   Student: new Set<Permission>([
     'dashboard.view',
+    'groups.view',
+    'journal.view',
     'tests.view',
   ]),
 };

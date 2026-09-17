@@ -877,6 +877,162 @@ public sealed class TeachingService : ITeachingService
             results);
     }
 
+    public async Task<StudentDashboardDto> GetStudentDashboardAsync(CancellationToken cancellationToken)
+    {
+        if (!IsStudent())
+        {
+            return new StudentDashboardDto(_dateTimeProvider.UtcNow, []);
+        }
+
+        var studentId = RequireCurrentUserId();
+        var now = _dateTimeProvider.UtcNow;
+
+        var groupRows = await _dbContext.GroupSubjects
+            .AsNoTracking()
+            .Where(groupSubject =>
+                groupSubject.Group.IsActive &&
+                groupSubject.Subject.IsActive &&
+                groupSubject.Group.Students.Any(groupStudent => groupStudent.StudentId == studentId))
+            .OrderBy(groupSubject => groupSubject.Subject.Name)
+            .ThenBy(groupSubject => groupSubject.Group.Name)
+            .Select(groupSubject => new StudentSubjectRow(
+                groupSubject.GroupId,
+                groupSubject.Group.Name,
+                groupSubject.SubjectId,
+                groupSubject.Subject.Name))
+            .ToListAsync(cancellationToken);
+
+        if (groupRows.Count == 0)
+        {
+            return new StudentDashboardDto(now, []);
+        }
+
+        var groupIds = groupRows.Select(row => row.GroupId).Distinct().ToList();
+        var subjectIds = groupRows.Select(row => row.SubjectId).Distinct().ToList();
+        var lessons = await _dbContext.DailyLessons
+            .AsNoTracking()
+            .Include(lesson => lesson.Topic)
+            .Include(lesson => lesson.TestAssignments)
+            .Where(lesson =>
+                subjectIds.Contains(lesson.SubjectId) &&
+                lesson.TestAssignments.Any(assignment => groupIds.Contains(assignment.GroupId)))
+            .OrderByDescending(lesson => lesson.LessonDate)
+            .ThenByDescending(lesson => lesson.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+
+        var topicIds = lessons
+            .Where(lesson => lesson.TopicId.HasValue)
+            .Select(lesson => lesson.TopicId!.Value)
+            .Distinct()
+            .ToList();
+        var activeQuestionCounts = await _dbContext.Questions
+            .AsNoTracking()
+            .Where(question => topicIds.Contains(question.TopicId) && question.IsActive)
+            .GroupBy(question => question.TopicId)
+            .Select(group => new { TopicId = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(row => row.TopicId, row => row.Count, cancellationToken);
+
+        var subjects = groupRows
+            .Select(row =>
+            {
+                var lesson = lessons
+                    .Where(candidate =>
+                        candidate.SubjectId == row.SubjectId &&
+                        candidate.TestAssignments.Any(assignment => assignment.GroupId == row.GroupId))
+                    .OrderByDescending(candidate => candidate.ClosesAtUtc >= now)
+                    .ThenByDescending(candidate => candidate.LessonDate)
+                    .ThenByDescending(candidate => candidate.CreatedAtUtc)
+                    .FirstOrDefault();
+                return ToStudentDashboardSubject(row, lesson, activeQuestionCounts, now);
+            })
+            .ToList();
+
+        return new StudentDashboardDto(now, subjects);
+    }
+
+    private static StudentDashboardSubjectDto ToStudentDashboardSubject(
+        StudentSubjectRow row,
+        DailyLesson? lesson,
+        IReadOnlyDictionary<Guid, int> activeQuestionCounts,
+        DateTimeOffset now)
+    {
+        if (lesson is null)
+        {
+            return new StudentDashboardSubjectDto(
+                row.GroupId,
+                row.GroupName,
+                row.SubjectId,
+                row.SubjectName,
+                null,
+                null,
+                null,
+                0,
+                null,
+                null,
+                false,
+                false,
+                "NoLesson",
+                "Барои ин фан ҳоло дарси тестӣ нест.");
+        }
+
+        var activeQuestionCount = lesson.TopicId.HasValue && activeQuestionCounts.TryGetValue(lesson.TopicId.Value, out var count)
+            ? count
+            : 0;
+        var hasTopic = lesson.TopicId.HasValue;
+        var hasQuestions = lesson.QuestionCount > 0 && activeQuestionCount >= lesson.QuestionCount;
+        var isReady = hasTopic && hasQuestions;
+        var isOpen = now >= lesson.OpensAtUtc && now <= lesson.ClosesAtUtc;
+        var (status, statusText) = BuildStudentDashboardStatus(lesson, hasTopic, hasQuestions, isOpen, now);
+
+        return new StudentDashboardSubjectDto(
+            row.GroupId,
+            row.GroupName,
+            row.SubjectId,
+            row.SubjectName,
+            lesson.Id,
+            lesson.TopicId,
+            lesson.Topic?.Title,
+            lesson.QuestionCount,
+            lesson.OpensAtUtc,
+            lesson.ClosesAtUtc,
+            isReady,
+            isReady && isOpen,
+            status,
+            statusText);
+    }
+
+    private static (string Status, string StatusText) BuildStudentDashboardStatus(
+        DailyLesson lesson,
+        bool hasTopic,
+        bool hasQuestions,
+        bool isOpen,
+        DateTimeOffset now)
+    {
+        if (!hasTopic)
+        {
+            return ("MissingTopic", "Мавзӯи дарс ҳанӯз интихоб нашудааст.");
+        }
+
+        if (!hasQuestions)
+        {
+            return ("NotReady", "Саволҳои тест ҳанӯз омода нестанд.");
+        }
+
+        if (now < lesson.OpensAtUtc)
+        {
+            return ("NotOpenYet", "Вақти супоридани тест ҳанӯз нарасидааст.");
+        }
+
+        if (now > lesson.ClosesAtUtc)
+        {
+            return ("Closed", "Вақти супоридани тест гузашт.");
+        }
+
+        return isOpen
+            ? ("Available", "Тест барои супоридан кушода аст.")
+            : ("Closed", "Тест дастрас нест.");
+    }
+
 
     private static IEnumerable<TeacherDashboardStudentResultDto> SortTeacherDashboardResults(
         IEnumerable<TeacherDashboardStudentResultDto> results,
@@ -920,6 +1076,12 @@ public sealed class TeachingService : ITeachingService
         Guid StudentId,
         decimal Score,
         string AttendanceStatus);
+
+    private sealed record StudentSubjectRow(
+        Guid GroupId,
+        string GroupName,
+        Guid SubjectId,
+        string SubjectName);
 
     private async Task<TopicDto?> GetTopicDtoAsync(Guid id, CancellationToken cancellationToken)
     {
@@ -1035,6 +1197,11 @@ public sealed class TeachingService : ITeachingService
     private bool IsTeacher()
     {
         return _currentUserService.Role == UserRole.Teacher.ToString();
+    }
+
+    private bool IsStudent()
+    {
+        return _currentUserService.Role == UserRole.Student.ToString();
     }
 
     private static QuestionDto ToQuestionDto(Question question)

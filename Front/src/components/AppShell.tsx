@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   BookOpen,
   ClipboardCheck,
+  ClipboardList,
   GraduationCap,
   Home,
   Layers,
@@ -16,7 +17,7 @@ import logo from '../assets/UKStady_Logo.png';
 import { useAuth } from '../context/AuthContext';
 import { Button } from './Button';
 
-export type AppView = 'dashboard' | 'students' | 'teachers' | 'groups' | 'subjects' | 'topics' | 'questions';
+export type AppView = 'dashboard' | 'students' | 'teachers' | 'groups' | 'journal' | 'subjects' | 'topics' | 'questions';
 
 const navigation: Array<{
   label: string;
@@ -28,6 +29,7 @@ const navigation: Array<{
   { label: 'Хонандагон', view: 'students', icon: Users, permission: 'students.manage' },
   { label: 'Муаллимон', view: 'teachers', icon: GraduationCap, permission: 'teachers.manage' },
   { label: 'Гурӯҳҳо', view: 'groups', icon: Layers, permission: 'groups.view' },
+  { label: '\u0416\u0443\u0440\u043d\u0430\u043b', view: 'journal', icon: ClipboardList, permission: 'journal.view' },
   { label: 'Фанҳо', view: 'subjects', icon: BookOpen, permission: 'subjects.view' },
   { label: 'Тестҳо', view: 'dashboard', icon: ClipboardCheck, permission: 'tests.view' },
 ];
@@ -206,25 +208,25 @@ export function AppShell({
       </main>
 
       {/* МОБИЛ BOTTOM NAVIGATION (Fixed Bottom Bar on small screens) */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 flex h-16 items-center justify-around border-t border-line bg-white/95 px-2 pb-safe backdrop-blur shadow-soft lg:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-30 flex h-[62px] items-center justify-around border-t border-line bg-white/95 px-1 pb-1 backdrop-blur shadow-soft lg:hidden">
         {visibleNavigation.slice(0, 4).map((item) => {
           const isActive = activeView === item.view;
           return (
             <button
               key={item.label}
               onClick={() => handleNavClick(item.view)}
-              className={`flex flex-1 flex-col items-center justify-center gap-1 py-1 transition active:scale-95 ${
+              className={`flex flex-1 flex-col items-center justify-center py-0.5 transition active:scale-95 ${
                 isActive ? 'font-bold text-brand' : 'text-muted hover:text-ink'
               }`}
             >
               <div
-                className={`grid h-8 w-12 place-items-center rounded-xl transition ${
+                className={`grid h-7 w-10 place-items-center rounded-xl transition ${
                   isActive ? 'bg-brand/15 text-brand' : 'text-muted'
                 }`}
               >
                 <item.icon className="h-5 w-5" />
               </div>
-              <span className="text-[10px] leading-tight">{item.label}</span>
+              <span className="mt-0.5 text-[10px] leading-none truncate max-w-[68px]">{item.label}</span>
             </button>
           );
         })}
@@ -233,12 +235,12 @@ export function AppShell({
         {visibleNavigation.length > 4 ? (
           <button
             onClick={() => setIsMobileMenuOpen(true)}
-            className="flex flex-1 flex-col items-center justify-center gap-1 py-1 text-muted transition hover:text-ink active:scale-95"
+            className="flex flex-1 flex-col items-center justify-center py-0.5 text-muted transition hover:text-ink active:scale-95"
           >
-            <div className="grid h-8 w-12 place-items-center rounded-xl text-muted">
+            <div className="grid h-7 w-10 place-items-center rounded-xl text-muted">
               <Menu className="h-5 w-5" />
             </div>
-            <span className="text-[10px] leading-tight">Ҳама</span>
+            <span className="mt-0.5 text-[10px] leading-none truncate">Ҳама</span>
           </button>
         ) : null}
       </nav>

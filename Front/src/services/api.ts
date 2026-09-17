@@ -13,6 +13,7 @@ import type {
   AssignTeacherSubjectRequest,
   QuestionDto,
   SubjectDto,
+  StudentDashboardDto,
   TeacherAssignmentDto,
   TeacherDashboardGroupDto,
   TeacherSubjectAssignmentDto,
@@ -241,6 +242,10 @@ export function getTeacherDashboardDailyResults(
 
   const query = searchParams.toString();
   return request<DashboardDailyResultsDto>(`/api/teacher/dashboard/daily-results${query ? `?${query}` : ''}`, token);
+}
+
+export function getStudentDashboard(token: string): Promise<StudentDashboardDto> {
+  return request<StudentDashboardDto>('/api/student/dashboard', token);
 }
 
 export function createTodayGroupLesson(

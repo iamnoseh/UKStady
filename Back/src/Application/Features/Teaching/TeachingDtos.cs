@@ -158,3 +158,23 @@ public sealed record TeacherDashboardStudentResultDto(
     string? TopicTitle,
     decimal? Score,
     string AttendanceStatus);
+
+public sealed record StudentDashboardDto(
+    DateTimeOffset ServerTimeUtc,
+    IReadOnlyList<StudentDashboardSubjectDto> Subjects);
+
+public sealed record StudentDashboardSubjectDto(
+    Guid GroupId,
+    string GroupName,
+    Guid SubjectId,
+    string SubjectName,
+    Guid? DailyLessonId,
+    Guid? TopicId,
+    string? TopicTitle,
+    int QuestionCount,
+    DateTimeOffset? OpensAtUtc,
+    DateTimeOffset? ClosesAtUtc,
+    bool IsReady,
+    bool CanStart,
+    string Status,
+    string StatusText);

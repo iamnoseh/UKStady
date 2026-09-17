@@ -11,9 +11,11 @@ export function Button({ className = '', variant = 'primary', ...props }: Button
     ghost: 'text-muted hover:bg-panel hover:text-ink',
   };
 
+  const hasPadding = !/\b(p|px|py|p[trbl])-\d+/.test(className);
+
   return (
     <button
-      className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${variants[variant]} ${className}`}
+      className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg ${hasPadding ? 'px-4' : ''} text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${variants[variant]} ${className}`}
       {...props}
     />
   );
