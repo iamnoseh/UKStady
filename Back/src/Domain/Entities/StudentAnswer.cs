@@ -17,4 +17,6 @@ public sealed class StudentAnswer : AuditableEntity
     public QuestionOption? QuestionOption { get; set; }
 
     public string? AnswerText { get; set; }
+
+    public bool IsChecked { get; set; }
 }

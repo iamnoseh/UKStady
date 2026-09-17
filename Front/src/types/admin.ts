@@ -314,6 +314,8 @@ export interface StudentTestQuestionDto {
   sortOrder: number;
   answerText: string | null;
   selectedOptionId: string | null;
+  isChecked: boolean;
+  isCorrect: boolean | null;
   options: StudentTestQuestionOptionDto[];
 }
 
@@ -336,6 +338,8 @@ export interface SaveStudentAnswerRequest {
   questionId: string;
   questionOptionId: string | null;
   answerText: string | null;
+  isChecked?: boolean;
+  isCorrect?: boolean | null;
 }
 
 export interface StudentTestSubmitResultDto {

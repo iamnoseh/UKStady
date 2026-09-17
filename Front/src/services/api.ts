@@ -273,6 +273,16 @@ export function saveStudentTestAnswer(
   });
 }
 
+export function checkStudentTestAnswer(
+  token: string,
+  attemptId: string,
+  questionId: string,
+): Promise<SaveStudentAnswerRequest> {
+  return request<SaveStudentAnswerRequest>(`/api/student/tests/${attemptId}/questions/${questionId}/check`, token, {
+    method: 'POST',
+  });
+}
+
 export function submitStudentTest(token: string, attemptId: string): Promise<StudentTestSubmitResultDto> {
   return request<StudentTestSubmitResultDto>(`/api/student/tests/${attemptId}/submit`, token, {
     method: 'POST',

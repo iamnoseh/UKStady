@@ -67,6 +67,11 @@ public interface ITeachingService
         SaveStudentAnswerRequest request,
         CancellationToken cancellationToken);
 
+    Task<StudentTestActionResult<StudentTestAnswerDto>> CheckStudentAnswerAsync(
+        Guid attemptId,
+        Guid questionId,
+        CancellationToken cancellationToken);
+
     Task<StudentTestActionResult<StudentTestSubmitResultDto>> SubmitStudentTestAsync(
         Guid attemptId,
         CancellationToken cancellationToken);

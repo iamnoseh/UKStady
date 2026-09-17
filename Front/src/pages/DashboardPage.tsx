@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BookOpen, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Lock, PlayCircle, Search, Send } from 'lucide-react';
+import { BookOpen, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Lock, PlayCircle, Search } from 'lucide-react';
 import { Button } from '../components/Button';
 import type { AppView } from '../components/AppShell';
 import { Pagination, paginate } from '../components/Pagination';
@@ -10,6 +10,7 @@ import {
   getStudentDashboard,
   getTeacherDashboardDailyResults,
   getTeacherDashboardGroups,
+  checkStudentTestAnswer,
   saveStudentTestAnswer,
   startStudentTest,
   submitStudentTest,
@@ -160,7 +161,7 @@ export function DashboardPage({ onViewChange: _onViewChange }: { onViewChange: (
   if (isStudent) {
     if (studentTestSession) {
       return (
-        <StudentTestRoom
+        <StudentTestRoomV2
           session={studentTestSession}
           result={studentTestResult}
           error={studentTestError}
@@ -181,8 +182,30 @@ export function DashboardPage({ onViewChange: _onViewChange }: { onViewChange: (
               questions: current.questions.map((question) => question.questionId === savedAnswer.questionId
                 ? {
                     ...question,
-                    selectedOptionId: savedAnswer.questionOptionId,
-                    answerText: savedAnswer.answerText,
+                  selectedOptionId: savedAnswer.questionOptionId,
+                  answerText: savedAnswer.answerText,
+                  isChecked: savedAnswer.isChecked ?? question.isChecked,
+                  isCorrect: savedAnswer.isCorrect ?? question.isCorrect,
+                }
+                : question),
+            } : current);
+          }}
+          onCheck={async (questionId) => {
+            if (!auth) {
+              return;
+            }
+
+            setStudentTestError('');
+            const checkedAnswer = await checkStudentTestAnswer(auth.accessToken, studentTestSession.attemptId, questionId);
+            setStudentTestSession((current) => current ? {
+              ...current,
+              questions: current.questions.map((question) => question.questionId === checkedAnswer.questionId
+                ? {
+                    ...question,
+                    selectedOptionId: checkedAnswer.questionOptionId,
+                    answerText: checkedAnswer.answerText,
+                    isChecked: checkedAnswer.isChecked ?? true,
+                    isCorrect: checkedAnswer.isCorrect ?? false,
                   }
                 : question),
             } : current);
@@ -574,6 +597,294 @@ function StudentSubjectCard({
   );
 }
 
+function StudentTestRoomV2({
+  session,
+  result,
+  error,
+  isSubmitting,
+  onAnswer,
+  onCheck,
+  onSubmit,
+  onBack,
+}: {
+  session: StudentTestSessionDto;
+  result: StudentTestSubmitResultDto | null;
+  error: string;
+  isSubmitting: boolean;
+  onAnswer: (questionId: string, questionOptionId: string | null, answerText: string | null) => Promise<void>;
+  onCheck: (questionId: string) => Promise<void>;
+  onSubmit: () => Promise<void>;
+  onBack: () => void;
+}) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [savingQuestionId, setSavingQuestionId] = useState('');
+  const [checkingQuestionId, setCheckingQuestionId] = useState('');
+  const [answerError, setAnswerError] = useState('');
+  const [draftAnswers, setDraftAnswers] = useState<Record<string, string>>(() =>
+    Object.fromEntries(session.questions.map((question) => [question.questionId, question.answerText ?? ''])),
+  );
+  const currentQuestion = session.questions[currentIndex] ?? session.questions[0];
+  const answeredCount = session.questions.filter((question) =>
+    question.type === 'SingleChoice' ? Boolean(question.selectedOptionId) : Boolean(question.answerText?.trim()),
+  ).length;
+  const checkedCount = session.questions.filter((question) => question.isChecked).length;
+  const canSubmit = checkedCount === session.questions.length && !result;
+  const progressPercent = session.questions.length === 0 ? 0 : Math.round(((currentIndex + 1) / session.questions.length) * 100);
+
+  async function saveAnswer(questionId: string, questionOptionId: string | null, answerText: string | null) {
+    setSavingQuestionId(questionId);
+    setAnswerError('');
+    try {
+      await onAnswer(questionId, questionOptionId, answerText);
+    } catch (error) {
+      setAnswerError(error instanceof Error ? error.message : 'Ҷавоб сабт нашуд.');
+    } finally {
+      setSavingQuestionId('');
+    }
+  }
+
+  function goToQuestion(index: number) {
+    setCurrentIndex(Math.min(Math.max(index, 0), session.questions.length - 1));
+    setAnswerError('');
+  }
+
+  async function checkCurrentQuestion() {
+    if (!currentQuestion || currentQuestion.isChecked) {
+      return;
+    }
+
+    const answerText = draftAnswers[currentQuestion.questionId] ?? '';
+    if (currentQuestion.type !== 'SingleChoice' && answerText.trim() !== currentQuestion.answerText?.trim()) {
+      await saveAnswer(currentQuestion.questionId, null, answerText);
+    }
+
+    setCheckingQuestionId(currentQuestion.questionId);
+    setAnswerError('');
+    try {
+      await onCheck(currentQuestion.questionId);
+    } catch (error) {
+      setAnswerError(error instanceof Error ? error.message : 'Савол санҷида нашуд.');
+    } finally {
+      setCheckingQuestionId('');
+    }
+  }
+
+  return (
+    <section className="min-h-[calc(100vh-88px)] bg-[#f5f7fb] px-3 py-4 sm:px-4 lg:px-6">
+      <div className="grid gap-4 xl:grid-cols-[1fr_310px]">
+        <div className="min-w-0 space-y-3">
+          <div className="rounded-lg border border-line bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-muted">Савол {currentIndex + 1} аз {session.questions.length}</p>
+                <div className="mt-3 h-1.5 w-44 overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-full rounded-full bg-brand transition-all" style={{ width: `${progressPercent}%` }} />
+                </div>
+              </div>
+              <span className="rounded-lg bg-brand/10 px-4 py-2 text-sm font-extrabold text-brand">
+                {checkedCount}/{session.questions.length} санҷида шуд
+              </span>
+            </div>
+          </div>
+
+          {error || answerError ? (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+              {error || answerError}
+            </div>
+          ) : null}
+
+          {currentQuestion ? (
+            <article className="rounded-lg border border-line bg-white p-5 shadow-sm sm:p-7">
+              <div className="mb-8 flex items-center justify-between gap-3">
+                <p className="text-sm font-extrabold uppercase tracking-wide text-brand">Савол {currentIndex + 1}</p>
+                <span className="rounded-md px-2 py-1 text-xs font-bold text-muted">
+                  {currentQuestion.type === 'SingleChoice' ? 'Интихобӣ' : 'Пӯшида'}
+                </span>
+              </div>
+
+              <h2 className="text-xl font-extrabold leading-8 text-ink sm:text-2xl">
+                {currentQuestion.text}
+              </h2>
+
+              {currentQuestion.type === 'SingleChoice' ? (
+                <div className="mt-8 grid gap-3">
+                  {currentQuestion.options.map((option, optionIndex) => {
+                    const selected = currentQuestion.selectedOptionId === option.id;
+                    const locked = Boolean(result) || currentQuestion.isChecked || savingQuestionId === currentQuestion.questionId;
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        disabled={locked}
+                        onClick={() => {
+                          void saveAnswer(currentQuestion.questionId, option.id, null);
+                        }}
+                        className={`flex min-h-16 items-center gap-4 rounded-lg border px-4 text-left text-base font-bold transition ${
+                          selected
+                            ? 'border-brand bg-brand/10 text-ink ring-1 ring-brand'
+                            : 'border-line bg-white text-ink hover:border-brand/60 hover:bg-brand/5'
+                        } disabled:cursor-not-allowed disabled:opacity-70`}
+                      >
+                        <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border ${
+                          selected ? 'border-brand bg-brand text-white' : 'border-slate-400 bg-white'
+                        }`}>
+                          {selected ? <CheckCircle2 className="h-4 w-4" /> : null}
+                        </span>
+                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-panel text-sm font-extrabold text-ink">
+                          {['А', 'Б', 'В', 'Г'][optionIndex] ?? optionIndex + 1}
+                        </span>
+                        <span>{option.text}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="mt-8">
+                  <textarea
+                    value={draftAnswers[currentQuestion.questionId] ?? ''}
+                    disabled={Boolean(result) || currentQuestion.isChecked}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setDraftAnswers((current) => ({
+                        ...current,
+                        [currentQuestion.questionId]: value,
+                      }));
+                    }}
+                    className="min-h-40 w-full rounded-lg border border-line bg-white p-4 text-base font-semibold text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/10 disabled:bg-panel"
+                    placeholder="Ҷавоби худро нависед..."
+                  />
+                  <div className="mt-4 hidden justify-end">
+                    <Button
+                      type="button"
+                      disabled={Boolean(result) || savingQuestionId === currentQuestion.questionId || !(draftAnswers[currentQuestion.questionId] ?? '').trim()}
+                      onClick={() => {
+                        void checkCurrentQuestion();
+                      }}
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                      {savingQuestionId === currentQuestion.questionId ? 'Равон шуда истодааст...' : 'Равон кардан'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-h-6 text-sm font-semibold">
+                  {currentQuestion.isChecked ? (
+                    <span className={currentQuestion.isCorrect ? 'text-emerald-600' : 'text-red-600'}>
+                      {currentQuestion.isCorrect ? 'Ҷавоб дуруст аст.' : 'Ҷавоб хато аст.'}
+                    </span>
+                  ) : (
+                    <span className="text-muted">Пас аз интихоб ё навиштани ҷавоб санҷишро зер кунед.</span>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  disabled={
+                    Boolean(result) ||
+                    currentQuestion.isChecked ||
+                    checkingQuestionId === currentQuestion.questionId ||
+                    savingQuestionId === currentQuestion.questionId ||
+                    (currentQuestion.type === 'SingleChoice'
+                      ? !currentQuestion.selectedOptionId
+                      : !(draftAnswers[currentQuestion.questionId] ?? '').trim())
+                  }
+                  onClick={() => {
+                    void checkCurrentQuestion();
+                  }}
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  {checkingQuestionId === currentQuestion.questionId ? 'Санҷида истодааст...' : 'Санҷиш'}
+                </Button>
+              </div>
+            </article>
+          ) : null}
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <Button type="button" variant="secondary" disabled={currentIndex === 0} onClick={() => goToQuestion(currentIndex - 1)}>
+              <ChevronLeft className="h-4 w-4" />
+              Саволи пешина
+            </Button>
+            <Button type="button" disabled={currentIndex >= session.questions.length - 1} onClick={() => goToQuestion(currentIndex + 1)}>
+              Саволи баъдӣ
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        <aside className="rounded-lg border border-line bg-white p-5 shadow-soft xl:sticky xl:top-4 xl:h-fit">
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <h3 className="text-xl font-extrabold text-ink">Саволҳо</h3>
+            <span className="font-bold text-muted">{answeredCount}/{session.questions.length}</span>
+          </div>
+          <p className="text-sm font-bold text-brand">Рӯйхати саволҳо</p>
+          <p className="mt-1 text-sm text-muted">{currentIndex + 1}/{session.questions.length}</p>
+
+          <div className="mt-4 grid grid-cols-5 gap-2">
+            {session.questions.map((question, index) => {
+              const active = index === currentIndex;
+              return (
+                <button
+                  key={question.questionId}
+                  type="button"
+                  onClick={() => goToQuestion(index)}
+                  className={`h-12 rounded-lg border text-base font-bold transition ${
+                    active
+                      ? 'border-brand bg-brand text-white shadow-sm'
+                      : question.isChecked && question.isCorrect
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                        : question.isChecked && question.isCorrect === false
+                          ? 'border-red-200 bg-red-50 text-red-600'
+                        : 'border-line bg-white text-slate-600 hover:border-brand/50'
+                  }`}
+                >
+                  {index + 1}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-6 grid grid-cols-2 gap-4 text-sm font-bold text-muted">
+            <p>Ҷавобшуда: {answeredCount}</p>
+            <p>Санҷида: {checkedCount}</p>
+          </div>
+
+          <Button
+            type="button"
+            className="mt-6 w-full justify-center"
+            disabled={!canSubmit || isSubmitting}
+            onClick={() => {
+              void onSubmit();
+            }}
+          >
+            {isSubmitting ? 'Анҷом дода мешавад...' : 'Анҷом додан'}
+          </Button>
+        </aside>
+      </div>
+
+      {result ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-2xl">
+            <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-emerald-50 text-emerald-600">
+              <CheckCircle2 className="h-7 w-7" />
+            </div>
+            <p className="mt-4 text-sm font-bold uppercase tracking-wide text-muted">Натиҷаи тест</p>
+            <h3 className="mt-2 text-4xl font-extrabold text-ink">{result.score} хол</h3>
+            <p className="mt-2 text-sm text-muted">
+              Ҷавобҳои дуруст: <span className="font-bold text-ink">{result.correctAnswers}</span> аз <span className="font-bold text-ink">{result.totalQuestions}</span>
+            </p>
+            <div className="mt-5 rounded-xl border border-line bg-panel p-3 text-sm text-muted">
+              Натиҷа ба журнали шумо сабт шуд.
+            </div>
+            <Button type="button" className="mt-5 w-full justify-center" onClick={onBack}>
+              Бозгашт ба саҳифаи асосӣ
+            </Button>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function StudentTestRoom({
   session,
   result,
@@ -622,7 +933,7 @@ function StudentTestRoom({
           <span className="rounded-lg border border-line bg-white px-3 py-2 text-sm font-semibold text-ink">
             {answeredCount} / {session.questions.length} ҷавоб
           </span>
-          <Button type="button" variant="secondary" onClick={onBack}>Ба dashboard</Button>
+          <Button type="button" variant="secondary" onClick={onBack}>Ба саҳифаи асосӣ</Button>
         </div>
       </div>
 
@@ -700,7 +1011,7 @@ function StudentTestRoom({
               void onSubmit();
             }}
           >
-            <Send className="h-4 w-4" />
+            <CheckCircle2 className="h-4 w-4" />
             {isSubmitting ? 'Супорида мешавад...' : 'Супоридани тест'}
           </Button>
         </div>

@@ -330,6 +330,24 @@ public static class TeachingEndpoints
         })
         .WithName("SaveStudentTestAnswer");
 
+        group.MapPost("/{attemptId:guid}/questions/{questionId:guid}/check", async (
+            Guid attemptId,
+            Guid questionId,
+            ITeachingService service,
+            CancellationToken cancellationToken) =>
+        {
+            if (questionId == Guid.Empty)
+            {
+                return Results.BadRequest(new { message = "QuestionId is required." });
+            }
+
+            var result = await service.CheckStudentAnswerAsync(attemptId, questionId, cancellationToken);
+            return result.Succeeded
+                ? Results.Ok(result.Value)
+                : Results.BadRequest(new { message = result.Error });
+        })
+        .WithName("CheckStudentTestAnswer");
+
         group.MapPost("/{attemptId:guid}/submit", async (
             Guid attemptId,
             ITeachingService service,

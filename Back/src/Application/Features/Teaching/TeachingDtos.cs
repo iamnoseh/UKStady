@@ -211,6 +211,8 @@ public sealed record StudentTestQuestionDto(
     int SortOrder,
     string? AnswerText,
     Guid? SelectedOptionId,
+    bool IsChecked,
+    bool? IsCorrect,
     IReadOnlyList<StudentTestQuestionOptionDto> Options);
 
 public sealed record StudentTestQuestionOptionDto(Guid Id, string Text, int SortOrder);
@@ -223,7 +225,9 @@ public sealed record SaveStudentAnswerRequest(
 public sealed record StudentTestAnswerDto(
     Guid QuestionId,
     Guid? QuestionOptionId,
-    string? AnswerText);
+    string? AnswerText,
+    bool IsChecked,
+    bool? IsCorrect);
 
 public sealed record StudentTestSubmitResultDto(
     Guid AttemptId,
