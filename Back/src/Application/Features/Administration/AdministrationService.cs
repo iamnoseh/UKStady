@@ -788,7 +788,7 @@ public sealed class AdministrationService : IAdministrationService
                 .ThenBy(result => result.GroupName)
                 .ThenBy(result => result.SubjectName)
             : results
-                .OrderBy(result => result.Score.HasValue ? 0 : 1)
+                .OrderBy(result => result.Score.HasValue ? 1 : 0)
                 .ThenBy(result => result.Score)
                 .ThenBy(result => result.StudentName)
                 .ThenBy(result => result.GroupName)

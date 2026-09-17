@@ -235,17 +235,17 @@ public sealed class TeachingEndpointTests : IClassFixture<TestApiFactory>
             $"/api/teacher/dashboard/daily-results?date={lessonDate:yyyy-MM-dd}&sort=scoreAsc");
         Assert.NotNull(results);
         Assert.Equal(2, results.Results.Count);
-        var studentResult = results.Results[0];
+        var ungradedResult = results.Results[0];
+        Assert.Equal(ungradedStudent.Id, ungradedResult.StudentId);
+        Assert.Null(ungradedResult.Score);
+        Assert.Equal("NoGrade", ungradedResult.AttendanceStatus);
+
+        var studentResult = results.Results[1];
         Assert.Equal(firstStudent.Id, studentResult.StudentId);
         Assert.Equal(firstGroup.Id, studentResult.GroupId);
         Assert.Equal(firstSubject.Id, studentResult.SubjectId);
         Assert.True(studentResult.Score.HasValue);
         Assert.Equal(84m, studentResult.Score.Value);
-
-        var ungradedResult = results.Results[1];
-        Assert.Equal(ungradedStudent.Id, ungradedResult.StudentId);
-        Assert.Null(ungradedResult.Score);
-        Assert.Equal("NoGrade", ungradedResult.AttendanceStatus);
         Assert.DoesNotContain(results.Results, result => result.StudentId == secondStudent.Id);
     }
 

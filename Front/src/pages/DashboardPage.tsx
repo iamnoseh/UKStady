@@ -226,7 +226,7 @@ export function DashboardPage({ onViewChange: _onViewChange }: { onViewChange: (
               <p className="truncate text-muted">{result.phoneNumber}</p>
             </div>
             <span className={`w-fit rounded-md px-2 py-1 text-xs font-bold ${getScoreClassName(result.score)}`}>
-              {result.score === null ? 'Бе хол' : `${result.score} хол`}
+              {result.score === null ? 'Насупоридааст' : `${result.score} хол`}
             </span>
             <span className="text-muted">{formatAttendanceStatus(result.attendanceStatus)}</span>
             <div className="min-w-0">
@@ -298,5 +298,5 @@ function formatAttendanceStatus(status: string) {
     return 'Ғоиб';
   }
 
-  return 'Бе хол';
+  return 'Насупоридааст';
 }
