@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { BookOpen, Edit3, ListTree, Plus, Search, Trash2, XCircle } from 'lucide-react';
+import { BookOpen, Edit3, ListTree, Plus, Search, Trash2, X, XCircle } from 'lucide-react';
 import { Button } from '../components/Button';
 import { Pagination, paginate } from '../components/Pagination';
 import { createSubject, deleteSubject, getCurrentTeacherSubjects, getSubjects, updateSubject } from '../services/api';
@@ -20,6 +20,7 @@ export function SubjectsPage({ onOpenTopics }: { onOpenTopics: (subject: Subject
   const [notice, setNotice] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
 
   useEffect(() => {
     void loadSubjects();
@@ -84,6 +85,7 @@ export function SubjectsPage({ onOpenTopics }: { onOpenTopics: (subject: Subject
     setIsActive(subject.isActive);
     setNotice('');
     setError('');
+    setIsFormOpen(true);
   }
 
   function resetForm() {
@@ -91,6 +93,7 @@ export function SubjectsPage({ onOpenTopics }: { onOpenTopics: (subject: Subject
     setName('');
     setDescription('');
     setIsActive(true);
+    setIsFormOpen(false);
   }
 
   async function handleDelete(subject: SubjectDto) {
@@ -127,145 +130,294 @@ export function SubjectsPage({ onOpenTopics }: { onOpenTopics: (subject: Subject
   }, [query, subjects.length]);
 
   return (
-    <section className="px-4 py-6 lg:px-6">
-      <div className="mb-5 flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
+    <section className="px-3 py-4 sm:px-4 sm:py-6 lg:px-6">
+      <div className="mb-4 flex flex-col justify-between gap-3 sm:mb-5 sm:flex-row sm:items-end">
         <div>
-          <p className="text-sm font-semibold text-muted">{isTeacher ? 'Муаллим' : 'Administrator'}</p>
-          <h2 className="mt-1 text-2xl font-bold">{isTeacher ? 'Фанҳои ман' : 'Фанҳо'}</h2>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted sm:text-sm">
+            {isTeacher ? 'Муаллим' : 'Administrator'}
+          </p>
+          <h2 className="mt-0.5 text-xl font-bold text-ink sm:text-2xl">
+            {isTeacher ? 'Фанҳои ман' : 'Фанҳо'}
+          </h2>
         </div>
 
-        <div className="flex h-11 w-full items-center gap-3 rounded-lg border border-line bg-white px-3 xl:w-[360px]">
-          <Search className="h-5 w-5 text-muted" />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            className="h-full flex-1 outline-none"
-            placeholder="Ҷустуҷӯи фан"
-          />
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
+          <div className="flex h-10 w-full items-center gap-2.5 rounded-lg border border-line bg-white px-3 focus-within:border-brand sm:h-11 xl:w-[320px]">
+            <Search className="h-4 w-4 text-muted shrink-0" />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              className="h-full flex-1 text-sm outline-none placeholder:text-muted/70"
+              placeholder="Ҷустуҷӯи фан..."
+            />
+          </div>
+          {!isTeacher ? (
+            <Button
+              type="button"
+              onClick={() => {
+                if (isFormOpen && editingSubject) {
+                  resetForm();
+                } else {
+                  setIsFormOpen((prev) => !prev);
+                }
+              }}
+              className="h-10 px-3.5 text-sm xl:hidden"
+            >
+              {isFormOpen ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+              <span>{isFormOpen ? 'Пӯшидан' : 'Фани нав'}</span>
+            </Button>
+          ) : null}
         </div>
       </div>
 
-      <div className={isTeacher ? 'grid gap-5' : 'grid gap-5 xl:grid-cols-[390px_1fr]'}>
+      <div className={isTeacher ? 'grid gap-5' : 'grid gap-5 xl:grid-cols-[380px_1fr]'}>
         {!isTeacher ? (
-          <form onSubmit={handleSubmit} className="rounded-lg border border-line bg-white p-5">
-          <div className="mb-5 flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-lg bg-brand/10 text-brand">
-              {editingSubject ? <Edit3 className="h-5 w-5" /> : <BookOpen className="h-5 w-5" />}
-            </div>
-            <div>
-              <h3 className="font-bold">{editingSubject ? 'Таҳрири фан' : 'Фани нав'}</h3>
-              <p className="text-sm text-muted">{editingSubject ? 'Маълумот ва ҳолати фанро нав кунед.' : 'Барои мавзӯъ ва саволҳо асос мешавад.'}</p>
-            </div>
-          </div>
-
-          <label className="block">
-            <span className="text-sm font-semibold">Номи фан</span>
-            <input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              className="mt-2 h-11 w-full rounded-lg border border-line px-3 outline-none focus:border-brand"
-              placeholder="Математика"
-            />
-          </label>
-
-          <label className="mt-4 block">
-            <span className="text-sm font-semibold">Тавсиф</span>
-            <textarea
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              className="mt-2 min-h-24 w-full resize-none rounded-lg border border-line px-3 py-3 outline-none focus:border-brand"
-              placeholder="Тавсифи кӯтоҳ"
-            />
-          </label>
-
-          {editingSubject ? (
-            <div className="mt-4">
-              <span className="text-sm font-semibold">Ҳолат</span>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsActive(true)}
-                  className={`h-10 rounded-lg border text-sm font-bold transition ${
-                    isActive ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-line bg-white text-muted hover:bg-panel'
-                  }`}
-                >
-                  Фаъол
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsActive(false)}
-                  className={`h-10 rounded-lg border text-sm font-bold transition ${
-                    !isActive ? 'border-red-200 bg-red-50 text-red-700' : 'border-line bg-white text-muted hover:bg-panel'
-                  }`}
-                >
-                  Ғайрифаъол
-                </button>
+          <form
+            onSubmit={handleSubmit}
+            className={`rounded-xl border border-line bg-white p-4 shadow-sm sm:p-5 ${
+              isFormOpen ? 'block' : 'hidden xl:block'
+            }`}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="grid h-10 w-10 place-items-center rounded-xl bg-brand/10 text-brand">
+                  {editingSubject ? <Edit3 className="h-5 w-5" /> : <BookOpen className="h-5 w-5" />}
+                </div>
+                <div>
+                  <h3 className="font-bold text-ink">{editingSubject ? 'Таҳрири фан' : 'Фани нав'}</h3>
+                  <p className="text-xs text-muted">
+                    {editingSubject ? 'Маълумоти фанро нав кунед.' : 'Барои мавзӯъҳо асос мешавад.'}
+                  </p>
+                </div>
               </div>
+              <button
+                type="button"
+                onClick={resetForm}
+                className="grid h-8 w-8 place-items-center rounded-lg border border-line text-muted xl:hidden"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
-          ) : null}
 
-          {notice ? <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{notice}</p> : null}
-          {error ? <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
+            <label className="block">
+              <span className="text-xs font-semibold text-muted">Номи фан</span>
+              <input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                className="mt-1 h-10 w-full rounded-lg border border-line px-3 text-sm outline-none focus:border-brand"
+                placeholder="Математика"
+              />
+            </label>
 
-          <Button type="submit" className="mt-5 w-full" disabled={isSubmitting || !name.trim()}>
-            {editingSubject ? <Edit3 className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-            {isSubmitting ? 'Нигоҳ дошта истодааст...' : editingSubject ? 'Нигоҳ доштан' : 'Сохтани фан'}
-          </Button>
-          {editingSubject ? (
-            <Button type="button" variant="secondary" className="mt-3 w-full" onClick={resetForm}>
-              <XCircle className="h-4 w-4" />
-              Бекор кардан
+            <label className="mt-3 block">
+              <span className="text-xs font-semibold text-muted">Тавсиф</span>
+              <textarea
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                className="mt-1 min-h-20 w-full resize-none rounded-lg border border-line px-3 py-2 text-sm outline-none focus:border-brand"
+                placeholder="Тавсифи кӯтоҳ"
+              />
+            </label>
+
+            {editingSubject ? (
+              <div className="mt-3">
+                <span className="text-xs font-semibold text-muted">Ҳолат</span>
+                <div className="mt-1.5 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsActive(true)}
+                    className={`h-9 rounded-lg border text-xs font-bold transition ${
+                      isActive ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-line bg-white text-muted hover:bg-panel'
+                    }`}
+                  >
+                    Фаъол
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsActive(false)}
+                    className={`h-9 rounded-lg border text-xs font-bold transition ${
+                      !isActive ? 'border-red-200 bg-red-50 text-red-700' : 'border-line bg-white text-muted hover:bg-panel'
+                    }`}
+                  >
+                    Ғайрифаъол
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {notice ? <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700">{notice}</p> : null}
+            {error ? <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p> : null}
+
+            <Button type="submit" className="mt-4 w-full h-11" disabled={isSubmitting || !name.trim()}>
+              {editingSubject ? <Edit3 className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+              {isSubmitting ? 'Нигоҳ дошта истодааст...' : editingSubject ? 'Нигоҳ доштан' : 'Сохтани фан'}
             </Button>
-          ) : null}
+            {editingSubject ? (
+              <Button type="button" variant="secondary" className="mt-2 w-full h-10" onClick={resetForm}>
+                <XCircle className="h-4 w-4" />
+                Бекор кардан
+              </Button>
+            ) : null}
           </form>
         ) : null}
 
         <div className="min-w-0">
-          <div className="min-h-[420px] overflow-hidden rounded-lg border border-line bg-white">
-            <div className="grid grid-cols-[1.3fr_110px_110px_120px_260px] border-b border-line bg-panel px-4 py-3 text-xs font-bold uppercase text-muted">
-              <span>Фан</span>
-              <span>Мавзӯъҳо</span>
-              <span>Саволҳо</span>
-              <span>Ҳолат</span>
-              <span>Амал</span>
+          {isLoading ? (
+            <div className="rounded-xl border border-line bg-white p-6 text-center text-sm text-muted">
+              Бор шуда истодааст...
             </div>
+          ) : null}
 
-            {isLoading ? <p className="px-4 py-5 text-sm text-muted">Бор шуда истодааст...</p> : null}
+          {!isLoading && filteredSubjects.length === 0 ? (
+            <div className="rounded-xl border border-line bg-white p-8 text-center text-sm text-muted">
+              Ҳоло фан нест.
+            </div>
+          ) : null}
 
-            {!isLoading && filteredSubjects.length === 0 ? (
-              <p className="px-4 py-5 text-sm text-muted">Ҳоло фан нест.</p>
-            ) : null}
+          {!isLoading && filteredSubjects.length > 0 ? (
+            <>
+              {/* МОБИЛ КОРТҲОИ ФАНҲО (< md) */}
+              <div className="space-y-2.5 md:hidden">
+                {pagedSubjects.items.map((subject) => (
+                  <div
+                    key={`mobile-${subject.id}`}
+                    className="rounded-xl border border-line bg-white p-3.5 shadow-sm space-y-2.5"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <h3 className="truncate text-sm font-bold text-ink sm:text-base">{subject.name}</h3>
+                        {subject.description ? (
+                          <p className="mt-0.5 line-clamp-2 text-xs text-muted">{subject.description}</p>
+                        ) : null}
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-lg px-2.5 py-1 text-xs font-bold ${
+                          subject.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        {subject.isActive ? 'Фаъол' : 'Ғайрифаъол'}
+                      </span>
+                    </div>
 
-            {pagedSubjects.items.map((subject) => (
-              <div key={subject.id} className="grid grid-cols-[1.3fr_110px_110px_120px_260px] items-center border-b border-line px-4 py-4 text-sm last:border-0">
-                <div>
-                  <p className="font-semibold">{subject.name}</p>
-                  <p className="text-muted">{subject.description || 'Бе тавсиф'}</p>
-                </div>
-                <span className="text-muted">{subject.topicCount}</span>
-                <span className="font-semibold text-ink">{subject.questionCount}</span>
-                <span className={`w-fit rounded-md px-2 py-1 text-xs font-bold ${subject.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
-                  {subject.isActive ? 'Фаъол' : 'Ғайрифаъол'}
-                </span>
-                <div className="flex flex-wrap gap-2">
-                  <Button type="button" variant="secondary" className="h-9 px-3" onClick={() => onOpenTopics(subject)}>
-                    <ListTree className="h-4 w-4" />
-                    {isTeacher ? 'Саволҳо' : 'Мавзӯъҳо'}
-                  </Button>
-                  {!isTeacher ? (
-                    <>
-                      <Button type="button" variant="secondary" className="h-9 px-3" onClick={() => startEdit(subject)}>
-                        <Edit3 className="h-4 w-4" />
-                      </Button>
-                      <Button type="button" variant="secondary" className="h-9 px-3 text-red-600 hover:bg-red-50" onClick={() => void handleDelete(subject)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </>
-                  ) : null}
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line/60 pt-2.5">
+                      <div className="flex items-center gap-1.5 text-xs">
+                        <span className="rounded-md bg-panel px-2 py-0.5 font-semibold text-muted">
+                          {subject.topicCount} мавзӯъ
+                        </span>
+                        <span className="rounded-md bg-brand/10 px-2 py-0.5 font-bold text-brand">
+                          {subject.questionCount} савол
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 ml-auto">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="h-9 px-3 text-xs font-semibold"
+                          onClick={() => onOpenTopics(subject)}
+                        >
+                          <ListTree className="h-3.5 w-3.5" />
+                          {isTeacher ? 'Саволҳо' : 'Мавзӯъҳо'}
+                        </Button>
+                        {!isTeacher ? (
+                          <>
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              className="h-9 w-9 p-0"
+                              onClick={() => startEdit(subject)}
+                              title="Таҳрир"
+                            >
+                              <Edit3 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              className="h-9 w-9 p-0 text-red-600 hover:bg-red-50"
+                              onClick={() => void handleDelete(subject)}
+                              title="Ғайрифаъол кардан"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* ҶАДВАЛИ ПЛАНШЕТ ВА КОМПЮТЕР (>= md) */}
+              <div className="hidden min-h-[420px] overflow-hidden rounded-xl border border-line bg-white shadow-sm md:block">
+                <div className="overflow-x-auto">
+                  <div className="min-w-[680px]">
+                    <div className="grid grid-cols-[1.3fr_110px_110px_120px_240px] border-b border-line bg-panel px-4 py-3 text-xs font-bold uppercase text-muted">
+                      <span>Фан</span>
+                      <span>Мавзӯъҳо</span>
+                      <span>Саволҳо</span>
+                      <span>Ҳолат</span>
+                      <span>Амал</span>
+                    </div>
+
+                    {pagedSubjects.items.map((subject) => (
+                      <div
+                        key={`desktop-${subject.id}`}
+                        className="grid grid-cols-[1.3fr_110px_110px_120px_240px] items-center border-b border-line px-4 py-3.5 text-sm last:border-0 hover:bg-panel/30"
+                      >
+                        <div className="min-w-0 pr-2">
+                          <p className="truncate font-semibold text-ink">{subject.name}</p>
+                          <p className="truncate text-xs text-muted">{subject.description || 'Бе тавсиф'}</p>
+                        </div>
+                        <span className="text-xs text-muted">{subject.topicCount}</span>
+                        <span className="font-semibold text-ink text-xs">{subject.questionCount}</span>
+                        <span
+                          className={`w-fit rounded-lg px-2.5 py-1 text-xs font-bold ${
+                            subject.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          {subject.isActive ? 'Фаъол' : 'Ғайрифаъол'}
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            className="h-8 px-2.5 text-xs font-semibold"
+                            onClick={() => onOpenTopics(subject)}
+                          >
+                            <ListTree className="h-3.5 w-3.5" />
+                            {isTeacher ? 'Саволҳо' : 'Мавзӯъҳо'}
+                          </Button>
+                          {!isTeacher ? (
+                            <>
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                className="h-8 w-8 p-0"
+                                onClick={() => startEdit(subject)}
+                                title="Таҳрир"
+                              >
+                                <Edit3 className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                className="h-8 w-8 p-0 text-red-600 hover:bg-red-50"
+                                onClick={() => void handleDelete(subject)}
+                                title="Ғайрифаъол кардан"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
+            </>
+          ) : null}
+
           <div className="mt-4">
             <Pagination
               page={pagedSubjects.page}

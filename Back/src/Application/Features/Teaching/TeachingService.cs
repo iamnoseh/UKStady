@@ -427,7 +427,7 @@ public sealed class TeachingService : ITeachingService
                                     lessonGrade?.Score,
                                     lessonGrade?.AttendanceStatus.ToString() ?? "NoGrade",
                                     lessonGrade?.IsAdjusted ?? false,
-                                    canEditScores && lessonGrade is not null && lesson.LessonDate == editableLessonDate);
+                                    canEditScores && lesson.LessonDate == editableLessonDate);
                             })
                             .ToList();
 
@@ -640,11 +640,18 @@ public sealed class TeachingService : ITeachingService
                 cancellationToken);
         if (grade is null)
         {
-            return null;
+            grade = new GradeEntry
+            {
+                DailyLessonId = lessonId,
+                StudentId = studentId,
+                AttendanceStatus = AttendanceStatus.Present,
+                AutoScore = 0
+            };
+            _dbContext.GradeEntries.Add(grade);
         }
 
         var newScore = Math.Round(request.Score, 2);
-        var previousFinalScore = grade.FinalScore;
+        var previousScore = grade.FinalScore ?? grade.AutoScore;
         grade.FinalScore = newScore;
         grade.GradedByTeacherId = teacherId;
         grade.GradedAtUtc = _dateTimeProvider.UtcNow;
@@ -656,7 +663,7 @@ public sealed class TeachingService : ITeachingService
         {
             GradeEntryId = grade.Id,
             ChangedByUserId = teacherId,
-            PreviousFinalScore = previousFinalScore,
+            PreviousFinalScore = previousScore,
             NewFinalScore = newScore,
             Reason = string.IsNullOrWhiteSpace(request.Reason)
                 ? "Daily teacher adjustment"

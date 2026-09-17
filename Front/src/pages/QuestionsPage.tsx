@@ -74,6 +74,7 @@ export function QuestionsPage({
   const [importDrafts, setImportDrafts] = useState<ImportQuestionDraft[]>([]);
   const [isAnalyzingImport, setIsAnalyzingImport] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
 
   useEffect(() => {
     void loadQuestions();
@@ -102,6 +103,7 @@ export function QuestionsPage({
     setPoints(1);
     setOptions([createDraftOption(0)]);
     setIsActive(true);
+    setIsFormOpen(false);
   }
 
   function startEdit(question: QuestionDto) {
@@ -121,6 +123,7 @@ export function QuestionsPage({
     setIsActive(question.isActive);
     setNotice('');
     setError('');
+    setIsFormOpen(true);
   }
 
   function setQuestionType(nextType: QuestionType) {
@@ -485,74 +488,106 @@ export function QuestionsPage({
   }
 
   return (
-    <section className="px-4 py-6 lg:px-6">
-      <div className="mb-5 flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
+    <section className="px-3 py-4 sm:px-4 sm:py-6 lg:px-6">
+      <div className="mb-4 flex flex-col justify-between gap-3 sm:mb-5 sm:flex-row sm:items-end">
         <div>
-          <Button type="button" variant="ghost" className="mb-3 h-9 px-2" onClick={onBack}>
-            <ArrowLeft className="h-4 w-4" />
+          <Button type="button" variant="ghost" className="mb-2 h-8 px-2 text-xs" onClick={onBack}>
+            <ArrowLeft className="h-3.5 w-3.5" />
             Бозгашт ба мавзӯъҳо
           </Button>
-          <p className="text-sm font-semibold text-muted">{subject.name} / {topic.title}</p>
-          <h2 className="mt-1 text-2xl font-bold">Саволҳо</h2>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted sm:text-sm">
+            {subject.name} / {topic.title}
+          </p>
+          <h2 className="mt-0.5 text-xl font-bold text-ink sm:text-2xl">Саволҳо</h2>
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
           <Button
             type="button"
             variant="secondary"
             onClick={() => setIsImportPage(true)}
+            className="h-10 text-xs font-semibold sm:h-11 sm:text-sm"
           >
             <Upload className="h-4 w-4" />
             Import Docx
           </Button>
-          <div className="flex h-11 w-full items-center gap-3 rounded-lg border border-line bg-white px-3 xl:w-[360px]">
-            <Search className="h-5 w-5 text-muted" />
+          <div className="flex h-10 w-full items-center gap-2.5 rounded-lg border border-line bg-white px-3 focus-within:border-brand sm:h-11 xl:w-[280px]">
+            <Search className="h-4 w-4 text-muted shrink-0" />
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              className="h-full flex-1 outline-none"
-              placeholder="Ҷустуҷӯи савол"
+              className="h-full flex-1 text-sm outline-none placeholder:text-muted/70"
+              placeholder="Ҷустуҷӯи савол..."
             />
           </div>
+          <Button
+            type="button"
+            onClick={() => {
+              if (isFormOpen && editingQuestion) {
+                resetForm();
+              } else {
+                setIsFormOpen((prev) => !prev);
+              }
+            }}
+            className="h-10 px-3.5 text-sm 2xl:hidden"
+          >
+            {isFormOpen ? <XCircle className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            <span>{isFormOpen ? 'Пӯшидан' : 'Саволи нав'}</span>
+          </Button>
         </div>
       </div>
 
-      <div className="grid gap-5 2xl:grid-cols-[520px_1fr]">
-        <form onSubmit={handleSubmit} className="rounded-lg border border-line bg-white p-5">
-          <div className="mb-5 flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-lg bg-brand/10 text-brand">
-              {editingQuestion ? <Edit3 className="h-5 w-5" /> : <ListChecks className="h-5 w-5" />}
+      <div className="grid gap-5 2xl:grid-cols-[500px_1fr]">
+        {/* ФОРМАИ ЭҶОД (Ҳамеша дар Desktop 2xl, кушодашаванда дар Mobile) */}
+        <form
+          onSubmit={handleSubmit}
+          className={`rounded-xl border border-line bg-white p-4 shadow-sm sm:p-5 ${
+            isFormOpen ? 'block' : 'hidden 2xl:block'
+          }`}
+        >
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="grid h-10 w-10 place-items-center rounded-xl bg-brand/10 text-brand">
+                {editingQuestion ? <Edit3 className="h-5 w-5" /> : <ListChecks className="h-5 w-5" />}
+              </div>
+              <div>
+                <h3 className="font-bold text-ink">{editingQuestion ? 'Таҳрири савол' : 'Саволи нав'}</h3>
+                <p className="text-xs text-muted">Навъи савол ва ҷавобҳои дурустро муайян кунед.</p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-bold">{editingQuestion ? 'Таҳрири савол' : 'Саволи нав'}</h3>
-              <p className="text-sm text-muted">Навъи савол ва ҷавобҳои дурустро муайян кунед.</p>
-            </div>
+            <button
+              type="button"
+              onClick={resetForm}
+              className="grid h-8 w-8 place-items-center rounded-lg border border-line text-muted 2xl:hidden"
+            >
+              <XCircle className="h-4 w-4" />
+            </button>
           </div>
 
           <label className="block">
-            <span className="text-sm font-semibold">Матни савол</span>
+            <span className="text-xs font-semibold text-muted">Матни савол</span>
             <textarea
               value={text}
               onChange={(event) => setText(event.target.value)}
-              className="mt-2 min-h-28 w-full resize-none rounded-lg border border-line px-3 py-3 outline-none focus:border-brand"
+              className="mt-1 min-h-24 w-full resize-none rounded-lg border border-line px-3 py-2 text-sm outline-none focus:border-brand"
               placeholder="Саволро ворид кунед"
             />
           </label>
 
-          <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_120px]">
+          <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_100px]">
             <div>
-              <span className="text-sm font-semibold">Навъи савол</span>
-              <div className="mt-2 grid grid-cols-2 gap-2">
+              <span className="text-xs font-semibold text-muted">Навъи савол</span>
+              <div className="mt-1 grid grid-cols-2 gap-2">
                 {(['ClosedAnswer', 'SingleChoice'] as QuestionType[]).map((item) => (
                   <button
                     key={item}
                     type="button"
                     onClick={() => setQuestionType(item)}
-                    className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg border text-sm font-bold transition ${
+                    className={`inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border text-xs font-bold transition ${
                       type === item ? 'border-brand/30 bg-brand/10 text-brand' : 'border-line bg-white text-muted hover:bg-panel'
                     }`}
                   >
-                    {item === 'ClosedAnswer' ? <Keyboard className="h-4 w-4" /> : <CircleDot className="h-4 w-4" />}
+                    {item === 'ClosedAnswer' ? <Keyboard className="h-3.5 w-3.5" /> : <CircleDot className="h-3.5 w-3.5" />}
                     {questionTypeLabels[item]}
                   </button>
                 ))}
@@ -560,43 +595,40 @@ export function QuestionsPage({
             </div>
 
             <label className="block">
-              <span className="text-sm font-semibold">Хол</span>
+              <span className="text-xs font-semibold text-muted">Хол</span>
               <input
                 type="number"
                 min={1}
                 value={points}
                 onChange={(event) => setPoints(Number(event.target.value))}
-                className="mt-2 h-10 w-full rounded-lg border border-line px-3 outline-none focus:border-brand"
+                className="mt-1 h-10 w-full rounded-lg border border-line px-3 text-sm outline-none focus:border-brand"
               />
             </label>
           </div>
 
           {type === 'ClosedAnswer' ? (
-            <label className="mt-4 block">
-              <span className="text-sm font-semibold">Ҷавоби дуруст</span>
+            <label className="mt-3 block">
+              <span className="text-xs font-semibold text-muted">Ҷавоби дуруст</span>
               <input
                 value={options[0]?.text ?? ''}
                 onChange={(event) => {
                   const value = event.target.value;
                   setOptions((current) => [{ ...(current[0] ?? createDraftOption(0)), text: value, isCorrect: true }]);
                 }}
-                className="mt-2 h-11 w-full rounded-lg border border-line px-3 outline-none focus:border-brand"
+                className="mt-1 h-10 w-full rounded-lg border border-line px-3 text-sm outline-none focus:border-brand"
                 placeholder="Ҷавоби дастиро ворид кунед"
               />
             </label>
           ) : (
-            <div className="mt-4">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-semibold">4 вариант</span>
-              </div>
-
-              <div className="mt-2 space-y-2">
+            <div className="mt-3">
+              <span className="text-xs font-semibold text-muted">4 вариант (ҷавоби дурустро интихоб намоед)</span>
+              <div className="mt-1.5 space-y-2">
                 {options.slice(0, 4).map((option, index) => (
-                  <div key={option.id} className="grid grid-cols-[40px_1fr] items-center gap-2">
+                  <div key={option.id} className="grid grid-cols-[38px_1fr] items-center gap-2">
                     <button
                       type="button"
                       onClick={() => toggleCorrect(option.id)}
-                      className={`grid h-10 w-10 place-items-center rounded-lg border transition ${
+                      className={`grid h-10 w-full place-items-center rounded-lg border transition ${
                         option.isCorrect ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-line text-muted hover:bg-panel'
                       }`}
                       title="Ҷавоби дуруст"
@@ -607,7 +639,7 @@ export function QuestionsPage({
                     <input
                       value={option.text}
                       onChange={(event) => updateOptionText(option.id, event.target.value)}
-                      className="h-10 min-w-0 rounded-lg border border-line px-3 outline-none focus:border-brand"
+                      className="h-10 min-w-0 rounded-lg border border-line px-3 text-sm outline-none focus:border-brand"
                       placeholder={`Варианти ${index + 1}`}
                     />
                   </div>
@@ -617,13 +649,13 @@ export function QuestionsPage({
           )}
 
           {editingQuestion ? (
-            <div className="mt-4">
-              <span className="text-sm font-semibold">Ҳолат</span>
-              <div className="mt-2 grid grid-cols-2 gap-2">
+            <div className="mt-3">
+              <span className="text-xs font-semibold text-muted">Ҳолат</span>
+              <div className="mt-1.5 grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setIsActive(true)}
-                  className={`h-10 rounded-lg border text-sm font-bold transition ${
+                  className={`h-9 rounded-lg border text-xs font-bold transition ${
                     isActive ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-line bg-white text-muted hover:bg-panel'
                   }`}
                 >
@@ -632,7 +664,7 @@ export function QuestionsPage({
                 <button
                   type="button"
                   onClick={() => setIsActive(false)}
-                  className={`h-10 rounded-lg border text-sm font-bold transition ${
+                  className={`h-9 rounded-lg border text-xs font-bold transition ${
                     !isActive ? 'border-red-200 bg-red-50 text-red-700' : 'border-line bg-white text-muted hover:bg-panel'
                   }`}
                 >
@@ -642,15 +674,15 @@ export function QuestionsPage({
             </div>
           ) : null}
 
-          {notice ? <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{notice}</p> : null}
-          {error ? <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
+          {notice ? <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700">{notice}</p> : null}
+          {error ? <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p> : null}
 
-          <Button type="submit" className="mt-5 w-full" disabled={isSubmitting || !text.trim()}>
+          <Button type="submit" className="mt-4 w-full h-11" disabled={isSubmitting || !text.trim()}>
             {editingQuestion ? <Edit3 className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
             {isSubmitting ? 'Нигоҳ дошта истодааст...' : editingQuestion ? 'Нигоҳ доштан' : 'Сохтани савол'}
           </Button>
           {editingQuestion ? (
-            <Button type="button" variant="secondary" className="mt-3 w-full" onClick={resetForm}>
+            <Button type="button" variant="secondary" className="mt-2 w-full h-10" onClick={resetForm}>
               <XCircle className="h-4 w-4" />
               Бекор кардан
             </Button>
@@ -658,49 +690,143 @@ export function QuestionsPage({
         </form>
 
         <div className="min-w-0">
-          <div className="min-h-[520px] overflow-hidden rounded-lg border border-line bg-white">
-            <div className="grid grid-cols-[1.4fr_140px_100px_120px_140px] border-b border-line bg-panel px-4 py-3 text-xs font-bold uppercase text-muted">
-              <span>Савол</span>
-              <span>Навъ</span>
-              <span>Хол</span>
-              <span>Ҳолат</span>
-              <span>Амал</span>
+          {isLoading ? (
+            <div className="rounded-xl border border-line bg-white p-6 text-center text-sm text-muted">
+              Бор шуда истодааст...
             </div>
+          ) : null}
 
-            {isLoading ? <p className="px-4 py-5 text-sm text-muted">Бор шуда истодааст...</p> : null}
+          {!isLoading && filteredQuestions.length === 0 ? (
+            <div className="rounded-xl border border-line bg-white p-8 text-center text-sm text-muted">
+              Ҳоло савол нест.
+            </div>
+          ) : null}
 
-            {!isLoading && filteredQuestions.length === 0 ? (
-              <p className="px-4 py-5 text-sm text-muted">Ҳоло савол нест.</p>
-            ) : null}
+          {!isLoading && filteredQuestions.length > 0 ? (
+            <>
+              {/* МОБИЛ КОРТҲОИ САВОЛҲО (< md) */}
+              <div className="space-y-3 md:hidden">
+                {pagedQuestions.items.map((question) => {
+                  const correctCount = question.options.filter((option) => option.isCorrect).length;
+                  const detailText = question.type === 'ClosedAnswer'
+                    ? 'Ҷавоби дастӣ'
+                    : `${question.options.length} вариант · ${correctCount} ҷавоби дуруст`;
 
-            {pagedQuestions.items.map((question) => {
-              const correctCount = question.options.filter((option) => option.isCorrect).length;
-              const detailText = question.type === 'ClosedAnswer'
-                ? 'Ҷавоби дастӣ'
-                : `${question.options.length} вариант · ${correctCount} ҷавоби дуруст`;
-              return (
-                <div key={question.id} className="grid grid-cols-[1.4fr_140px_100px_120px_140px] items-center border-b border-line px-4 py-4 text-sm last:border-0">
-                  <div className="min-w-0">
-                    <p className="font-semibold">{question.text}</p>
-                    <p className="truncate text-muted">{detailText}</p>
-                  </div>
-                  <span className="text-muted">{questionTypeLabels[question.type]}</span>
-                  <span className="font-semibold">{question.points}</span>
-                  <span className={`w-fit rounded-md px-2 py-1 text-xs font-bold ${question.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
-                    {question.isActive ? 'Фаъол' : 'Ғайрифаъол'}
-                  </span>
-                  <div className="flex gap-2">
-                    <Button type="button" variant="secondary" className="h-9 px-3" onClick={() => startEdit(question)}>
-                      <Edit3 className="h-4 w-4" />
-                    </Button>
-                    <Button type="button" variant="secondary" className="h-9 px-3 text-red-600 hover:bg-red-50" onClick={() => void handleDelete(question)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                  return (
+                    <div
+                      key={`mobile-${question.id}`}
+                      className="rounded-xl border border-line bg-white p-3.5 shadow-sm space-y-2.5"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-semibold text-ink text-sm flex-1 leading-snug">{question.text}</p>
+                        <span
+                          className={`shrink-0 rounded-lg px-2 py-0.5 text-xs font-bold ${
+                            question.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          {question.isActive ? 'Фаъол' : 'Ғайрифаъол'}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                        <span className="rounded-md bg-panel px-2 py-0.5 font-semibold text-muted">
+                          {questionTypeLabels[question.type]}
+                        </span>
+                        <span className="rounded-md bg-brand/10 px-2 py-0.5 font-bold text-brand">
+                          {question.points} хол
+                        </span>
+                        <span className="text-muted text-[11px]">{detailText}</span>
+                      </div>
+
+                      <div className="flex items-center justify-end gap-1.5 border-t border-line/60 pt-2">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="h-8 px-3 text-xs font-semibold"
+                          onClick={() => startEdit(question)}
+                        >
+                          <Edit3 className="h-3.5 w-3.5" />
+                          Таҳрир
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="h-8 w-8 p-0 text-red-600 hover:bg-red-50"
+                          onClick={() => void handleDelete(question)}
+                          title="Ғайрифаъол кардан"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* ҶАДВАЛИ ПЛАНШЕТ ВА КОМПЮТЕР (>= md) */}
+              <div className="hidden min-h-[420px] overflow-hidden rounded-xl border border-line bg-white shadow-sm md:block">
+                <div className="overflow-x-auto">
+                  <div className="min-w-[650px]">
+                    <div className="grid grid-cols-[1.4fr_130px_90px_110px_120px] border-b border-line bg-panel px-4 py-3 text-xs font-bold uppercase text-muted">
+                      <span>Савол</span>
+                      <span>Навъ</span>
+                      <span>Хол</span>
+                      <span>Ҳолат</span>
+                      <span>Амал</span>
+                    </div>
+
+                    {pagedQuestions.items.map((question) => {
+                      const correctCount = question.options.filter((option) => option.isCorrect).length;
+                      const detailText = question.type === 'ClosedAnswer'
+                        ? 'Ҷавоби дастӣ'
+                        : `${question.options.length} вариант · ${correctCount} дуруст`;
+                      return (
+                        <div
+                          key={`desktop-${question.id}`}
+                          className="grid grid-cols-[1.4fr_130px_90px_110px_120px] items-center border-b border-line px-4 py-3.5 text-sm last:border-0 hover:bg-panel/30"
+                        >
+                          <div className="min-w-0 pr-2">
+                            <p className="truncate font-semibold text-ink">{question.text}</p>
+                            <p className="truncate text-xs text-muted">{detailText}</p>
+                          </div>
+                          <span className="text-xs text-muted">{questionTypeLabels[question.type]}</span>
+                          <span className="text-xs font-semibold text-ink">{question.points}</span>
+                          <span
+                            className={`w-fit rounded-lg px-2.5 py-1 text-xs font-bold ${
+                              question.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                            }`}
+                          >
+                            {question.isActive ? 'Фаъол' : 'Ғайрифаъол'}
+                          </span>
+                          <div className="flex gap-1.5">
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              className="h-8 w-8 p-0"
+                              onClick={() => startEdit(question)}
+                              title="Таҳрир"
+                            >
+                              <Edit3 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              className="h-8 w-8 p-0 text-red-600 hover:bg-red-50"
+                              onClick={() => void handleDelete(question)}
+                              title="Ғайрифаъол кардан"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            </>
+          ) : null}
+
           <div className="mt-4">
             <Pagination
               page={pagedQuestions.page}

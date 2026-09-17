@@ -763,7 +763,7 @@ export function GroupsPage() {
           </div>
         </div>
 
-        <div className="mb-5 flex flex-wrap gap-2 border-b border-line">
+        <div className="mb-4 flex flex-nowrap gap-2 overflow-x-auto no-scrollbar border-b border-line pb-1">
           {canManageGroups ? (
             <TabButton active={activeTab === 'students'} onClick={() => setActiveTab('students')} icon={Users} label={"\u0425\u043e\u043d\u0430\u043d\u0434\u0430\u0433\u043e\u043d"} />
           ) : null}
@@ -829,16 +829,15 @@ export function GroupsPage() {
                 ) : null}
 
                 {pagedAssignedStudents.items.map((student) => (
-                  <div key={student.id} className="grid grid-cols-[1.2fr_1fr_56px] items-center border-b border-line px-4 py-4 text-sm last:border-0">
-                    <div>
-                      <p className="font-semibold">{student.firstName} {student.lastName}</p>
-                      <p className="text-muted">Login рақами телефон</p>
+                  <div key={student.id} className="flex items-center justify-between gap-3 border-b border-line px-4 py-3 text-sm last:border-0">
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold">{student.firstName} {student.lastName}</p>
+                      <p className="font-mono text-xs text-muted">{student.phoneNumber}</p>
                     </div>
-                    <span className="font-mono text-muted">{student.phoneNumber}</span>
                     <button
                       type="button"
                       onClick={() => void handleRemoveStudent(student.id)}
-                      className="grid h-9 w-9 place-items-center rounded-lg border border-line text-muted transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                      className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-line text-muted transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
                       disabled={isStudentSubmitting}
                       aria-label="Хориҷ кардан"
                       title="Хориҷ кардан"
@@ -873,7 +872,7 @@ export function GroupsPage() {
             ) : null}
 
             {journal?.subjects.length ? (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-nowrap gap-2 overflow-x-auto no-scrollbar pb-1">
                 {journal.subjects.map((subjectJournal) => (
                   <button
                     key={subjectJournal.subjectId}
@@ -882,7 +881,7 @@ export function GroupsPage() {
                       setActiveJournalSubjectId(subjectJournal.subjectId);
                       setJournalView('subject');
                     }}
-                    className={`inline-flex h-10 items-center gap-2 rounded-lg border px-4 text-sm font-bold transition ${
+                    className={`inline-flex h-10 shrink-0 whitespace-nowrap items-center gap-2 rounded-lg border px-4 text-sm font-bold transition ${
                       journalView === 'subject' && activeSubjectJournal?.subjectId === subjectJournal.subjectId
                         ? 'border-brand/30 bg-brand text-white shadow-sm'
                         : 'border-line bg-white text-muted hover:border-brand/30 hover:text-brand'
@@ -895,7 +894,7 @@ export function GroupsPage() {
                 <button
                   type="button"
                   onClick={() => setJournalView('weeklyReport')}
-                  className={`inline-flex h-10 items-center gap-2 rounded-lg border px-4 text-sm font-bold transition ${
+                  className={`inline-flex h-10 shrink-0 whitespace-nowrap items-center gap-2 rounded-lg border px-4 text-sm font-bold transition ${
                     journalView === 'weeklyReport'
                       ? 'border-emerald-300 bg-emerald-600 text-white shadow-sm'
                       : 'border-line bg-white text-muted hover:border-emerald-300 hover:text-emerald-700'
@@ -925,7 +924,7 @@ export function GroupsPage() {
                   <table className="w-max min-w-full border-separate border-spacing-0 text-sm">
                     <thead className="sticky top-0 z-30 bg-white">
                       <tr>
-                        <th className="sticky left-0 z-40 w-[260px] border-b border-r border-line bg-white px-4 py-3 text-left text-xs font-bold uppercase text-muted">
+                        <th className="sticky left-0 z-40 w-[180px] sm:w-[260px] border-b border-r border-line bg-white px-3 sm:px-4 py-3 text-left text-xs font-bold uppercase text-muted">
                           Ному насаб
                         </th>
                         {weeklyReport.subjects.map((subject) => (
@@ -952,7 +951,7 @@ export function GroupsPage() {
 
                       {weeklyReport.rows.map((student, index) => (
                         <tr key={student.studentId} className={index % 2 === 0 ? 'bg-emerald-50/35' : 'bg-white'}>
-                          <td className="sticky left-0 z-20 w-[260px] border-b border-r border-line bg-inherit px-4 py-4">
+                          <td className="sticky left-0 z-20 w-[180px] sm:w-[260px] border-b border-r border-line bg-inherit px-3 sm:px-4 py-3 sm:py-4">
                             <div className="flex min-w-0 items-center gap-3">
                               <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-emerald-100 text-[11px] font-bold text-emerald-700">
                                 {index + 1}
@@ -1024,10 +1023,10 @@ export function GroupsPage() {
                   <table className="w-max min-w-full border-separate border-spacing-0 text-sm">
                     <thead className="sticky top-0 z-30 bg-white">
                       <tr>
-                        <th className="sticky left-0 z-40 h-20 w-[230px] border-b border-r border-line bg-white px-4 text-left text-xs font-bold uppercase text-muted">
+                        <th className="sticky left-0 z-40 h-20 w-[160px] sm:w-[230px] border-b border-r border-line bg-white px-2 sm:px-4 text-left text-xs font-bold uppercase text-muted">
                           Хонанда
                         </th>
-                        <th className="sticky left-[230px] z-40 h-20 w-[120px] border-b border-r border-line bg-white px-4 text-center text-xs font-bold uppercase text-muted">
+                        <th className="static sm:sticky sm:left-[230px] z-40 h-20 w-[90px] sm:w-[120px] border-b border-r border-line bg-white px-2 sm:px-4 text-center text-xs font-bold uppercase text-muted">
                           Average
                         </th>
                         {activeSubjectJournal.lessons.map((lesson, index) => (
@@ -1053,10 +1052,10 @@ export function GroupsPage() {
                         ))}
                       </tr>
                       <tr>
-                        <th className="sticky left-0 z-40 w-[230px] border-b border-r border-line bg-panel px-4 py-3 text-left text-xs font-bold uppercase text-muted">
+                        <th className="sticky left-0 z-40 w-[160px] sm:w-[230px] border-b border-r border-line bg-panel px-2 sm:px-4 py-3 text-left text-xs font-bold uppercase text-muted">
                           Ном ва фамилия
                         </th>
-                        <th className="sticky left-[230px] z-40 w-[120px] border-b border-r border-line bg-panel px-4 py-3 text-center text-xs font-bold uppercase text-muted">
+                        <th className="static sm:sticky sm:left-[230px] z-40 w-[90px] sm:w-[120px] border-b border-r border-line bg-panel px-2 sm:px-4 py-3 text-center text-xs font-bold uppercase text-muted">
                           Average
                         </th>
                         {activeSubjectJournal.lessons.map((lesson) => (
@@ -1077,7 +1076,7 @@ export function GroupsPage() {
 
                       {activeSubjectJournal.students.map((student, index) => (
                         <tr key={`${activeSubjectJournal.subjectId}-${student.studentId}`} className={index % 2 === 0 ? 'bg-sky-50/40' : 'bg-white'}>
-                          <td className="sticky left-0 z-20 w-[230px] border-b border-r border-line bg-inherit px-4 py-4">
+                          <td className="sticky left-0 z-20 w-[160px] sm:w-[230px] border-b border-r border-line bg-inherit px-2 sm:px-4 py-3 sm:py-4">
                             <div className="flex min-w-0 items-center gap-3">
                               <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-brand/10 text-[11px] font-bold text-brand">
                                 {index + 1}
@@ -1088,7 +1087,7 @@ export function GroupsPage() {
                               </div>
                             </div>
                           </td>
-                          <td className="sticky left-[230px] z-20 w-[120px] border-b border-r border-line bg-inherit px-3 py-4 text-center">
+                          <td className="static sm:sticky sm:left-[230px] z-20 w-[90px] sm:w-[120px] border-b border-r border-line bg-inherit px-2 sm:px-3 py-3 sm:py-4 text-center">
                             <span className={`inline-flex h-9 w-[86px] items-center justify-center rounded-lg border font-bold ${getAverageScoreClassName(student.averageScore)}`}>
                               {formatScore(student.averageScore)}
                             </span>
@@ -1133,7 +1132,46 @@ export function GroupsPage() {
               <p className="mt-1 text-sm text-muted">Барои ҳар фани гурӯҳ муаллими мувофиқро таъин кунед.</p>
             </div>
 
-            <div className="overflow-x-auto">
+            {/* Mobile card view */}
+            <div className="space-y-3 p-4 md:hidden">
+              {selectedGroup.subjects.length === 0 ? (
+                <p className="py-4 text-sm text-muted">Ба ин гурӯҳ ҳоло фан илова нашудааст.</p>
+              ) : null}
+
+              {selectedGroup.subjects.map((subject) => {
+                const assignments = selectedGroupTeacherAssignments.filter(
+                  (assignment) => assignment.subjectId === subject.id,
+                );
+                const assignedTeacherNames = assignments.map((assignment) => assignment.teacherName).join(', ');
+                const isAssigned = assignments.length > 0;
+
+                return (
+                  <div key={subject.id} className="rounded-xl border border-line bg-panel/30 p-3.5 space-y-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <BookOpen className="h-4 w-4 text-brand shrink-0" />
+                        <span className="font-bold text-ink truncate">{subject.name}</span>
+                      </div>
+                      <span className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-bold ${
+                        isAssigned ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                      }`}>
+                        {isAssigned ? 'Таъин шудааст' : 'Нотаъин'}
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted">
+                      Муаллим: <span className={isAssigned ? 'font-semibold text-ink' : 'italic text-muted'}>{assignedTeacherNames || 'Муаллим таъин нашудааст'}</span>
+                    </div>
+                    <Button type="button" variant="secondary" className="w-full h-9 text-xs" onClick={() => openTeacherModal(subject)}>
+                      <GraduationCap className="h-4 w-4" />
+                      {isAssigned ? 'Иваз кардани муаллим' : 'Ҳамроҳ кардани муаллим'}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop table view */}
+            <div className="hidden md:block overflow-x-auto">
               <div className="min-w-[720px]">
                 <div className="grid grid-cols-[1.2fr_1.3fr_140px_210px] border-b border-line bg-panel/60 px-4 py-3 text-xs font-bold uppercase text-muted">
                   <span>Фан</span>
@@ -1327,8 +1365,8 @@ export function GroupsPage() {
         ) : null}
 
         {topicModalLesson ? (
-          <div className="fixed inset-0 z-50 grid place-items-center bg-ink/25 px-4">
-            <div className="w-full max-w-md rounded-lg border border-line bg-white p-5 shadow-soft">
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 backdrop-blur-sm p-0 sm:p-4">
+            <div className="w-full max-w-md rounded-t-2xl sm:rounded-xl border border-line bg-white p-5 shadow-xl max-h-[90vh] overflow-y-auto">
               <div className="mb-4 flex items-start justify-between gap-4">
                 <div>
                   <p className="text-sm font-semibold text-muted">{topicModalLesson.subject.subjectName}</p>
@@ -1374,8 +1412,8 @@ export function GroupsPage() {
         ) : null}
 
         {scoreModal ? (
-          <div className="fixed inset-0 z-50 grid place-items-center bg-ink/25 px-4">
-            <div className="w-full max-w-md rounded-lg border border-line bg-white p-5 shadow-soft">
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 backdrop-blur-sm p-0 sm:p-4">
+            <div className="w-full max-w-md rounded-t-2xl sm:rounded-xl border border-line bg-white p-5 shadow-xl max-h-[90vh] overflow-y-auto">
               <div className="mb-4 flex items-start justify-between gap-4">
                 <div>
                   <p className="text-sm font-semibold text-muted">{scoreModal.studentName}</p>
@@ -1437,8 +1475,8 @@ export function GroupsPage() {
         ) : null}
 
         {teacherModalSubject ? (
-          <div className="fixed inset-0 z-50 grid place-items-center bg-ink/25 px-4">
-            <div className="w-full max-w-md rounded-lg border border-line bg-white p-5 shadow-soft">
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 backdrop-blur-sm p-0 sm:p-4">
+            <div className="w-full max-w-md rounded-t-2xl sm:rounded-xl border border-line bg-white p-5 shadow-xl max-h-[90vh] overflow-y-auto">
               <div className="mb-5 flex items-start justify-between gap-4">
                 <div>
                   <p className="text-sm font-semibold text-muted">{teacherModalSubject.name}</p>
@@ -1588,13 +1626,13 @@ export function GroupsPage() {
         <p className="rounded-lg border border-line bg-white px-4 py-5 text-sm text-muted">Ҳоло гурӯҳ нест.</p>
       ) : null}
 
-      <div className="grid min-h-[420px] content-start gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid min-h-[420px] content-start gap-3 sm:gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {pagedGroups.items.map((group) => (
           <button
             key={group.id}
             type="button"
             onClick={() => openGroup(group.id)}
-            className="rounded-lg border border-line bg-white p-5 text-left transition hover:border-brand/50 hover:bg-panel/50 hover:shadow-soft focus:outline-none focus:ring-2 focus:ring-brand/20"
+            className="rounded-xl border border-line bg-white p-4 sm:p-5 text-left transition hover:border-brand/50 hover:bg-panel/50 hover:shadow-soft focus:outline-none focus:ring-2 focus:ring-brand/20"
           >
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -1746,7 +1784,7 @@ function TabButton({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex h-11 items-center gap-2 border-b-2 px-3 text-sm font-semibold transition ${
+      className={`inline-flex h-11 shrink-0 whitespace-nowrap items-center gap-2 border-b-2 px-3 text-sm font-semibold transition ${
         active
           ? 'border-brand text-brand'
           : 'border-transparent text-muted hover:border-line hover:text-ink'

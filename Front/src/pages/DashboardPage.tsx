@@ -126,33 +126,37 @@ export function DashboardPage({ onViewChange: _onViewChange }: { onViewChange: (
   }
 
   return (
-    <section className="px-4 py-6 lg:px-6">
-      <div className="mb-5 flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
+    <section className="px-3 py-4 sm:px-4 sm:py-6 lg:px-6">
+      <div className="mb-4 flex flex-col justify-between gap-3 sm:mb-5 sm:flex-row sm:items-end">
         <div>
-          <p className="text-sm font-semibold text-muted">{isTeacher ? `Муаллим: ${auth?.fullName}` : `Нақш: ${auth?.role}`}</p>
-          <h2 className="mt-1 text-2xl font-bold">{isTeacher ? 'Натиҷаҳои гурӯҳҳои ман' : 'Дашбоарди донишҷӯён'}</h2>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted sm:text-sm">
+            {isTeacher ? `Муаллим: ${auth?.fullName}` : `Нақш: ${auth?.role}`}
+          </p>
+          <h2 className="mt-0.5 text-xl font-bold text-ink sm:text-2xl">
+            {isTeacher ? 'Натиҷаҳои гурӯҳҳои ман' : 'Дашбоарди донишҷӯён'}
+          </h2>
         </div>
       </div>
 
-      <div className="mb-4 rounded-lg border border-line bg-white p-4">
-        <div className="grid gap-3 xl:grid-cols-[1.2fr_220px_220px_230px] xl:items-end">
-          <label className="block">
-            <span className="text-sm font-semibold">Поиск</span>
-            <div className="mt-2 flex h-11 items-center gap-3 rounded-lg border border-line bg-white px-3 focus-within:border-brand">
-              <Search className="h-5 w-5 text-muted" />
+      <div className="mb-4 rounded-xl border border-line bg-white p-3.5 sm:p-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[1.2fr_220px_220px_230px] xl:items-end">
+          <label className="block sm:col-span-2 xl:col-span-1">
+            <span className="text-xs font-semibold text-muted sm:text-sm">Поиск</span>
+            <div className="mt-1.5 flex h-10 items-center gap-2.5 rounded-lg border border-line bg-white px-3 focus-within:border-brand sm:h-11">
+              <Search className="h-4 w-4 text-muted shrink-0" />
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                className="h-full min-w-0 flex-1 outline-none"
+                className="h-full min-w-0 flex-1 text-sm outline-none placeholder:text-muted/70"
                 placeholder="Хонанда, телефон, фан, гурӯҳ..."
               />
             </div>
           </label>
 
           <label className="block">
-            <span className="text-sm font-semibold">Сана</span>
-            <div className="mt-2 grid grid-cols-[40px_1fr_40px] gap-2">
-              <Button type="button" variant="secondary" className="h-11 px-3" onClick={() => setDate(addDays(date, -1))}>
+            <span className="text-xs font-semibold text-muted sm:text-sm">Сана</span>
+            <div className="mt-1.5 grid grid-cols-[38px_1fr_38px] gap-1.5 sm:grid-cols-[40px_1fr_40px] sm:gap-2">
+              <Button type="button" variant="secondary" className="h-10 px-2 sm:h-11 sm:px-3" onClick={() => setDate(addDays(date, -1))}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <input
@@ -160,12 +164,12 @@ export function DashboardPage({ onViewChange: _onViewChange }: { onViewChange: (
                 value={date}
                 max={maxDate}
                 onChange={(event) => setDate(event.target.value || maxDate)}
-                className="h-11 min-w-0 rounded-lg border border-line px-3 text-sm outline-none focus:border-brand"
+                className="h-10 min-w-0 rounded-lg border border-line px-2 text-xs outline-none focus:border-brand sm:h-11 sm:px-3 sm:text-sm"
               />
               <Button
                 type="button"
                 variant="secondary"
-                className="h-11 px-3"
+                className="h-10 px-2 sm:h-11 sm:px-3"
                 disabled={date >= maxDate}
                 onClick={() => setDate(addDays(date, 1))}
               >
@@ -175,25 +179,25 @@ export function DashboardPage({ onViewChange: _onViewChange }: { onViewChange: (
           </label>
 
           <label className="block">
-            <span className="text-sm font-semibold">Гурӯҳ</span>
+            <span className="text-xs font-semibold text-muted sm:text-sm">Гурӯҳ</span>
             <select
               value={groupId}
               onChange={(event) => setGroupId(event.target.value)}
-              className="mt-2 h-11 w-full rounded-lg border border-line bg-white px-3 text-sm outline-none focus:border-brand"
+              className="mt-1.5 h-10 w-full rounded-lg border border-line bg-white px-3 text-xs outline-none focus:border-brand sm:h-11 sm:text-sm"
             >
-              <option value="">Ҳама</option>
+              <option value="">Ҳама гурӯҳҳо</option>
               {groupOptions.map((group) => (
                 <option key={group.id} value={group.id}>{group.name}</option>
               ))}
             </select>
           </label>
 
-          <label className="block">
-            <span className="text-sm font-semibold">Сортировка</span>
+          <label className="block sm:col-span-2 xl:col-span-1">
+            <span className="text-xs font-semibold text-muted sm:text-sm">Сортировка</span>
             <select
               value={sort}
               onChange={(event) => setSort(event.target.value as DashboardDailyResultsSort)}
-              className="mt-2 h-11 w-full rounded-lg border border-line bg-white px-3 text-sm outline-none focus:border-brand"
+              className="mt-1.5 h-10 w-full rounded-lg border border-line bg-white px-3 text-xs outline-none focus:border-brand sm:h-11 sm:text-sm"
             >
               {sortOptions.map((option) => (
                 <option key={option.value} value={option.value}>{option.label}</option>
@@ -203,44 +207,105 @@ export function DashboardPage({ onViewChange: _onViewChange }: { onViewChange: (
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-line bg-white">
-        <div className="grid grid-cols-[1.2fr_110px_120px_1fr_1fr_130px] border-b border-line bg-panel px-4 py-3 text-xs font-bold uppercase text-muted">
-          <span>Хонанда</span>
-          <span>Хол</span>
-          <span>Ҳолат</span>
-          <span>Гурӯҳ / филиал</span>
-          <span>Фан / мавзӯъ</span>
-          <span>Дарс</span>
+      {isLoadingResults ? (
+        <div className="rounded-xl border border-line bg-white p-6 text-center text-sm text-muted">
+          Натиҷаҳо бор шуда истодаанд...
         </div>
+      ) : null}
 
-        {isLoadingResults ? <p className="px-4 py-5 text-sm text-muted">Натиҷаҳо бор шуда истодаанд...</p> : null}
-        {!isLoadingResults && resultsError ? <p className="px-4 py-5 text-sm text-red-600">{resultsError}</p> : null}
-        {!isLoadingResults && !resultsError && pagedResults.items.length === 0 ? (
-          <p className="px-4 py-5 text-sm text-muted">Барои ин филтр донишҷӯ ёфт нашуд.</p>
-        ) : null}
+      {!isLoadingResults && resultsError ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+          {resultsError}
+        </div>
+      ) : null}
 
-        {pagedResults.items.map((result) => (
-          <div key={`${result.dailyLessonId ?? 'no-lesson'}-${result.studentId}-${result.groupId}-${result.subjectId}`} className="grid grid-cols-[1.2fr_110px_120px_1fr_1fr_130px] items-center border-b border-line px-4 py-4 text-sm last:border-0">
-            <div className="min-w-0">
-              <p className="font-semibold">{result.studentName}</p>
-              <p className="truncate text-muted">{result.phoneNumber}</p>
-            </div>
-            <span className={`w-fit rounded-md px-2 py-1 text-xs font-bold ${getScoreClassName(result.score)}`}>
-              {result.score === null ? 'Насупоридааст' : `${result.score} хол`}
-            </span>
-            <span className="text-muted">{formatAttendanceStatus(result.attendanceStatus)}</span>
-            <div className="min-w-0">
-              <p className="font-semibold">{result.groupName}</p>
-              <p className="truncate text-muted">{result.branch}</p>
-            </div>
-            <div className="min-w-0">
-              <p className="font-semibold">{result.subjectName}</p>
-              <p className="truncate text-muted">{result.topicTitle ?? 'Мавзӯъ нест'}</p>
-            </div>
-            <span className="truncate text-muted">{result.lessonTitle ?? 'Дарс нест'}</span>
+      {!isLoadingResults && !resultsError && pagedResults.items.length === 0 ? (
+        <div className="rounded-xl border border-line bg-white p-8 text-center text-sm text-muted">
+          Барои ин филтр донишҷӯ ёфт нашуд.
+        </div>
+      ) : null}
+
+      {!isLoadingResults && !resultsError && pagedResults.items.length > 0 ? (
+        <>
+          {/* МОБИЛ КОРТҲО (Mobile Cards View < md) */}
+          <div className="space-y-3 md:hidden">
+            {pagedResults.items.map((result) => (
+              <div
+                key={`mobile-${result.dailyLessonId ?? 'no-lesson'}-${result.studentId}-${result.groupId}-${result.subjectId}`}
+                className="rounded-xl border border-line bg-white p-3.5 shadow-sm space-y-2.5"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold text-ink">{result.studentName}</p>
+                    <p className="truncate font-mono text-xs text-muted">{result.phoneNumber}</p>
+                  </div>
+                  <span className={`shrink-0 rounded-lg px-2.5 py-1 text-xs font-bold ${getScoreClassName(result.score)}`}>
+                    {result.score === null ? 'Насупоридааст' : `${result.score} хол`}
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5 border-t border-line/60 pt-2 text-xs text-muted">
+                  <span className="rounded-md bg-panel px-2 py-0.5 font-medium text-ink">
+                    {result.groupName} ({result.branch})
+                  </span>
+                  <span className="rounded-md bg-indigo-50 font-medium text-indigo-700 px-2 py-0.5">
+                    {result.subjectName}
+                  </span>
+                  {result.topicTitle ? (
+                    <span className="max-w-[160px] truncate rounded-md bg-slate-100 px-2 py-0.5 text-slate-700">
+                      {result.topicTitle}
+                    </span>
+                  ) : null}
+                  <span className="ml-auto text-[11px] font-semibold text-muted">
+                    {formatAttendanceStatus(result.attendanceStatus)}
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+
+          {/* ҶАДВАЛИ ПЛАНШЕТ ВА КОМПЮТЕР (Desktop Table >= md) */}
+          <div className="hidden overflow-hidden rounded-xl border border-line bg-white shadow-sm md:block">
+            <div className="overflow-x-auto">
+              <div className="min-w-[760px]">
+                <div className="grid grid-cols-[1.2fr_110px_120px_1fr_1fr_130px] border-b border-line bg-panel px-4 py-3 text-xs font-bold uppercase text-muted">
+                  <span>Хонанда</span>
+                  <span>Хол</span>
+                  <span>Ҳолат</span>
+                  <span>Гурӯҳ / филиал</span>
+                  <span>Фан / мавзӯъ</span>
+                  <span>Дарс</span>
+                </div>
+
+                {pagedResults.items.map((result) => (
+                  <div
+                    key={`desktop-${result.dailyLessonId ?? 'no-lesson'}-${result.studentId}-${result.groupId}-${result.subjectId}`}
+                    className="grid grid-cols-[1.2fr_110px_120px_1fr_1fr_130px] items-center border-b border-line px-4 py-3.5 text-sm last:border-0 hover:bg-panel/30"
+                  >
+                    <div className="min-w-0 pr-2">
+                      <p className="font-semibold text-ink truncate">{result.studentName}</p>
+                      <p className="truncate font-mono text-xs text-muted">{result.phoneNumber}</p>
+                    </div>
+                    <span className={`w-fit rounded-lg px-2.5 py-1 text-xs font-bold ${getScoreClassName(result.score)}`}>
+                      {result.score === null ? 'Насупоридааст' : `${result.score} хол`}
+                    </span>
+                    <span className="text-xs text-muted">{formatAttendanceStatus(result.attendanceStatus)}</span>
+                    <div className="min-w-0 pr-2">
+                      <p className="font-semibold text-ink truncate">{result.groupName}</p>
+                      <p className="truncate text-xs text-muted">{result.branch}</p>
+                    </div>
+                    <div className="min-w-0 pr-2">
+                      <p className="font-semibold text-ink truncate">{result.subjectName}</p>
+                      <p className="truncate text-xs text-muted">{result.topicTitle ?? 'Мавзӯъ нест'}</p>
+                    </div>
+                    <span className="truncate text-xs text-muted">{result.lessonTitle ?? 'Дарс нест'}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      ) : null}
 
       <div className="mt-4">
         <Pagination

@@ -35,29 +35,31 @@ export function Pagination({
   }
 
   return (
-    <div className="flex flex-col justify-between gap-3 rounded-lg border border-line bg-white px-4 py-3 text-sm text-muted shadow-sm sm:flex-row sm:items-center">
-      <span>
+    <div className="flex items-center justify-between gap-2 rounded-xl border border-line bg-white px-3 py-2.5 text-xs text-muted shadow-sm sm:px-4 sm:py-3 sm:text-sm">
+      <span className="truncate">
         {from}-{to} аз {total}
       </span>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
         <Button
           type="button"
           variant="secondary"
-          className="h-9 px-3"
+          className="h-8 px-2.5 sm:h-9 sm:px-3"
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
+          aria-label="Саҳифаи қаблӣ"
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <span className="min-w-20 text-center font-semibold text-ink">
+        <span className="min-w-14 text-center font-semibold text-ink sm:min-w-16">
           {page} / {pageCount}
         </span>
         <Button
           type="button"
           variant="secondary"
-          className="h-9 px-3"
+          className="h-8 px-2.5 sm:h-9 sm:px-3"
           disabled={page >= pageCount}
           onClick={() => onPageChange(page + 1)}
+          aria-label="Саҳифаи навбатӣ"
         >
           <ChevronRight className="h-4 w-4" />
         </Button>
