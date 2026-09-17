@@ -117,7 +117,13 @@ public sealed record GroupJournalStudentDto(
 public sealed record GroupJournalLessonScoreDto(
     Guid LessonId,
     decimal? Score,
-    string Status);
+    string Status,
+    bool IsAdjusted,
+    bool CanEdit);
+
+public sealed record UpdateGroupJournalScoreRequest(
+    decimal Score,
+    string? Reason);
 
 public sealed record TeacherDashboardDto(
     int Topics,

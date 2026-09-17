@@ -227,6 +227,25 @@ public static class TeachingEndpoints
             return result is null ? Results.BadRequest(new { message = "Lesson topic cannot be updated." }) : Results.Ok(result);
         })
         .WithName("UpdateGroupLessonTopic");
+
+        group.MapPut("/{groupId:guid}/lessons/{lessonId:guid}/students/{studentId:guid}/score", async (
+            Guid groupId,
+            Guid lessonId,
+            Guid studentId,
+            [FromBody] UpdateGroupJournalScoreRequest request,
+            ITeachingService service,
+            CancellationToken cancellationToken) =>
+        {
+            if (request.Score is < 0 or > 100)
+            {
+                return Results.BadRequest(new { message = "Score must be between 0 and 100." });
+            }
+
+            var result = await service.UpdateGroupJournalScoreAsync(groupId, lessonId, studentId, request, cancellationToken);
+            return result is null ? Results.BadRequest(new { message = "Score cannot be updated." }) : Results.Ok(result);
+        })
+        .RequireAuthorization(AuthorizationPolicies.Teachers)
+        .WithName("UpdateGroupJournalScore");
     }
 
     private static void MapTeacherDashboardEndpoint(this IEndpointRouteBuilder endpoints)

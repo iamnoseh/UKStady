@@ -290,6 +290,66 @@ public sealed class TeachingEndpointTests : IClassFixture<TestApiFactory>
         Assert.Equal(firstResult.Lesson.Id, secondResult.Lesson.Id);
     }
 
+    [Fact]
+    public async Task GroupJournalScore_TeacherCanUpdateOnlyAssignedYesterdayScore()
+    {
+        using var client = _factory.CreateClient();
+        await AuthorizeAsync(client, "+992000000000", "Admin123!");
+
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var teacherPhone = $"+99239{suffix[..7]}";
+        var teacher = await CreateUserAsync(client, UserRole.Teacher, $"score-teacher-{suffix}", teacherPhone);
+        var student = await CreateUserAsync(client, UserRole.Student, $"score-student-{suffix}", $"+99240{suffix[..7]}");
+        var subject = await CreateSubjectAsync(client, $"Score subject {suffix}");
+        var group = await CreateGroupAsync(client, $"Score group {suffix}", [subject.Id]);
+        await AssignTeacherAsync(client, teacher.Id, subject.Id, group.Id);
+        (await client.PostAsync($"/api/groups/{group.Id}/students/{student.Id}", null)).EnsureSuccessStatusCode();
+
+        await AuthorizeAsync(client, teacherPhone, "12345A");
+        var topic = await CreateTopicAsync(client, subject.Id);
+        await CreateQuestionAsync(client, topic.Id);
+        var lessonDate = GetBusinessToday().AddDays(-1);
+        var lesson = await CreateDailyLessonAsync(client, subject.Id, topic.Id, group.Id, lessonDate);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            dbContext.GradeEntries.Add(new GradeEntry
+            {
+                DailyLessonId = lesson.Id,
+                StudentId = student.Id,
+                AttendanceStatus = AttendanceStatus.Present,
+                AutoScore = 80
+            });
+            await dbContext.SaveChangesAsync();
+        }
+
+        using var updateResponse = await client.PutAsJsonAsync(
+            $"/api/group-journals/{group.Id}/lessons/{lesson.Id}/students/{student.Id}/score",
+            new UpdateGroupJournalScoreRequest(90, "Bonus"));
+        updateResponse.EnsureSuccessStatusCode();
+        var updatedScore = await updateResponse.Content.ReadFromJsonAsync<GroupJournalLessonScoreDto>();
+        Assert.NotNull(updatedScore);
+        Assert.True(updatedScore.Score.HasValue);
+        Assert.Equal(90m, updatedScore.Score.Value);
+        Assert.True(updatedScore.IsAdjusted);
+        Assert.True(updatedScore.CanEdit);
+
+        var journal = await client.GetFromJsonAsync<GroupJournalDto>($"/api/group-journals/{group.Id}");
+        Assert.NotNull(journal);
+        var score = Assert.Single(Assert.Single(journal.Subjects).Students).LessonScores.Single(item => item.LessonId == lesson.Id);
+        Assert.True(score.Score.HasValue);
+        Assert.Equal(90m, score.Score.Value);
+        Assert.True(score.IsAdjusted);
+        Assert.True(score.CanEdit);
+
+        await AuthorizeAsync(client, "+992000000000", "Admin123!");
+        using var adminUpdateResponse = await client.PutAsJsonAsync(
+            $"/api/group-journals/{group.Id}/lessons/{lesson.Id}/students/{student.Id}/score",
+            new UpdateGroupJournalScoreRequest(95, null));
+        Assert.Equal(HttpStatusCode.Forbidden, adminUpdateResponse.StatusCode);
+    }
+
     private static async Task AssignTeacherAsync(
         HttpClient client,
         Guid teacherId,
@@ -400,5 +460,11 @@ public sealed class TeachingEndpointTests : IClassFixture<TestApiFactory>
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<QuestionDto>()
             ?? throw new InvalidOperationException("Question response was empty.");
+    }
+
+    private static DateOnly GetBusinessToday()
+    {
+        var businessNow = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(5));
+        return DateOnly.FromDateTime(businessNow.DateTime);
     }
 }

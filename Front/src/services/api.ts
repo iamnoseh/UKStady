@@ -9,6 +9,7 @@ import type {
   GeneratedPasswordDto,
   GroupDto,
   GroupJournalDto,
+  GroupJournalLessonScoreDto,
   AssignTeacherSubjectRequest,
   QuestionDto,
   SubjectDto,
@@ -16,6 +17,7 @@ import type {
   TeacherDashboardGroupDto,
   TeacherSubjectAssignmentDto,
   TopicDto,
+  UpdateGroupJournalScoreRequest,
   UpdateGroupRequest,
   UpdateQuestionRequest,
   UpdateSubjectRequest,
@@ -261,6 +263,19 @@ export function updateGroupLessonTopic(
   return request<void>(`/api/group-journals/${groupId}/lessons/${lessonId}/topic`, token, {
     method: 'PUT',
     body: JSON.stringify({ topicId }),
+  });
+}
+
+export function updateGroupJournalScore(
+  token: string,
+  groupId: string,
+  lessonId: string,
+  studentId: string,
+  body: UpdateGroupJournalScoreRequest,
+): Promise<GroupJournalLessonScoreDto> {
+  return request<GroupJournalLessonScoreDto>(`/api/group-journals/${groupId}/lessons/${lessonId}/students/${studentId}/score`, token, {
+    method: 'PUT',
+    body: JSON.stringify(body),
   });
 }
 

@@ -37,6 +37,13 @@ public interface ITeachingService
         UpdateDailyLessonTopicRequest request,
         CancellationToken cancellationToken);
 
+    Task<GroupJournalLessonScoreDto?> UpdateGroupJournalScoreAsync(
+        Guid groupId,
+        Guid lessonId,
+        Guid studentId,
+        UpdateGroupJournalScoreRequest request,
+        CancellationToken cancellationToken);
+
     Task<TeacherDashboardDto> GetTeacherDashboardAsync(CancellationToken cancellationToken);
 
     Task<IReadOnlyList<TeacherDashboardGroupDto>> GetTeacherDashboardGroupsAsync(
