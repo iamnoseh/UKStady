@@ -56,4 +56,18 @@ public interface ITeachingService
         CancellationToken cancellationToken);
 
     Task<StudentDashboardDto> GetStudentDashboardAsync(CancellationToken cancellationToken);
+
+    Task<StudentTestActionResult<StudentTestSessionDto>> StartStudentTestAsync(
+        Guid dailyLessonId,
+        StartStudentTestRequest request,
+        CancellationToken cancellationToken);
+
+    Task<StudentTestActionResult<StudentTestAnswerDto>> SaveStudentAnswerAsync(
+        Guid attemptId,
+        SaveStudentAnswerRequest request,
+        CancellationToken cancellationToken);
+
+    Task<StudentTestActionResult<StudentTestSubmitResultDto>> SubmitStudentTestAsync(
+        Guid attemptId,
+        CancellationToken cancellationToken);
 }

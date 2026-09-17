@@ -12,8 +12,9 @@ public sealed class StudentAnswer : AuditableEntity
 
     public Question Question { get; set; } = null!;
 
-    public Guid QuestionOptionId { get; set; }
+    public Guid? QuestionOptionId { get; set; }
 
-    public QuestionOption QuestionOption { get; set; } = null!;
+    public QuestionOption? QuestionOption { get; set; }
+
+    public string? AnswerText { get; set; }
 }
-

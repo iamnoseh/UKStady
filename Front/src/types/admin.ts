@@ -300,3 +300,49 @@ export interface StudentDashboardDto {
   serverTimeUtc: string;
   subjects: StudentDashboardSubjectDto[];
 }
+
+export interface StudentTestQuestionOptionDto {
+  id: string;
+  text: string;
+  sortOrder: number;
+}
+
+export interface StudentTestQuestionDto {
+  questionId: string;
+  text: string;
+  type: QuestionType;
+  sortOrder: number;
+  answerText: string | null;
+  selectedOptionId: string | null;
+  options: StudentTestQuestionOptionDto[];
+}
+
+export interface StudentTestSessionDto {
+  attemptId: string;
+  dailyLessonId: string;
+  groupId: string;
+  groupName: string;
+  subjectId: string;
+  subjectName: string;
+  topicId: string;
+  topicTitle: string;
+  opensAtUtc: string;
+  closesAtUtc: string;
+  status: string;
+  questions: StudentTestQuestionDto[];
+}
+
+export interface SaveStudentAnswerRequest {
+  questionId: string;
+  questionOptionId: string | null;
+  answerText: string | null;
+}
+
+export interface StudentTestSubmitResultDto {
+  attemptId: string;
+  status: string;
+  totalQuestions: number;
+  correctAnswers: number;
+  score: number;
+  submittedAtUtc: string;
+}

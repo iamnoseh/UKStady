@@ -14,6 +14,8 @@ import type {
   QuestionDto,
   SubjectDto,
   StudentDashboardDto,
+  StudentTestSessionDto,
+  StudentTestSubmitResultDto,
   TeacherAssignmentDto,
   TeacherDashboardGroupDto,
   TeacherSubjectAssignmentDto,
@@ -25,6 +27,7 @@ import type {
   UpdateTopicRequest,
   UserDto,
   CreateTodayGroupLessonResult,
+  SaveStudentAnswerRequest,
 } from '../types/admin';
 import type { AuthResult, LoginRequest } from '../types/auth';
 
@@ -246,6 +249,34 @@ export function getTeacherDashboardDailyResults(
 
 export function getStudentDashboard(token: string): Promise<StudentDashboardDto> {
   return request<StudentDashboardDto>('/api/student/dashboard', token);
+}
+
+export function startStudentTest(
+  token: string,
+  dailyLessonId: string,
+  groupId: string,
+): Promise<StudentTestSessionDto> {
+  return request<StudentTestSessionDto>(`/api/student/tests/${dailyLessonId}/start`, token, {
+    method: 'POST',
+    body: JSON.stringify({ groupId }),
+  });
+}
+
+export function saveStudentTestAnswer(
+  token: string,
+  attemptId: string,
+  body: SaveStudentAnswerRequest,
+): Promise<SaveStudentAnswerRequest> {
+  return request<SaveStudentAnswerRequest>(`/api/student/tests/${attemptId}/answers`, token, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  });
+}
+
+export function submitStudentTest(token: string, attemptId: string): Promise<StudentTestSubmitResultDto> {
+  return request<StudentTestSubmitResultDto>(`/api/student/tests/${attemptId}/submit`, token, {
+    method: 'POST',
+  });
 }
 
 export function createTodayGroupLesson(

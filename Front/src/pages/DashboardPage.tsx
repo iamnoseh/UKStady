@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BookOpen, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Lock, PlayCircle, Search } from 'lucide-react';
+import { BookOpen, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Lock, PlayCircle, Search, Send } from 'lucide-react';
 import { Button } from '../components/Button';
 import type { AppView } from '../components/AppShell';
 import { Pagination, paginate } from '../components/Pagination';
@@ -10,12 +10,17 @@ import {
   getStudentDashboard,
   getTeacherDashboardDailyResults,
   getTeacherDashboardGroups,
+  saveStudentTestAnswer,
+  startStudentTest,
+  submitStudentTest,
 } from '../services/api';
 import type {
   DashboardDailyResultsDto,
   DashboardDailyResultsSort,
   StudentDashboardDto,
   StudentDashboardSubjectDto,
+  StudentTestSessionDto,
+  StudentTestSubmitResultDto,
 } from '../types/admin';
 
 type DashboardGroupOption = { id: string; name: string; isActive?: boolean };
@@ -32,6 +37,8 @@ export function DashboardPage({ onViewChange: _onViewChange }: { onViewChange: (
   const [groups, setGroups] = useState<DashboardGroupOption[]>([]);
   const [dailyResults, setDailyResults] = useState<DashboardDailyResultsDto | null>(null);
   const [studentDashboard, setStudentDashboard] = useState<StudentDashboardDto | null>(null);
+  const [studentTestSession, setStudentTestSession] = useState<StudentTestSessionDto | null>(null);
+  const [studentTestResult, setStudentTestResult] = useState<StudentTestSubmitResultDto | null>(null);
   const [date, setDate] = useState(() => getYesterdayDateValue());
   const [groupId, setGroupId] = useState('');
   const [sort, setSort] = useState<DashboardDailyResultsSort>('scoreAsc');
@@ -40,6 +47,9 @@ export function DashboardPage({ onViewChange: _onViewChange }: { onViewChange: (
   const [isLoadingResults, setIsLoadingResults] = useState(false);
   const [isLoadingStudentDashboard, setIsLoadingStudentDashboard] = useState(false);
   const [resultsError, setResultsError] = useState('');
+  const [studentTestError, setStudentTestError] = useState('');
+  const [isStartingStudentTest, setIsStartingStudentTest] = useState(false);
+  const [isSubmittingStudentTest, setIsSubmittingStudentTest] = useState(false);
   const canSeeDailyResults = auth?.role === 'SuperAdmin' || auth?.role === 'Admin' || auth?.role === 'Manager' || isTeacher;
 
   useEffect(() => {
@@ -148,12 +158,87 @@ export function DashboardPage({ onViewChange: _onViewChange }: { onViewChange: (
   const maxDate = getYesterdayDateValue();
 
   if (isStudent) {
+    if (studentTestSession) {
+      return (
+        <StudentTestRoom
+          session={studentTestSession}
+          result={studentTestResult}
+          error={studentTestError}
+          isSubmitting={isSubmittingStudentTest}
+          onAnswer={async (questionId, questionOptionId, answerText) => {
+            if (!auth) {
+              return;
+            }
+
+            setStudentTestError('');
+            const savedAnswer = await saveStudentTestAnswer(auth.accessToken, studentTestSession.attemptId, {
+              questionId,
+              questionOptionId,
+              answerText,
+            });
+            setStudentTestSession((current) => current ? {
+              ...current,
+              questions: current.questions.map((question) => question.questionId === savedAnswer.questionId
+                ? {
+                    ...question,
+                    selectedOptionId: savedAnswer.questionOptionId,
+                    answerText: savedAnswer.answerText,
+                  }
+                : question),
+            } : current);
+          }}
+          onSubmit={async () => {
+            if (!auth) {
+              return;
+            }
+
+            setIsSubmittingStudentTest(true);
+            setStudentTestError('');
+            try {
+              setStudentTestResult(await submitStudentTest(auth.accessToken, studentTestSession.attemptId));
+            } catch (error) {
+              setStudentTestError(error instanceof Error ? error.message : 'Тест супорида нашуд.');
+            } finally {
+              setIsSubmittingStudentTest(false);
+            }
+          }}
+          onBack={() => {
+            setStudentTestSession(null);
+            setStudentTestResult(null);
+            setStudentTestError('');
+            if (auth) {
+              void getStudentDashboard(auth.accessToken).then(setStudentDashboard).catch(() => undefined);
+            }
+          }}
+        />
+      );
+    }
+
     return (
       <StudentDashboardView
         fullName={auth?.fullName ?? ''}
         dashboard={studentDashboard}
         isLoading={isLoadingStudentDashboard}
         error={resultsError}
+        isStarting={isStartingStudentTest}
+        onStart={async (subject) => {
+          if (!auth || !subject.dailyLessonId) {
+            return;
+          }
+
+          setIsStartingStudentTest(true);
+          setResultsError('');
+          try {
+            const session = await startStudentTest(auth.accessToken, subject.dailyLessonId, subject.groupId);
+            setStudentTestResult(null);
+            setStudentTestError('');
+            setStudentTestSession(session);
+          } catch (error) {
+            setResultsError(error instanceof Error ? error.message : 'Тест оғоз нашуд.');
+          } finally {
+            setIsStartingStudentTest(false);
+          }
+        }}
       />
     );
   }
@@ -370,11 +455,15 @@ function StudentDashboardView({
   dashboard,
   isLoading,
   error,
+  isStarting,
+  onStart,
 }: {
   fullName: string;
   dashboard: StudentDashboardDto | null;
   isLoading: boolean;
   error: string;
+  isStarting: boolean;
+  onStart: (subject: StudentDashboardSubjectDto) => Promise<void>;
 }) {
   const subjects = dashboard?.subjects ?? [];
 
@@ -409,7 +498,12 @@ function StudentDashboardView({
       {!isLoading && !error && subjects.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {subjects.map((subject) => (
-            <StudentSubjectCard key={`${subject.groupId}-${subject.subjectId}`} subject={subject} />
+            <StudentSubjectCard
+              key={`${subject.groupId}-${subject.subjectId}`}
+              subject={subject}
+              isStarting={isStarting}
+              onStart={onStart}
+            />
           ))}
         </div>
       ) : null}
@@ -417,8 +511,16 @@ function StudentDashboardView({
   );
 }
 
-function StudentSubjectCard({ subject }: { subject: StudentDashboardSubjectDto }) {
-  const Icon = subject.canStart ? PlayCircle : subject.status === 'Available' ? CheckCircle2 : Lock;
+function StudentSubjectCard({
+  subject,
+  isStarting,
+  onStart,
+}: {
+  subject: StudentDashboardSubjectDto;
+  isStarting: boolean;
+  onStart: (subject: StudentDashboardSubjectDto) => Promise<void>;
+}) {
+  const Icon = subject.canStart ? PlayCircle : subject.status === 'Completed' ? CheckCircle2 : Lock;
 
   return (
     <article className="rounded-xl border border-line bg-white p-4 shadow-sm">
@@ -460,13 +562,150 @@ function StudentSubjectCard({ subject }: { subject: StudentDashboardSubjectDto }
       <Button
         type="button"
         className="mt-4 w-full justify-center"
-        disabled={!subject.canStart}
-        onClick={() => window.alert('Қисми супоридани тест дар қадами навбатӣ пайваст мешавад.')}
+        disabled={!subject.canStart || isStarting}
+        onClick={() => {
+          void onStart(subject);
+        }}
       >
         <Icon className="h-4 w-4" />
-        {subject.canStart ? 'Супоридани тест' : 'Тест баста аст'}
+        {subject.canStart ? (subject.status === 'InProgress' ? 'Идома додани тест' : 'Супоридани тест') : 'Тест баста аст'}
       </Button>
     </article>
+  );
+}
+
+function StudentTestRoom({
+  session,
+  result,
+  error,
+  isSubmitting,
+  onAnswer,
+  onSubmit,
+  onBack,
+}: {
+  session: StudentTestSessionDto;
+  result: StudentTestSubmitResultDto | null;
+  error: string;
+  isSubmitting: boolean;
+  onAnswer: (questionId: string, questionOptionId: string | null, answerText: string | null) => Promise<void>;
+  onSubmit: () => Promise<void>;
+  onBack: () => void;
+}) {
+  const [savingQuestionId, setSavingQuestionId] = useState('');
+  const [answerError, setAnswerError] = useState('');
+  const answeredCount = session.questions.filter((question) =>
+    question.type === 'SingleChoice' ? Boolean(question.selectedOptionId) : Boolean(question.answerText?.trim()),
+  ).length;
+  const canSubmit = answeredCount === session.questions.length && !result;
+
+  async function saveAnswer(questionId: string, questionOptionId: string | null, answerText: string | null) {
+    setSavingQuestionId(questionId);
+    setAnswerError('');
+    try {
+      await onAnswer(questionId, questionOptionId, answerText);
+    } catch (error) {
+      setAnswerError(error instanceof Error ? error.message : 'Ҷавоб сабт нашуд.');
+    } finally {
+      setSavingQuestionId('');
+    }
+  }
+
+  return (
+    <section className="px-3 py-4 sm:px-4 sm:py-6 lg:px-6">
+      <div className="mb-4 flex flex-col justify-between gap-3 lg:flex-row lg:items-end">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted">Тест</p>
+          <h2 className="mt-1 text-2xl font-bold text-ink">{session.subjectName}</h2>
+          <p className="mt-1 text-sm text-muted">{session.groupName} · {session.topicTitle}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <span className="rounded-lg border border-line bg-white px-3 py-2 text-sm font-semibold text-ink">
+            {answeredCount} / {session.questions.length} ҷавоб
+          </span>
+          <Button type="button" variant="secondary" onClick={onBack}>Ба dashboard</Button>
+        </div>
+      </div>
+
+      {error || answerError ? (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+          {error || answerError}
+        </div>
+      ) : null}
+
+      {result ? (
+        <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-5">
+          <p className="text-sm font-semibold text-emerald-700">Тест супорида шуд</p>
+          <h3 className="mt-1 text-3xl font-bold text-emerald-900">{result.score} хол</h3>
+          <p className="mt-1 text-sm text-emerald-700">
+            Ҷавобҳои дуруст: {result.correctAnswers} аз {result.totalQuestions}
+          </p>
+        </div>
+      ) : null}
+
+      <div className="space-y-4">
+        {session.questions.map((question) => (
+          <article key={question.questionId} className="rounded-xl border border-line bg-white p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-muted">Савол {question.sortOrder}</p>
+                <h3 className="mt-2 text-base font-semibold leading-7 text-ink">{question.text}</h3>
+              </div>
+              {savingQuestionId === question.questionId ? (
+                <span className="rounded-lg bg-sky-50 px-2.5 py-1 text-xs font-bold text-sky-700">Сабт...</span>
+              ) : null}
+            </div>
+
+            {question.type === 'SingleChoice' ? (
+              <div className="mt-4 grid gap-2">
+                {question.options.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    disabled={Boolean(result)}
+                    onClick={() => {
+                      void saveAnswer(question.questionId, option.id, null);
+                    }}
+                    className={`rounded-lg border px-3 py-3 text-left text-sm font-semibold transition ${
+                      question.selectedOptionId === option.id
+                        ? 'border-brand bg-brand/10 text-brand'
+                        : 'border-line bg-white text-ink hover:border-brand/50'
+                    } disabled:cursor-not-allowed disabled:opacity-70`}
+                  >
+                    {option.text}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <textarea
+                defaultValue={question.answerText ?? ''}
+                disabled={Boolean(result)}
+                onBlur={(event) => {
+                  void saveAnswer(question.questionId, null, event.target.value);
+                }}
+                className="mt-4 min-h-28 w-full rounded-lg border border-line p-3 text-sm outline-none focus:border-brand disabled:bg-panel"
+                placeholder="Ҷавоби худро ворид кунед..."
+              />
+            )}
+          </article>
+        ))}
+      </div>
+
+      <div className="sticky bottom-0 mt-5 border-t border-line bg-white/95 py-3 backdrop-blur">
+        <div className="flex flex-col justify-end gap-2 sm:flex-row sm:items-center">
+          <p className="text-sm text-muted sm:mr-auto">Натиҷа танҳо баъди пахши тугмаи супоридан нишон дода мешавад.</p>
+          <Button
+            type="button"
+            disabled={!canSubmit || isSubmitting}
+            onClick={() => {
+              void onSubmit();
+            }}
+          >
+            <Send className="h-4 w-4" />
+            {isSubmitting ? 'Супорида мешавад...' : 'Супоридани тест'}
+          </Button>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -491,6 +730,12 @@ function getStudentTestStatusLabel(status: string) {
   switch (status) {
     case 'Available':
       return 'Кушода';
+    case 'InProgress':
+      return 'Идома';
+    case 'Completed':
+      return 'Супорида шуд';
+    case 'Expired':
+      return 'Гузашта';
     case 'NotOpenYet':
       return 'Ҳоло не';
     case 'Closed':
@@ -507,6 +752,12 @@ function getStudentTestStatusClassName(status: string) {
   switch (status) {
     case 'Available':
       return 'bg-emerald-50 text-emerald-700';
+    case 'InProgress':
+      return 'bg-indigo-50 text-indigo-700';
+    case 'Completed':
+      return 'bg-emerald-50 text-emerald-700';
+    case 'Expired':
+      return 'bg-red-50 text-red-700';
     case 'NotOpenYet':
       return 'bg-sky-50 text-sky-700';
     case 'Closed':

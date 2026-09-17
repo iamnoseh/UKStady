@@ -178,3 +178,57 @@ public sealed record StudentDashboardSubjectDto(
     bool CanStart,
     string Status,
     string StatusText);
+
+public sealed record StartStudentTestRequest(Guid GroupId);
+
+public sealed record StudentTestActionResult<T>(T? Value, string? Error)
+{
+    public bool Succeeded => Error is null;
+
+    public static StudentTestActionResult<T> Success(T value) => new(value, null);
+
+    public static StudentTestActionResult<T> Failure(string error) => new(default, error);
+}
+
+public sealed record StudentTestSessionDto(
+    Guid AttemptId,
+    Guid DailyLessonId,
+    Guid GroupId,
+    string GroupName,
+    Guid SubjectId,
+    string SubjectName,
+    Guid TopicId,
+    string TopicTitle,
+    DateTimeOffset OpensAtUtc,
+    DateTimeOffset ClosesAtUtc,
+    string Status,
+    IReadOnlyList<StudentTestQuestionDto> Questions);
+
+public sealed record StudentTestQuestionDto(
+    Guid QuestionId,
+    string Text,
+    QuestionType Type,
+    int SortOrder,
+    string? AnswerText,
+    Guid? SelectedOptionId,
+    IReadOnlyList<StudentTestQuestionOptionDto> Options);
+
+public sealed record StudentTestQuestionOptionDto(Guid Id, string Text, int SortOrder);
+
+public sealed record SaveStudentAnswerRequest(
+    Guid QuestionId,
+    Guid? QuestionOptionId,
+    string? AnswerText);
+
+public sealed record StudentTestAnswerDto(
+    Guid QuestionId,
+    Guid? QuestionOptionId,
+    string? AnswerText);
+
+public sealed record StudentTestSubmitResultDto(
+    Guid AttemptId,
+    string Status,
+    int TotalQuestions,
+    int CorrectAnswers,
+    decimal Score,
+    DateTimeOffset SubmittedAtUtc);

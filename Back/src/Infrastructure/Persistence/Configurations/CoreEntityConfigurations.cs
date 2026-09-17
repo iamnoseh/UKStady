@@ -258,6 +258,7 @@ public sealed class AttemptQuestionConfiguration : IEntityTypeConfiguration<Atte
             .WithMany(question => question.AttemptQuestions)
             .HasForeignKey(attemptQuestion => attemptQuestion.QuestionId)
             .OnDelete(DeleteBehavior.Restrict);
+        builder.Property(attemptQuestion => attemptQuestion.OptionOrderJson).HasMaxLength(2000);
         builder.HasIndex(attemptQuestion => new { attemptQuestion.StudentTestAttemptId, attemptQuestion.SortOrder }).IsUnique();
     }
 }
@@ -280,11 +281,11 @@ public sealed class StudentAnswerConfiguration : IEntityTypeConfiguration<Studen
             .WithMany(option => option.StudentAnswers)
             .HasForeignKey(answer => answer.QuestionOptionId)
             .OnDelete(DeleteBehavior.Restrict);
+        builder.Property(answer => answer.AnswerText).HasMaxLength(2000);
         builder.HasIndex(answer => new
         {
             answer.StudentTestAttemptId,
-            answer.QuestionId,
-            answer.QuestionOptionId
+            answer.QuestionId
         }).IsUnique();
     }
 }

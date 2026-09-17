@@ -11,5 +11,6 @@ public sealed class AttemptQuestion
     public Question Question { get; set; } = null!;
 
     public int SortOrder { get; set; }
-}
 
+    public string? OptionOrderJson { get; set; }
+}

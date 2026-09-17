@@ -16,6 +16,7 @@ public static class TeachingEndpoints
         endpoints.MapGroupJournalEndpoints();
         endpoints.MapTeacherDashboardEndpoint();
         endpoints.MapStudentDashboardEndpoint();
+        endpoints.MapStudentTestEndpoints();
 
         return endpoints;
     }
@@ -288,6 +289,56 @@ public static class TeachingEndpoints
             .WithTags("Student Dashboard")
             .RequireAuthorization(AuthorizationPolicies.Students)
             .WithName("GetStudentDashboard");
+    }
+
+    private static void MapStudentTestEndpoints(this IEndpointRouteBuilder endpoints)
+    {
+        var group = endpoints.MapGroup("/api/student/tests")
+            .WithTags("Student Tests")
+            .RequireAuthorization(AuthorizationPolicies.Students);
+
+        group.MapPost("/{dailyLessonId:guid}/start", async (
+            Guid dailyLessonId,
+            [FromBody] StartStudentTestRequest request,
+            ITeachingService service,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.StartStudentTestAsync(dailyLessonId, request, cancellationToken);
+            return result.Succeeded
+                ? Results.Ok(result.Value)
+                : Results.BadRequest(new { message = result.Error });
+        })
+        .WithName("StartStudentTest");
+
+        group.MapPut("/{attemptId:guid}/answers", async (
+            Guid attemptId,
+            [FromBody] SaveStudentAnswerRequest request,
+            ITeachingService service,
+            CancellationToken cancellationToken) =>
+        {
+            if (request.QuestionId == Guid.Empty)
+            {
+                return Results.BadRequest(new { message = "QuestionId is required." });
+            }
+
+            var result = await service.SaveStudentAnswerAsync(attemptId, request, cancellationToken);
+            return result.Succeeded
+                ? Results.Ok(result.Value)
+                : Results.BadRequest(new { message = result.Error });
+        })
+        .WithName("SaveStudentTestAnswer");
+
+        group.MapPost("/{attemptId:guid}/submit", async (
+            Guid attemptId,
+            ITeachingService service,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.SubmitStudentTestAsync(attemptId, cancellationToken);
+            return result.Succeeded
+                ? Results.Ok(result.Value)
+                : Results.BadRequest(new { message = result.Error });
+        })
+        .WithName("SubmitStudentTest");
     }
 
     private static string? ValidateQuestion(

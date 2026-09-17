@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
+using System.Text.Json;
 using UKStady.Application.Common.Interfaces;
 using UKStady.Domain.Entities;
 using UKStady.Domain.Enums;
@@ -7,6 +9,8 @@ namespace UKStady.Application.Features.Teaching;
 
 public sealed class TeachingService : ITeachingService
 {
+    private const int DefaultStudentQuestionCount = 10;
+
     private readonly IAppDbContext _dbContext;
     private readonly ICurrentUserService _currentUserService;
     private readonly IDateTimeProvider _dateTimeProvider;
@@ -925,6 +929,18 @@ public sealed class TeachingService : ITeachingService
             .Select(lesson => lesson.TopicId!.Value)
             .Distinct()
             .ToList();
+        var assignmentIds = lessons
+            .SelectMany(lesson => lesson.TestAssignments)
+            .Select(assignment => assignment.Id)
+            .Distinct()
+            .ToList();
+        var attemptStatusesByAssignmentId = await _dbContext.StudentTestAttempts
+            .AsNoTracking()
+            .Where(attempt =>
+                attempt.StudentId == studentId &&
+                assignmentIds.Contains(attempt.TestAssignmentId))
+            .Select(attempt => new { attempt.TestAssignmentId, attempt.Status })
+            .ToDictionaryAsync(row => row.TestAssignmentId, row => row.Status, cancellationToken);
         var activeQuestionCounts = await _dbContext.Questions
             .AsNoTracking()
             .Where(question => topicIds.Contains(question.TopicId) && question.IsActive)
@@ -943,17 +959,320 @@ public sealed class TeachingService : ITeachingService
                     .ThenByDescending(candidate => candidate.LessonDate)
                     .ThenByDescending(candidate => candidate.CreatedAtUtc)
                     .FirstOrDefault();
-                return ToStudentDashboardSubject(row, lesson, activeQuestionCounts, now);
+                TestStatus? attemptStatus = null;
+                var assignment = lesson?.TestAssignments.FirstOrDefault(candidate => candidate.GroupId == row.GroupId);
+                if (assignment is not null && attemptStatusesByAssignmentId.TryGetValue(assignment.Id, out var status))
+                {
+                    attemptStatus = status;
+                }
+
+                return ToStudentDashboardSubject(row, lesson, activeQuestionCounts, attemptStatus, now);
             })
             .ToList();
 
         return new StudentDashboardDto(now, subjects);
     }
 
+    public async Task<StudentTestActionResult<StudentTestSessionDto>> StartStudentTestAsync(
+        Guid dailyLessonId,
+        StartStudentTestRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!IsStudent())
+        {
+            return StudentTestActionResult<StudentTestSessionDto>.Failure("Only students can start tests.");
+        }
+
+        if (request.GroupId == Guid.Empty)
+        {
+            return StudentTestActionResult<StudentTestSessionDto>.Failure("GroupId is required.");
+        }
+
+        var studentId = RequireCurrentUserId();
+        var now = _dateTimeProvider.UtcNow;
+        var assignment = await _dbContext.TestAssignments
+            .Include(candidate => candidate.Group)
+            .Include(candidate => candidate.DailyLesson)
+                .ThenInclude(lesson => lesson.Subject)
+            .Include(candidate => candidate.DailyLesson)
+                .ThenInclude(lesson => lesson.Topic)
+            .FirstOrDefaultAsync(candidate =>
+                candidate.DailyLessonId == dailyLessonId &&
+                candidate.GroupId == request.GroupId,
+                cancellationToken);
+
+        if (assignment is null)
+        {
+            return StudentTestActionResult<StudentTestSessionDto>.Failure("Test assignment was not found.");
+        }
+
+        var isGroupStudent = await _dbContext.GroupStudents.AnyAsync(
+            groupStudent => groupStudent.GroupId == request.GroupId && groupStudent.StudentId == studentId,
+            cancellationToken);
+        if (!isGroupStudent)
+        {
+            return StudentTestActionResult<StudentTestSessionDto>.Failure("This test is not assigned to your group.");
+        }
+
+        var lesson = assignment.DailyLesson;
+        if (lesson.TopicId is null || lesson.Topic is null)
+        {
+            return StudentTestActionResult<StudentTestSessionDto>.Failure("The lesson topic is not selected yet.");
+        }
+
+        if (now < lesson.OpensAtUtc || now > lesson.ClosesAtUtc)
+        {
+            return StudentTestActionResult<StudentTestSessionDto>.Failure("The test is not open at this time.");
+        }
+
+        var existingAttempt = await _dbContext.StudentTestAttempts
+            .Include(attempt => attempt.AttemptQuestions)
+                .ThenInclude(attemptQuestion => attemptQuestion.Question)
+                    .ThenInclude(question => question.Options)
+            .Include(attempt => attempt.Answers)
+            .FirstOrDefaultAsync(attempt =>
+                attempt.TestAssignmentId == assignment.Id &&
+                attempt.StudentId == studentId,
+                cancellationToken);
+
+        if (existingAttempt is not null)
+        {
+            if (existingAttempt.Status is TestStatus.Submitted or TestStatus.Graded)
+            {
+                return StudentTestActionResult<StudentTestSessionDto>.Failure("You have already submitted this test.");
+            }
+
+            if (existingAttempt.Status == TestStatus.Expired)
+            {
+                return StudentTestActionResult<StudentTestSessionDto>.Failure("This test attempt is expired.");
+            }
+
+            return StudentTestActionResult<StudentTestSessionDto>.Success(ToStudentTestSessionDto(existingAttempt, assignment));
+        }
+
+        var questions = await _dbContext.Questions
+            .Include(question => question.Options)
+            .Where(question =>
+                question.TopicId == lesson.TopicId.Value &&
+                question.IsActive)
+            .ToListAsync(cancellationToken);
+
+        if (questions.Count < DefaultStudentQuestionCount)
+        {
+            return StudentTestActionResult<StudentTestSessionDto>.Failure($"At least {DefaultStudentQuestionCount} active questions are required for this topic.");
+        }
+
+        var selectedQuestions = Shuffle(questions).Take(DefaultStudentQuestionCount).ToList();
+        var attempt = new StudentTestAttempt
+        {
+            Id = Guid.NewGuid(),
+            TestAssignmentId = assignment.Id,
+            StudentId = studentId,
+            Status = TestStatus.InProgress,
+            StartedAtUtc = now
+        };
+
+        for (var index = 0; index < selectedQuestions.Count; index++)
+        {
+            var question = selectedQuestions[index];
+            var optionIds = question.Type == QuestionType.SingleChoice
+                ? Shuffle(question.Options.ToList()).Select(option => option.Id).ToList()
+                : question.Options.OrderBy(option => option.SortOrder).Select(option => option.Id).ToList();
+
+            attempt.AttemptQuestions.Add(new AttemptQuestion
+            {
+                StudentTestAttemptId = attempt.Id,
+                QuestionId = question.Id,
+                Question = question,
+                SortOrder = index + 1,
+                OptionOrderJson = JsonSerializer.Serialize(optionIds)
+            });
+        }
+
+        _dbContext.StudentTestAttempts.Add(attempt);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return StudentTestActionResult<StudentTestSessionDto>.Success(ToStudentTestSessionDto(attempt, assignment));
+    }
+
+    public async Task<StudentTestActionResult<StudentTestAnswerDto>> SaveStudentAnswerAsync(
+        Guid attemptId,
+        SaveStudentAnswerRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!IsStudent())
+        {
+            return StudentTestActionResult<StudentTestAnswerDto>.Failure("Only students can answer tests.");
+        }
+
+        var studentId = RequireCurrentUserId();
+        var now = _dateTimeProvider.UtcNow;
+        var attempt = await _dbContext.StudentTestAttempts
+            .Include(candidate => candidate.TestAssignment)
+                .ThenInclude(assignment => assignment.DailyLesson)
+            .Include(candidate => candidate.AttemptQuestions)
+                .ThenInclude(attemptQuestion => attemptQuestion.Question)
+                    .ThenInclude(question => question.Options)
+            .Include(candidate => candidate.Answers)
+            .FirstOrDefaultAsync(candidate => candidate.Id == attemptId, cancellationToken);
+
+        if (attempt is null || attempt.StudentId != studentId)
+        {
+            return StudentTestActionResult<StudentTestAnswerDto>.Failure("Test attempt was not found.");
+        }
+
+        if (attempt.Status != TestStatus.InProgress)
+        {
+            return StudentTestActionResult<StudentTestAnswerDto>.Failure("This test cannot be changed anymore.");
+        }
+
+        if (now < attempt.TestAssignment.DailyLesson.OpensAtUtc || now > attempt.TestAssignment.DailyLesson.ClosesAtUtc)
+        {
+            return StudentTestActionResult<StudentTestAnswerDto>.Failure("The test is not open at this time.");
+        }
+
+        var attemptQuestion = attempt.AttemptQuestions.FirstOrDefault(candidate => candidate.QuestionId == request.QuestionId);
+        if (attemptQuestion is null)
+        {
+            return StudentTestActionResult<StudentTestAnswerDto>.Failure("This question does not belong to the attempt.");
+        }
+
+        var normalizedText = request.AnswerText?.Trim();
+        if (attemptQuestion.Question.Type == QuestionType.SingleChoice)
+        {
+            if (!request.QuestionOptionId.HasValue ||
+                !attemptQuestion.Question.Options.Any(option => option.Id == request.QuestionOptionId.Value))
+            {
+                return StudentTestActionResult<StudentTestAnswerDto>.Failure("Select one answer option.");
+            }
+
+            normalizedText = null;
+        }
+        else if (string.IsNullOrWhiteSpace(normalizedText))
+        {
+            return StudentTestActionResult<StudentTestAnswerDto>.Failure("Answer text is required.");
+        }
+
+        var answer = attempt.Answers.FirstOrDefault(candidate => candidate.QuestionId == request.QuestionId);
+        if (answer is null)
+        {
+            answer = new StudentAnswer
+            {
+                Id = Guid.NewGuid(),
+                StudentTestAttemptId = attempt.Id,
+                QuestionId = request.QuestionId
+            };
+            _dbContext.StudentAnswers.Add(answer);
+        }
+
+        answer.QuestionOptionId = attemptQuestion.Question.Type == QuestionType.SingleChoice ? request.QuestionOptionId : null;
+        answer.AnswerText = normalizedText;
+        answer.UpdatedAtUtc = now;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return StudentTestActionResult<StudentTestAnswerDto>.Success(new StudentTestAnswerDto(
+            answer.QuestionId,
+            answer.QuestionOptionId,
+            answer.AnswerText));
+    }
+
+    public async Task<StudentTestActionResult<StudentTestSubmitResultDto>> SubmitStudentTestAsync(
+        Guid attemptId,
+        CancellationToken cancellationToken)
+    {
+        if (!IsStudent())
+        {
+            return StudentTestActionResult<StudentTestSubmitResultDto>.Failure("Only students can submit tests.");
+        }
+
+        var studentId = RequireCurrentUserId();
+        var now = _dateTimeProvider.UtcNow;
+        var attempt = await _dbContext.StudentTestAttempts
+            .Include(candidate => candidate.TestAssignment)
+                .ThenInclude(assignment => assignment.DailyLesson)
+            .Include(candidate => candidate.AttemptQuestions)
+                .ThenInclude(attemptQuestion => attemptQuestion.Question)
+                    .ThenInclude(question => question.Options)
+            .Include(candidate => candidate.Answers)
+            .FirstOrDefaultAsync(candidate => candidate.Id == attemptId, cancellationToken);
+
+        if (attempt is null || attempt.StudentId != studentId)
+        {
+            return StudentTestActionResult<StudentTestSubmitResultDto>.Failure("Test attempt was not found.");
+        }
+
+        if (attempt.Status is TestStatus.Submitted or TestStatus.Graded)
+        {
+            return StudentTestActionResult<StudentTestSubmitResultDto>.Failure("You have already submitted this test.");
+        }
+
+        if (attempt.Status == TestStatus.Expired)
+        {
+            return StudentTestActionResult<StudentTestSubmitResultDto>.Failure("This test attempt is expired.");
+        }
+
+        if (now > attempt.TestAssignment.DailyLesson.ClosesAtUtc)
+        {
+            attempt.Status = TestStatus.Expired;
+            attempt.ExpiredAtUtc = now;
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return StudentTestActionResult<StudentTestSubmitResultDto>.Failure("The test time has passed.");
+        }
+
+        var totalQuestions = attempt.AttemptQuestions.Count;
+        if (totalQuestions == 0)
+        {
+            return StudentTestActionResult<StudentTestSubmitResultDto>.Failure("This attempt has no questions.");
+        }
+
+        var correctAnswers = attempt.AttemptQuestions.Count(attemptQuestion =>
+            IsStudentAnswerCorrect(attemptQuestion.Question, attempt.Answers.FirstOrDefault(answer => answer.QuestionId == attemptQuestion.QuestionId)));
+        var score = Math.Round((decimal)correctAnswers / totalQuestions * 100m, 2);
+
+        attempt.Status = TestStatus.Submitted;
+        attempt.SubmittedAtUtc = now;
+        attempt.AutoScore = score;
+
+        var grade = await _dbContext.GradeEntries.FirstOrDefaultAsync(
+            candidate =>
+                candidate.DailyLessonId == attempt.TestAssignment.DailyLessonId &&
+                candidate.StudentId == studentId,
+            cancellationToken);
+
+        if (grade is null)
+        {
+            grade = new GradeEntry
+            {
+                Id = Guid.NewGuid(),
+                DailyLessonId = attempt.TestAssignment.DailyLessonId,
+                StudentId = studentId,
+                AttendanceStatus = AttendanceStatus.Present
+            };
+            _dbContext.GradeEntries.Add(grade);
+        }
+
+        grade.StudentTestAttemptId = attempt.Id;
+        grade.AutoScore = score;
+        grade.AttendanceStatus = AttendanceStatus.Present;
+        grade.UpdatedAtUtc = now;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return StudentTestActionResult<StudentTestSubmitResultDto>.Success(new StudentTestSubmitResultDto(
+            attempt.Id,
+            attempt.Status.ToString(),
+            totalQuestions,
+            correctAnswers,
+            score,
+            now));
+    }
+
     private static StudentDashboardSubjectDto ToStudentDashboardSubject(
         StudentSubjectRow row,
         DailyLesson? lesson,
         IReadOnlyDictionary<Guid, int> activeQuestionCounts,
+        TestStatus? attemptStatus,
         DateTimeOffset now)
     {
         if (lesson is null)
@@ -979,10 +1298,10 @@ public sealed class TeachingService : ITeachingService
             ? count
             : 0;
         var hasTopic = lesson.TopicId.HasValue;
-        var hasQuestions = lesson.QuestionCount > 0 && activeQuestionCount >= lesson.QuestionCount;
+        var hasQuestions = activeQuestionCount >= DefaultStudentQuestionCount;
         var isReady = hasTopic && hasQuestions;
         var isOpen = now >= lesson.OpensAtUtc && now <= lesson.ClosesAtUtc;
-        var (status, statusText) = BuildStudentDashboardStatus(lesson, hasTopic, hasQuestions, isOpen, now);
+        var (status, statusText) = BuildStudentDashboardStatus(lesson, hasTopic, hasQuestions, isOpen, attemptStatus, now);
 
         return new StudentDashboardSubjectDto(
             row.GroupId,
@@ -992,11 +1311,11 @@ public sealed class TeachingService : ITeachingService
             lesson.Id,
             lesson.TopicId,
             lesson.Topic?.Title,
-            lesson.QuestionCount,
+            DefaultStudentQuestionCount,
             lesson.OpensAtUtc,
             lesson.ClosesAtUtc,
             isReady,
-            isReady && isOpen,
+            isReady && isOpen && attemptStatus is not (TestStatus.Submitted or TestStatus.Graded or TestStatus.Expired),
             status,
             statusText);
     }
@@ -1006,8 +1325,24 @@ public sealed class TeachingService : ITeachingService
         bool hasTopic,
         bool hasQuestions,
         bool isOpen,
+        TestStatus? attemptStatus,
         DateTimeOffset now)
     {
+        if (attemptStatus is TestStatus.Submitted or TestStatus.Graded)
+        {
+            return ("Completed", "Шумо ин тестро аллакай супоридед.");
+        }
+
+        if (attemptStatus == TestStatus.Expired)
+        {
+            return ("Expired", "Муҳлати супоридани ин тест гузаштааст.");
+        }
+
+        if (attemptStatus == TestStatus.InProgress)
+        {
+            return ("InProgress", "Тест оғоз шудааст. Метавонед идома диҳед.");
+        }
+
         if (!hasTopic)
         {
             return ("MissingTopic", "Мавзӯи дарс ҳанӯз интихоб нашудааст.");
@@ -1202,6 +1537,120 @@ public sealed class TeachingService : ITeachingService
     private bool IsStudent()
     {
         return _currentUserService.Role == UserRole.Student.ToString();
+    }
+
+    private static StudentTestSessionDto ToStudentTestSessionDto(
+        StudentTestAttempt attempt,
+        TestAssignment assignment)
+    {
+        var lesson = assignment.DailyLesson;
+        var answersByQuestionId = attempt.Answers.ToDictionary(answer => answer.QuestionId);
+        var questions = attempt.AttemptQuestions
+            .OrderBy(attemptQuestion => attemptQuestion.SortOrder)
+            .Select(attemptQuestion =>
+            {
+                answersByQuestionId.TryGetValue(attemptQuestion.QuestionId, out var answer);
+                return new StudentTestQuestionDto(
+                    attemptQuestion.QuestionId,
+                    attemptQuestion.Question.Text,
+                    attemptQuestion.Question.Type,
+                    attemptQuestion.SortOrder,
+                    answer?.AnswerText,
+                    answer?.QuestionOptionId,
+                    BuildStudentQuestionOptions(attemptQuestion));
+            })
+            .ToList();
+
+        return new StudentTestSessionDto(
+            attempt.Id,
+            lesson.Id,
+            assignment.GroupId,
+            assignment.Group.Name,
+            lesson.SubjectId,
+            lesson.Subject.Name,
+            lesson.TopicId!.Value,
+            lesson.Topic!.Title,
+            lesson.OpensAtUtc,
+            lesson.ClosesAtUtc,
+            attempt.Status.ToString(),
+            questions);
+    }
+
+    private static IReadOnlyList<StudentTestQuestionOptionDto> BuildStudentQuestionOptions(AttemptQuestion attemptQuestion)
+    {
+        if (attemptQuestion.Question.Type != QuestionType.SingleChoice)
+        {
+            return [];
+        }
+
+        var optionOrder = ParseOptionOrder(attemptQuestion.OptionOrderJson);
+        var optionsById = attemptQuestion.Question.Options.ToDictionary(option => option.Id);
+        var orderedOptions = optionOrder
+            .Where(optionsById.ContainsKey)
+            .Select(optionId => optionsById[optionId])
+            .Concat(attemptQuestion.Question.Options.Where(option => !optionOrder.Contains(option.Id)).OrderBy(option => option.SortOrder))
+            .ToList();
+
+        return orderedOptions
+            .Select((option, index) => new StudentTestQuestionOptionDto(option.Id, option.Text, index + 1))
+            .ToList();
+    }
+
+    private static IReadOnlyList<Guid> ParseOptionOrder(string? optionOrderJson)
+    {
+        if (string.IsNullOrWhiteSpace(optionOrderJson))
+        {
+            return [];
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<Guid>>(optionOrderJson) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
+
+    private static bool IsStudentAnswerCorrect(Question question, StudentAnswer? answer)
+    {
+        if (answer is null)
+        {
+            return false;
+        }
+
+        if (question.Type == QuestionType.SingleChoice)
+        {
+            return answer.QuestionOptionId.HasValue &&
+                question.Options.Any(option => option.Id == answer.QuestionOptionId.Value && option.IsCorrect);
+        }
+
+        var correctAnswer = question.Options.FirstOrDefault(option => option.IsCorrect)?.Text;
+        return !string.IsNullOrWhiteSpace(correctAnswer) &&
+            NormalizeStudentAnswer(answer.AnswerText) == NormalizeStudentAnswer(correctAnswer);
+    }
+
+    private static string NormalizeStudentAnswer(string? value)
+    {
+        return string.Join(
+            ' ',
+            (value ?? string.Empty)
+                .Trim()
+                .ToLowerInvariant()
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    }
+
+    private static IReadOnlyList<T> Shuffle<T>(IReadOnlyList<T> items)
+    {
+        var shuffled = items.ToList();
+        for (var index = shuffled.Count - 1; index > 0; index--)
+        {
+            var swapIndex = RandomNumberGenerator.GetInt32(index + 1);
+            (shuffled[index], shuffled[swapIndex]) = (shuffled[swapIndex], shuffled[index]);
+        }
+
+        return shuffled;
     }
 
     private static QuestionDto ToQuestionDto(Question question)
