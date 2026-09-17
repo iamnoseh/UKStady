@@ -1476,6 +1476,14 @@ public sealed class TeachingService : ITeachingService
 
     private async Task<bool> CanUseGroupAsync(Guid groupId, CancellationToken cancellationToken)
     {
+        if (IsStudent())
+        {
+            var studentId = RequireCurrentUserId();
+            return await _dbContext.GroupStudents.AnyAsync(
+                groupStudent => groupStudent.GroupId == groupId && groupStudent.StudentId == studentId,
+                cancellationToken);
+        }
+
         if (!IsTeacher())
         {
             return await _dbContext.Groups.AnyAsync(group => group.Id == groupId, cancellationToken);

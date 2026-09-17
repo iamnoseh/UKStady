@@ -369,7 +369,7 @@ export function DashboardPage({ onViewChange: _onViewChange }: { onViewChange: (
                     <p className="truncate font-mono text-xs text-muted">{result.phoneNumber}</p>
                   </div>
                   <span className={`shrink-0 rounded-lg px-2.5 py-1 text-xs font-bold ${getScoreClassName(result.score)}`}>
-                    {result.score === null ? 'Насупоридааст' : `${result.score} хол`}
+                    {result.score === null ? 'н' : `${result.score} хол`}
                   </span>
                 </div>
 
@@ -416,7 +416,7 @@ export function DashboardPage({ onViewChange: _onViewChange }: { onViewChange: (
                       <p className="truncate font-mono text-xs text-muted">{result.phoneNumber}</p>
                     </div>
                     <span className={`w-fit rounded-lg px-2.5 py-1 text-xs font-bold ${getScoreClassName(result.score)}`}>
-                      {result.score === null ? 'Насупоридааст' : `${result.score} хол`}
+                      {result.score === null ? 'н' : `${result.score} хол`}
                     </span>
                     <span className="text-xs text-muted">{formatAttendanceStatus(result.attendanceStatus)}</span>
                     <div className="min-w-0 pr-2">
@@ -812,5 +812,5 @@ function formatAttendanceStatus(status: string) {
     return 'Ғоиб';
   }
 
-  return 'Насупоридааст';
+  return 'н';
 }

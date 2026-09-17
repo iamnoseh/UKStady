@@ -93,7 +93,7 @@ public static class AdministrationEndpoints
 
         group.MapGet("/", async (IAdministrationService service, CancellationToken cancellationToken) =>
             Results.Ok(await service.GetGroupsAsync(cancellationToken)))
-            .RequireAuthorization(AuthorizationPolicies.EducationStaff)
+            .RequireAuthorization()
             .WithName("GetGroups");
 
         group.MapGet("/{id:guid}", async (
@@ -104,7 +104,7 @@ public static class AdministrationEndpoints
             var result = await service.GetGroupAsync(id, cancellationToken);
             return result is null ? Results.NotFound() : Results.Ok(result);
         })
-        .RequireAuthorization(AuthorizationPolicies.EducationStaff)
+        .RequireAuthorization()
         .WithName("GetGroup");
 
         group.MapPost("/", async (

@@ -178,7 +178,7 @@ public static class TeachingEndpoints
     {
         var group = endpoints.MapGroup("/api/group-journals")
             .WithTags("Group Journals")
-            .RequireAuthorization(AuthorizationPolicies.EducationStaff);
+            .RequireAuthorization();
 
         group.MapGet("/{groupId:guid}", async (
             Guid groupId,
@@ -211,6 +211,7 @@ public static class TeachingEndpoints
                 ? Results.Created($"/api/daily-lessons/{result.Lesson.Id}", result)
                 : Results.Ok(result);
         })
+        .RequireAuthorization(AuthorizationPolicies.EducationStaff)
         .WithName("CreateTodayGroupLesson");
 
         group.MapPut("/{groupId:guid}/lessons/{lessonId:guid}/topic", async (
@@ -228,6 +229,7 @@ public static class TeachingEndpoints
             var result = await service.UpdateDailyLessonTopicAsync(groupId, lessonId, request, cancellationToken);
             return result is null ? Results.BadRequest(new { message = "Lesson topic cannot be updated." }) : Results.Ok(result);
         })
+        .RequireAuthorization(AuthorizationPolicies.EducationStaff)
         .WithName("UpdateGroupLessonTopic");
 
         group.MapPut("/{groupId:guid}/lessons/{lessonId:guid}/students/{studentId:guid}/score", async (

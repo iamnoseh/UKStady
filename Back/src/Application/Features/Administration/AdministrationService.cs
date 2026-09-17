@@ -151,6 +151,12 @@ public sealed class AdministrationService : IAdministrationService
                     group => group.Key,
                     group => group.Select(assignment => assignment.SubjectId).ToHashSet());
         }
+        else if (IsStudent())
+        {
+            var studentId = RequireCurrentUserId();
+            query = query.Where(group => _dbContext.GroupStudents.Any(groupStudent =>
+                groupStudent.StudentId == studentId && groupStudent.GroupId == group.Id));
+        }
 
         var groups = await query
             .OrderBy(group => group.Name)
@@ -187,6 +193,18 @@ public sealed class AdministrationService : IAdministrationService
             }
 
             teacherSubjectIds = assignments.ToHashSet();
+        }
+        else if (IsStudent())
+        {
+            var studentId = RequireCurrentUserId();
+            var isMember = await _dbContext.GroupStudents.AnyAsync(
+                groupStudent => groupStudent.GroupId == id && groupStudent.StudentId == studentId,
+                cancellationToken);
+
+            if (!isMember)
+            {
+                return null;
+            }
         }
 
         var group = await query.FirstOrDefaultAsync(cancellationToken);
@@ -879,4 +897,10 @@ public sealed class AdministrationService : IAdministrationService
     private bool IsTeacher()
     {
         return _currentUserService.Role == UserRole.Teacher.ToString();
-    }}
+    }
+
+    private bool IsStudent()
+    {
+        return _currentUserService.Role == UserRole.Student.ToString();
+    }
+}

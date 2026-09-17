@@ -133,6 +133,7 @@ export function GroupsPage() {
   const [selectedTeacherId, setSelectedTeacherId] = useState('');
   const [isTeacherAssignmentSubmitting, setIsTeacherAssignmentSubmitting] = useState(false);
   const canManageGroups = auth?.role === 'SuperAdmin' || auth?.role === 'Admin' || auth?.role === 'Manager';
+  const canManageJournal = auth?.role !== 'Student';
 
   useEffect(() => {
     void loadData();
@@ -171,10 +172,12 @@ export function GroupsPage() {
         return;
       }
 
-      const [loadedGroups, loadedTopics] = await Promise.all([
-        getGroups(auth.accessToken),
-        getTopics(auth.accessToken),
-      ]);
+      const [loadedGroups, loadedTopics] = auth.role === 'Student'
+        ? [await getGroups(auth.accessToken), []]
+        : await Promise.all([
+            getGroups(auth.accessToken),
+            getTopics(auth.accessToken),
+          ]);
       setGroups(loadedGroups);
       setTopics(loadedTopics);
       setSubjects([]);
@@ -921,7 +924,7 @@ export function GroupsPage() {
                 </div>
 
                 <div className="max-h-[620px] overflow-auto">
-                  <table className="w-max min-w-full border-separate border-spacing-0 text-sm">
+                  <table className="w-max min-w-full border-separate border-spacing-0 text-[11px] sm:text-sm">
                     <thead className="sticky top-0 z-30 bg-white">
                       <tr>
                         <th className="sticky left-0 z-40 w-[180px] sm:w-[260px] border-b border-r border-line bg-white px-3 sm:px-4 py-3 text-left text-xs font-bold uppercase text-muted">
@@ -1004,6 +1007,7 @@ export function GroupsPage() {
                     </span>
                   </div>
 
+                  {canManageJournal ? (
                   <Button
                     type="button"
                     className="h-11"
@@ -1017,24 +1021,30 @@ export function GroupsPage() {
                         ? 'Сохта истодааст...'
                         : 'Сохтани дарси имрӯз'}
                   </Button>
+                  ) : null}
                 </div>
 
                 <div className="max-h-[620px] overflow-auto">
-                  <table className="w-max min-w-full border-separate border-spacing-0 text-sm">
+                  <table className="w-max min-w-full border-separate border-spacing-0 text-[11px] sm:text-sm">
                     <thead className="sticky top-0 z-30 bg-white">
                       <tr>
-                        <th className="sticky left-0 z-40 h-20 w-[160px] sm:w-[230px] border-b border-r border-line bg-white px-2 sm:px-4 text-left text-xs font-bold uppercase text-muted">
+                        <th className="sticky left-0 z-40 h-16 w-[118px] sm:h-20 sm:w-[230px] border-b border-r border-line bg-white px-1.5 sm:px-4 text-left text-[10px] sm:text-xs font-bold uppercase text-muted">
                           Хонанда
                         </th>
-                        <th className="static sm:sticky sm:left-[230px] z-40 h-20 w-[90px] sm:w-[120px] border-b border-r border-line bg-white px-2 sm:px-4 text-center text-xs font-bold uppercase text-muted">
+                        <th className="static sm:sticky sm:left-[230px] z-40 h-16 w-[62px] sm:h-20 sm:w-[120px] border-b border-r border-line bg-white px-1.5 sm:px-4 text-center text-[10px] sm:text-xs font-bold uppercase text-muted">
                           Average
                         </th>
                         {activeSubjectJournal.lessons.map((lesson, index) => (
-                          <th key={lesson.id} className="h-20 w-[154px] border-b border-r border-line bg-white px-3 text-center">
+                          <th key={lesson.id} className="h-16 w-[92px] sm:h-20 sm:w-[154px] border-b border-r border-line bg-white px-1.5 sm:px-3 text-center">
                             <button
                               type="button"
-                              onClick={() => openTopicModal(activeSubjectJournal, lesson)}
-                              className={`mx-auto flex min-h-14 w-full flex-col items-center justify-center rounded-lg border px-2 text-xs font-bold transition ${
+                              onClick={() => {
+                                if (canManageJournal) {
+                                  openTopicModal(activeSubjectJournal, lesson);
+                                }
+                              }}
+                              disabled={!canManageJournal}
+                              className={`mx-auto flex min-h-12 sm:min-h-14 w-full flex-col items-center justify-center rounded-lg border px-1 sm:px-2 text-[10px] sm:text-xs font-bold transition ${
                                 lesson.id === activeSubjectJournal.todayLessonId
                                   ? 'border-sky-200 bg-sky-50 text-sky-700 shadow-sm'
                                   : 'border-transparent text-muted hover:border-brand/20 hover:bg-panel hover:text-brand'
@@ -1052,14 +1062,14 @@ export function GroupsPage() {
                         ))}
                       </tr>
                       <tr>
-                        <th className="sticky left-0 z-40 w-[160px] sm:w-[230px] border-b border-r border-line bg-panel px-2 sm:px-4 py-3 text-left text-xs font-bold uppercase text-muted">
+                        <th className="sticky left-0 z-40 w-[118px] sm:w-[230px] border-b border-r border-line bg-panel px-1.5 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-bold uppercase text-muted">
                           Ном ва фамилия
                         </th>
-                        <th className="static sm:sticky sm:left-[230px] z-40 w-[90px] sm:w-[120px] border-b border-r border-line bg-panel px-2 sm:px-4 py-3 text-center text-xs font-bold uppercase text-muted">
+                        <th className="static sm:sticky sm:left-[230px] z-40 w-[62px] sm:w-[120px] border-b border-r border-line bg-panel px-1.5 sm:px-4 py-2 sm:py-3 text-center text-[10px] sm:text-xs font-bold uppercase text-muted">
                           Average
                         </th>
                         {activeSubjectJournal.lessons.map((lesson) => (
-                          <th key={`${lesson.id}-score`} className="w-[154px] border-b border-r border-line bg-panel px-3 py-3 text-center text-xs font-bold uppercase text-muted">
+                          <th key={`${lesson.id}-score`} className="w-[92px] sm:w-[154px] border-b border-r border-line bg-panel px-1.5 sm:px-3 py-2 sm:py-3 text-center text-[10px] sm:text-xs font-bold uppercase text-muted">
                             Оценка
                           </th>
                         ))}
@@ -1076,19 +1086,19 @@ export function GroupsPage() {
 
                       {activeSubjectJournal.students.map((student, index) => (
                         <tr key={`${activeSubjectJournal.subjectId}-${student.studentId}`} className={index % 2 === 0 ? 'bg-sky-50/40' : 'bg-white'}>
-                          <td className="sticky left-0 z-20 w-[160px] sm:w-[230px] border-b border-r border-line bg-inherit px-2 sm:px-4 py-3 sm:py-4">
-                            <div className="flex min-w-0 items-center gap-3">
-                              <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-brand/10 text-[11px] font-bold text-brand">
+                          <td className="sticky left-0 z-20 w-[118px] sm:w-[230px] border-b border-r border-line bg-inherit px-1.5 sm:px-4 py-2 sm:py-4">
+                            <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
+                              <span className="grid h-4 w-4 sm:h-5 sm:w-5 shrink-0 place-items-center rounded-full bg-brand/10 text-[9px] sm:text-[11px] font-bold text-brand">
                                 {index + 1}
                               </span>
                               <div className="min-w-0">
                                 <p className="truncate font-semibold">{student.fullName}</p>
-                                <p className="font-mono text-xs text-muted">{student.phoneNumber}</p>
+                                <p className="font-mono text-[10px] sm:text-xs text-muted">{student.phoneNumber}</p>
                               </div>
                             </div>
                           </td>
-                          <td className="static sm:sticky sm:left-[230px] z-20 w-[90px] sm:w-[120px] border-b border-r border-line bg-inherit px-2 sm:px-3 py-3 sm:py-4 text-center">
-                            <span className={`inline-flex h-9 w-[86px] items-center justify-center rounded-lg border font-bold ${getAverageScoreClassName(student.averageScore)}`}>
+                          <td className="static sm:sticky sm:left-[230px] z-20 w-[62px] sm:w-[120px] border-b border-r border-line bg-inherit px-1.5 sm:px-3 py-2 sm:py-4 text-center">
+                            <span className={`inline-flex h-7 sm:h-9 w-[48px] sm:w-[86px] items-center justify-center rounded-lg border font-bold ${getAverageScoreClassName(student.averageScore)}`}>
                               {formatScore(student.averageScore)}
                             </span>
                           </td>
@@ -1097,18 +1107,18 @@ export function GroupsPage() {
                             const scoreContent = formatScore(score?.score ?? null);
                             const scoreClassName = getJournalScoreClassName(score);
                             return (
-                              <td key={`${student.studentId}-${lesson.id}`} className="w-[154px] border-b border-r border-line px-3 py-4 text-center">
+                              <td key={`${student.studentId}-${lesson.id}`} className="w-[92px] sm:w-[154px] border-b border-r border-line px-1.5 sm:px-3 py-2 sm:py-4 text-center">
                                 {score?.canEdit && score.score !== null ? (
                                   <button
                                     type="button"
                                     onClick={() => openScoreModal(lesson, student.studentId, student.fullName, score)}
-                                    className={`inline-flex h-9 w-[110px] items-center justify-center rounded-lg border font-bold transition hover:ring-2 hover:ring-brand/20 ${scoreClassName}`}
+                                    className={`inline-flex h-7 sm:h-9 w-[54px] sm:w-[110px] items-center justify-center rounded-lg border font-bold transition hover:ring-2 hover:ring-brand/20 ${scoreClassName}`}
                                     title="Тағйир додани бал"
                                   >
                                     {scoreContent}
                                   </button>
                                 ) : (
-                                  <span className={`inline-flex h-9 w-[110px] items-center justify-center rounded-lg border font-bold ${scoreClassName}`}>
+                                  <span className={`inline-flex h-7 sm:h-9 w-[54px] sm:w-[110px] items-center justify-center rounded-lg border font-bold ${scoreClassName}`}>
                                     {scoreContent}
                                   </span>
                                 )}
@@ -1755,7 +1765,7 @@ function formatShortDate(value: string) {
 
 function formatScore(value: number | null) {
   if (value === null || Number.isNaN(value)) {
-    return '0';
+    return 'н';
   }
 
   return `${roundScore(value)}`;
