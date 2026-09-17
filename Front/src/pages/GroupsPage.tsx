@@ -55,6 +55,16 @@ import type {
 import { useAuth } from '../context/AuthContext';
 
 type GroupTab = 'students' | 'journals' | 'teachers' | 'edit' | 'other';
+type JournalView = 'subject' | 'weeklyReport';
+
+type WeeklyReportRow = {
+  studentId: string;
+  fullName: string;
+  phoneNumber: string;
+  subjectScores: Record<string, number>;
+  averageScore: number;
+  grade: number;
+};
 
 const subjectBadgeColors = [
   'bg-violet-50 text-violet-700 border-violet-100',
@@ -101,6 +111,7 @@ export function GroupsPage() {
   const [journalBusySubjectId, setJournalBusySubjectId] = useState('');
   const [journalBusyLessonId, setJournalBusyLessonId] = useState('');
   const [activeJournalSubjectId, setActiveJournalSubjectId] = useState('');
+  const [journalView, setJournalView] = useState<JournalView>('subject');
   const [topicModalLesson, setTopicModalLesson] = useState<{
     lesson: GroupJournalLessonDto;
     subject: GroupSubjectJournalDto;
@@ -175,6 +186,7 @@ export function GroupsPage() {
     setStudentQuery('');
     setSubjectToAddId('');
     setJournal(null);
+    setJournalView('subject');
 
     if (group) {
       syncEditFields(group);
@@ -186,6 +198,7 @@ export function GroupsPage() {
     setActiveTab(canManageGroups ? 'students' : 'journals');
     setSelectedStudentIds([]);
     setJournal(null);
+    setJournalView('subject');
   }
 
   function openTeacherModal(subject: GroupSubjectDto) {
@@ -496,6 +509,90 @@ export function GroupsPage() {
       ?? journal.subjects[0]
       ?? null;
   }, [activeJournalSubjectId, journal]);
+  const weeklyReport = useMemo(() => {
+    if (!journal || journal.subjects.length === 0) {
+      return { rows: [] as WeeklyReportRow[], subjects: [] as GroupSubjectJournalDto[], weekStart: '', weekEnd: '' };
+    }
+
+    const weekEnd = parseDateValue(journal.today);
+    const weekStart = new Date(weekEnd);
+    weekStart.setDate(weekStart.getDate() - 6);
+
+    const studentMap = new Map<string, WeeklyReportRow>();
+    journal.subjects.forEach((subject) => {
+      subject.students.forEach((student) => {
+        if (!studentMap.has(student.studentId)) {
+          studentMap.set(student.studentId, {
+            studentId: student.studentId,
+            fullName: student.fullName,
+            phoneNumber: student.phoneNumber,
+            subjectScores: {},
+            averageScore: 0,
+            grade: 1,
+          });
+        }
+      });
+    });
+
+    const lessonById = new Map<string, GroupJournalLessonDto>();
+    journal.subjects.forEach((subject) => {
+      subject.lessons.forEach((lesson) => {
+        lessonById.set(lesson.id, lesson);
+      });
+    });
+
+    journal.subjects.forEach((subject) => {
+      subject.students.forEach((student) => {
+        const weeklyScores = student.lessonScores
+          .filter((lessonScore) => {
+            const lesson = lessonById.get(lessonScore.lessonId);
+            if (!lesson || lessonScore.score === null || lessonScore.score === undefined) {
+              return false;
+            }
+
+            const lessonDate = parseDateValue(lesson.lessonDate);
+            return lessonDate >= weekStart && lessonDate <= weekEnd;
+          })
+          .map((lessonScore) => lessonScore.score as number);
+
+        const subjectAverage = weeklyScores.length === 0
+          ? 0
+          : roundScore(weeklyScores.reduce((sum, score) => sum + score, 0) / weeklyScores.length);
+        const row = studentMap.get(student.studentId);
+        if (row) {
+          row.subjectScores[subject.subjectId] = subjectAverage;
+        }
+      });
+    });
+
+    const rows = Array.from(studentMap.values())
+      .map((row) => {
+        const total = journal.subjects.reduce(
+          (sum, subject) => sum + (row.subjectScores[subject.subjectId] ?? 0),
+          0,
+        );
+        const averageScore = journal.subjects.length === 0
+          ? 0
+          : roundScore(total / journal.subjects.length);
+
+        return {
+          ...row,
+          averageScore,
+          grade: getGradeByAverage(averageScore),
+        };
+      })
+      .sort((left, right) =>
+        right.averageScore - left.averageScore ||
+        left.fullName.localeCompare(right.fullName),
+      );
+
+    return {
+      rows,
+      subjects: journal.subjects,
+      weekStart: toDateValue(weekStart),
+      weekEnd: toDateValue(weekEnd),
+    };
+  }, [journal]);
   const filteredAssignedStudents = useMemo(() => {
     const value = studentQuery.trim().toLowerCase();
     const assigned = selectedGroup?.students ?? [];
@@ -718,9 +815,12 @@ export function GroupsPage() {
                   <button
                     key={subjectJournal.subjectId}
                     type="button"
-                    onClick={() => setActiveJournalSubjectId(subjectJournal.subjectId)}
+                    onClick={() => {
+                      setActiveJournalSubjectId(subjectJournal.subjectId);
+                      setJournalView('subject');
+                    }}
                     className={`inline-flex h-10 items-center gap-2 rounded-lg border px-4 text-sm font-bold transition ${
-                      activeSubjectJournal?.subjectId === subjectJournal.subjectId
+                      journalView === 'subject' && activeSubjectJournal?.subjectId === subjectJournal.subjectId
                         ? 'border-brand/30 bg-brand text-white shadow-sm'
                         : 'border-line bg-white text-muted hover:border-brand/30 hover:text-brand'
                     }`}
@@ -729,10 +829,103 @@ export function GroupsPage() {
                     {subjectJournal.subjectName}
                   </button>
                 ))}
+                <button
+                  type="button"
+                  onClick={() => setJournalView('weeklyReport')}
+                  className={`inline-flex h-10 items-center gap-2 rounded-lg border px-4 text-sm font-bold transition ${
+                    journalView === 'weeklyReport'
+                      ? 'border-emerald-300 bg-emerald-600 text-white shadow-sm'
+                      : 'border-line bg-white text-muted hover:border-emerald-300 hover:text-emerald-700'
+                  }`}
+                >
+                  <BarChart3 className="h-4 w-4" />
+                  Ҳисоботи ҳафтаина
+                </button>
               </div>
             ) : null}
 
-            {activeSubjectJournal ? (
+            {journalView === 'weeklyReport' && journal ? (
+              <div className="overflow-hidden rounded-lg border border-line bg-white shadow-sm">
+                <div className="flex flex-col justify-between gap-2 border-b border-line bg-panel px-4 py-4 lg:flex-row lg:items-center">
+                  <div>
+                    <h3 className="text-lg font-bold">Ҳисоботи ҳафтаина</h3>
+                    <p className="mt-1 text-sm text-muted">
+                      {formatShortDate(weeklyReport.weekStart)} - {formatShortDate(weeklyReport.weekEnd)} · рейтинг аз рӯи холи миёна
+                    </p>
+                  </div>
+                  <span className="w-fit rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700">
+                    {weeklyReport.rows.length} хонанда
+                  </span>
+                </div>
+
+                <div className="max-h-[620px] overflow-auto">
+                  <table className="w-max min-w-full border-separate border-spacing-0 text-sm">
+                    <thead className="sticky top-0 z-30 bg-white">
+                      <tr>
+                        <th className="sticky left-0 z-40 w-[260px] border-b border-r border-line bg-white px-4 py-3 text-left text-xs font-bold uppercase text-muted">
+                          Ному насаб
+                        </th>
+                        {weeklyReport.subjects.map((subject) => (
+                          <th key={subject.subjectId} className="w-[150px] border-b border-r border-line bg-white px-3 py-3 text-center text-xs font-bold uppercase text-muted">
+                            {subject.subjectName}
+                          </th>
+                        ))}
+                        <th className="w-[130px] border-b border-r border-line bg-white px-3 py-3 text-center text-xs font-bold uppercase text-muted">
+                          Холи миёна
+                        </th>
+                        <th className="w-[90px] border-b border-line bg-white px-3 py-3 text-center text-xs font-bold uppercase text-muted">
+                          Баҳо
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {weeklyReport.rows.length === 0 ? (
+                        <tr>
+                          <td className="sticky left-0 z-20 border-b border-r border-line bg-white px-4 py-5 text-muted" colSpan={weeklyReport.subjects.length + 3}>
+                            Барои ҳисоботи ҳафтаина хонанда ёфт нашуд.
+                          </td>
+                        </tr>
+                      ) : null}
+
+                      {weeklyReport.rows.map((student, index) => (
+                        <tr key={student.studentId} className={index % 2 === 0 ? 'bg-emerald-50/35' : 'bg-white'}>
+                          <td className="sticky left-0 z-20 w-[260px] border-b border-r border-line bg-inherit px-4 py-4">
+                            <div className="flex min-w-0 items-center gap-3">
+                              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-emerald-100 text-[11px] font-bold text-emerald-700">
+                                {index + 1}
+                              </span>
+                              <div className="min-w-0">
+                                <p className="truncate font-semibold">{student.fullName}</p>
+                                <p className="font-mono text-xs text-muted">{student.phoneNumber}</p>
+                              </div>
+                            </div>
+                          </td>
+                          {weeklyReport.subjects.map((subject) => (
+                            <td key={`${student.studentId}-${subject.subjectId}`} className="w-[150px] border-b border-r border-line px-3 py-4 text-center">
+                              <span className="inline-flex h-9 min-w-[78px] items-center justify-center rounded-lg border border-slate-200 bg-white px-3 font-bold text-ink">
+                                {formatScore(student.subjectScores[subject.subjectId] ?? 0)}
+                              </span>
+                            </td>
+                          ))}
+                          <td className="w-[130px] border-b border-r border-line px-3 py-4 text-center">
+                            <span className="inline-flex h-9 min-w-[84px] items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 font-bold text-emerald-800">
+                              {formatScore(student.averageScore)}
+                            </span>
+                          </td>
+                          <td className="w-[90px] border-b border-line px-3 py-4 text-center">
+                            <span className={`inline-flex h-9 w-10 items-center justify-center rounded-lg border font-bold ${getGradeClassName(student.grade)}`}>
+                              {student.grade}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
+
+            {journalView === 'subject' && activeSubjectJournal ? (
               <div className="overflow-hidden rounded-lg border border-line bg-white shadow-sm">
                 <div className="flex flex-col justify-between gap-3 border-b border-line bg-panel px-4 py-4 xl:flex-row xl:items-center">
                   <div className="flex flex-wrap items-center gap-2">
@@ -1308,16 +1501,75 @@ export function GroupsPage() {
   );
 }
 
+function roundScore(value: number) {
+  return Math.round(value * 10) / 10;
+}
+
+function getGradeByAverage(value: number) {
+  if (value <= 30) {
+    return 1;
+  }
+
+  if (value <= 50) {
+    return 2;
+  }
+
+  if (value <= 69) {
+    return 3;
+  }
+
+  if (value <= 89) {
+    return 4;
+  }
+
+  return 5;
+}
+
+function getGradeClassName(grade: number) {
+  if (grade <= 2) {
+    return 'border-red-200 bg-red-50 text-red-700';
+  }
+
+  if (grade === 3) {
+    return 'border-amber-200 bg-amber-50 text-amber-700';
+  }
+
+  if (grade === 4) {
+    return 'border-sky-200 bg-sky-50 text-sky-700';
+  }
+
+  return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+}
+
+function parseDateValue(value: string) {
+  return new Date(`${value}T00:00:00`);
+}
+
+function toDateValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function formatShortDate(value: string) {
+  if (!value) {
+    return '';
+  }
+
+  return formatLessonDate(value);
+}
+
 function formatScore(value: number | null) {
   if (value === null || Number.isNaN(value)) {
     return '0';
   }
 
-  return `${Math.round(value * 100) / 100}`;
+  return `${roundScore(value)}`;
 }
 
 function formatLessonDate(value: string) {
-  const date = new Date(`${value}T00:00:00`);
+  const date = parseDateValue(value);
   const day = date.getDate();
   const month = date.toLocaleString('ru-RU', { month: 'short' }).replace('.', '');
   const weekDay = date.toLocaleString('ru-RU', { weekday: 'short' });
