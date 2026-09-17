@@ -376,9 +376,12 @@ public sealed class TeachingService : ITeachingService
                 grade.DailyLessonId,
                 grade.StudentId,
                 Score = grade.FinalScore ?? grade.AutoScore,
-                grade.AttendanceStatus
+                grade.AttendanceStatus,
+                IsAdjusted = grade.FinalScore.HasValue
             })
             .ToListAsync(cancellationToken);
+        var canEditScores = IsTeacher();
+        var editableLessonDate = today.AddDays(-1);
 
         var subjects = group.Subjects
             .Where(groupSubject => subjectIdSet.Contains(groupSubject.SubjectId))
@@ -422,7 +425,9 @@ public sealed class TeachingService : ITeachingService
                                 return new GroupJournalLessonScoreDto(
                                     lesson.Id,
                                     lessonGrade?.Score,
-                                    lessonGrade?.AttendanceStatus.ToString() ?? "NoGrade");
+                                    lessonGrade?.AttendanceStatus.ToString() ?? "NoGrade",
+                                    lessonGrade?.IsAdjusted ?? false,
+                                    canEditScores && lessonGrade is not null && lesson.LessonDate == editableLessonDate);
                             })
                             .ToList();
 
@@ -581,6 +586,91 @@ public sealed class TeachingService : ITeachingService
 
         await _dbContext.SaveChangesAsync(cancellationToken);
         return await GetDailyLessonDtoAsync(lesson.Id, cancellationToken);
+    }
+
+    public async Task<GroupJournalLessonScoreDto?> UpdateGroupJournalScoreAsync(
+        Guid groupId,
+        Guid lessonId,
+        Guid studentId,
+        UpdateGroupJournalScoreRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!IsTeacher() || request.Score < 0 || request.Score > 100)
+        {
+            return null;
+        }
+
+        var teacherId = RequireCurrentUserId();
+        var editableLessonDate = GetBusinessToday().AddDays(-1);
+        var lesson = await _dbContext.DailyLessons
+            .FirstOrDefaultAsync(candidate =>
+                candidate.Id == lessonId &&
+                candidate.LessonDate == editableLessonDate &&
+                candidate.TestAssignments.Any(assignment => assignment.GroupId == groupId),
+                cancellationToken);
+
+        if (lesson is null)
+        {
+            return null;
+        }
+
+        var canEdit = await _dbContext.TeacherSubjectGroups.AnyAsync(
+            assignment =>
+                assignment.TeacherId == teacherId &&
+                assignment.GroupId == groupId &&
+                assignment.SubjectId == lesson.SubjectId,
+            cancellationToken);
+        if (!canEdit)
+        {
+            return null;
+        }
+
+        var studentInGroup = await _dbContext.GroupStudents.AnyAsync(
+            groupStudent => groupStudent.GroupId == groupId && groupStudent.StudentId == studentId,
+            cancellationToken);
+        if (!studentInGroup)
+        {
+            return null;
+        }
+
+        var grade = await _dbContext.GradeEntries
+            .FirstOrDefaultAsync(candidate =>
+                candidate.DailyLessonId == lessonId &&
+                candidate.StudentId == studentId,
+                cancellationToken);
+        if (grade is null)
+        {
+            return null;
+        }
+
+        var newScore = Math.Round(request.Score, 2);
+        var previousFinalScore = grade.FinalScore;
+        grade.FinalScore = newScore;
+        grade.GradedByTeacherId = teacherId;
+        grade.GradedAtUtc = _dateTimeProvider.UtcNow;
+        grade.TeacherComment = string.IsNullOrWhiteSpace(request.Reason)
+            ? grade.TeacherComment
+            : request.Reason.Trim();
+
+        _dbContext.GradeAuditLogs.Add(new GradeAuditLog
+        {
+            GradeEntryId = grade.Id,
+            ChangedByUserId = teacherId,
+            PreviousFinalScore = previousFinalScore,
+            NewFinalScore = newScore,
+            Reason = string.IsNullOrWhiteSpace(request.Reason)
+                ? "Daily teacher adjustment"
+                : request.Reason.Trim()
+        });
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new GroupJournalLessonScoreDto(
+            lessonId,
+            newScore,
+            grade.AttendanceStatus.ToString(),
+            true,
+            true);
     }
 
     public async Task<TeacherDashboardDto> GetTeacherDashboardAsync(CancellationToken cancellationToken)

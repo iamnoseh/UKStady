@@ -37,6 +37,7 @@ import {
   getUsers,
   setTeacherAssignment,
   removeStudentFromGroup,
+  updateGroupJournalScore,
   updateGroupLessonTopic,
   updateGroup,
 } from '../services/api';
@@ -44,6 +45,7 @@ import type {
   GroupDto,
   GroupJournalDto,
   GroupJournalLessonDto,
+  GroupJournalLessonScoreDto,
   GroupSubjectDto,
   GroupSubjectJournalDto,
   SubjectDto,
@@ -116,7 +118,16 @@ export function GroupsPage() {
     lesson: GroupJournalLessonDto;
     subject: GroupSubjectJournalDto;
   } | null>(null);
+  const [scoreModal, setScoreModal] = useState<{
+    lesson: GroupJournalLessonDto;
+    studentId: string;
+    studentName: string;
+    score: GroupJournalLessonScoreDto;
+  } | null>(null);
   const [topicModalTopicId, setTopicModalTopicId] = useState('');
+  const [scoreModalValue, setScoreModalValue] = useState('');
+  const [scoreModalReason, setScoreModalReason] = useState('');
+  const [isScoreSubmitting, setIsScoreSubmitting] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [teacherModalSubject, setTeacherModalSubject] = useState<GroupSubjectDto | null>(null);
   const [selectedTeacherId, setSelectedTeacherId] = useState('');
@@ -436,6 +447,23 @@ export function GroupsPage() {
     setTopicModalTopicId('');
   }
 
+  function openScoreModal(lesson: GroupJournalLessonDto, studentId: string, studentName: string, score: GroupJournalLessonScoreDto) {
+    if (!score.canEdit || score.score === null) {
+      return;
+    }
+
+    setScoreModal({ lesson, studentId, studentName, score });
+    setScoreModalValue(String(score.score));
+    setScoreModalReason('');
+    setError('');
+  }
+
+  function closeScoreModal() {
+    setScoreModal(null);
+    setScoreModalValue('');
+    setScoreModalReason('');
+  }
+
   async function handleSaveLessonTopic() {
     if (!topicModalLesson || !topicModalTopicId) {
       return;
@@ -443,6 +471,41 @@ export function GroupsPage() {
 
     await handleUpdateLessonTopic(topicModalLesson.lesson.id, topicModalTopicId);
     closeTopicModal();
+  }
+
+  async function handleSaveScore() {
+    if (!auth || !selectedGroupId || !scoreModal) {
+      return;
+    }
+
+    const score = Number(scoreModalValue.replace(',', '.'));
+    if (Number.isNaN(score) || score < 0 || score > 100) {
+      setError('Бал бояд аз 0 то 100 бошад.');
+      return;
+    }
+
+    setIsScoreSubmitting(true);
+    setError('');
+    setNotice('');
+    try {
+      await updateGroupJournalScore(
+        auth.accessToken,
+        selectedGroupId,
+        scoreModal.lesson.id,
+        scoreModal.studentId,
+        {
+          score,
+          reason: scoreModalReason.trim() || null,
+        },
+      );
+      await loadJournal(selectedGroupId);
+      setNotice('Бали хонанда тағйир дода шуд.');
+      closeScoreModal();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Бал тағйир дода нашуд.');
+    } finally {
+      setIsScoreSubmitting(false);
+    }
   }
 
   const filteredGroups = useMemo(() => {
@@ -908,7 +971,7 @@ export function GroupsPage() {
                             </td>
                           ))}
                           <td className="w-[130px] border-b border-r border-line px-3 py-4 text-center">
-                            <span className="inline-flex h-9 min-w-[84px] items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 font-bold text-emerald-800">
+                            <span className={`inline-flex h-9 min-w-[84px] items-center justify-center rounded-lg border px-3 font-bold ${getAverageScoreClassName(student.averageScore)}`}>
                               {formatScore(student.averageScore)}
                             </span>
                           </td>
@@ -1026,21 +1089,30 @@ export function GroupsPage() {
                             </div>
                           </td>
                           <td className="sticky left-[230px] z-20 w-[120px] border-b border-r border-line bg-inherit px-3 py-4 text-center">
-                            <span className="inline-flex h-9 w-[86px] items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 font-bold text-ink">
+                            <span className={`inline-flex h-9 w-[86px] items-center justify-center rounded-lg border font-bold ${getAverageScoreClassName(student.averageScore)}`}>
                               {formatScore(student.averageScore)}
                             </span>
                           </td>
                           {activeSubjectJournal.lessons.map((lesson) => {
                             const score = student.lessonScores.find((item) => item.lessonId === lesson.id);
+                            const scoreContent = formatScore(score?.score ?? null);
+                            const scoreClassName = getJournalScoreClassName(score);
                             return (
                               <td key={`${student.studentId}-${lesson.id}`} className="w-[154px] border-b border-r border-line px-3 py-4 text-center">
-                                <span className={`inline-flex h-9 w-[110px] items-center justify-center rounded-lg border font-bold ${
-                                  score?.score === null || score?.score === undefined
-                                    ? 'border-slate-200 bg-slate-50 text-muted'
-                                    : 'border-emerald-200 bg-emerald-50 text-ink'
-                                }`}>
-                                  {formatScore(score?.score ?? null)}
-                                </span>
+                                {score?.canEdit && score.score !== null ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => openScoreModal(lesson, student.studentId, student.fullName, score)}
+                                    className={`inline-flex h-9 w-[110px] items-center justify-center rounded-lg border font-bold transition hover:ring-2 hover:ring-brand/20 ${scoreClassName}`}
+                                    title="Тағйир додани бал"
+                                  >
+                                    {scoreContent}
+                                  </button>
+                                ) : (
+                                  <span className={`inline-flex h-9 w-[110px] items-center justify-center rounded-lg border font-bold ${scoreClassName}`}>
+                                    {scoreContent}
+                                  </span>
+                                )}
                               </td>
                             );
                           })}
@@ -1301,6 +1373,69 @@ export function GroupsPage() {
           </div>
         ) : null}
 
+        {scoreModal ? (
+          <div className="fixed inset-0 z-50 grid place-items-center bg-ink/25 px-4">
+            <div className="w-full max-w-md rounded-lg border border-line bg-white p-5 shadow-soft">
+              <div className="mb-4 flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-muted">{scoreModal.studentName}</p>
+                  <h3 className="mt-1 text-lg font-bold">Тағйир додани бал</h3>
+                  <p className="mt-1 text-sm text-muted">{formatLessonDate(scoreModal.lesson.lessonDate)}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeScoreModal}
+                  className="grid h-9 w-9 place-items-center rounded-lg border border-line text-muted transition hover:bg-panel hover:text-ink"
+                  aria-label="Пӯшидан"
+                  title="Пӯшидан"
+                  disabled={isScoreSubmitting}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <label className="block">
+                <span className="text-sm font-semibold">Бали нав</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step="0.01"
+                  value={scoreModalValue}
+                  onChange={(event) => setScoreModalValue(event.target.value)}
+                  className="mt-2 h-11 w-full rounded-lg border border-line px-3 outline-none focus:border-brand"
+                  placeholder="0-100"
+                />
+              </label>
+
+              <label className="mt-4 block">
+                <span className="text-sm font-semibold">Шарҳ</span>
+                <textarea
+                  value={scoreModalReason}
+                  onChange={(event) => setScoreModalReason(event.target.value)}
+                  className="mt-2 min-h-24 w-full resize-none rounded-lg border border-line px-3 py-2 outline-none focus:border-brand"
+                  placeholder="Масалан: бонус барои кори иловагӣ"
+                />
+              </label>
+
+              <div className="mt-5 flex justify-end gap-2">
+                <Button type="button" variant="secondary" onClick={closeScoreModal} disabled={isScoreSubmitting}>
+                  <XCircle className="h-4 w-4" />
+                  Бекор кардан
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => void handleSaveScore()}
+                  disabled={isScoreSubmitting || !scoreModalValue.trim()}
+                >
+                  <Save className="h-4 w-4" />
+                  {isScoreSubmitting ? 'Сабт шуда истодааст...' : 'Сабт кардан'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         {teacherModalSubject ? (
           <div className="fixed inset-0 z-50 grid place-items-center bg-ink/25 px-4">
             <div className="w-full max-w-md rounded-lg border border-line bg-white p-5 shadow-soft">
@@ -1506,15 +1641,15 @@ function roundScore(value: number) {
 }
 
 function getGradeByAverage(value: number) {
-  if (value <= 30) {
+  if (value <= 35) {
     return 1;
   }
 
-  if (value <= 50) {
+  if (value <= 55) {
     return 2;
   }
 
-  if (value <= 69) {
+  if (value <= 75) {
     return 3;
   }
 
@@ -1539,6 +1674,26 @@ function getGradeClassName(grade: number) {
   }
 
   return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+}
+
+function getAverageScoreClassName(score: number | null) {
+  if (score !== null && score >= 90) {
+    return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+  }
+
+  return 'border-slate-200 bg-white text-ink';
+}
+
+function getJournalScoreClassName(score?: GroupJournalLessonScoreDto) {
+  if (!score || score.score === null || score.score === undefined) {
+    return 'border-slate-200 bg-slate-50 text-muted';
+  }
+
+  if (score.isAdjusted) {
+    return 'border-orange-200 bg-orange-50 text-orange-700';
+  }
+
+  return 'border-slate-200 bg-white text-ink';
 }
 
 function parseDateValue(value: string) {

@@ -186,6 +186,13 @@ export interface GroupJournalLessonScoreDto {
   lessonId: string;
   score: number | null;
   status: string;
+  isAdjusted: boolean;
+  canEdit: boolean;
+}
+
+export interface UpdateGroupJournalScoreRequest {
+  score: number;
+  reason: string | null;
 }
 
 export interface GroupJournalLessonDto {
