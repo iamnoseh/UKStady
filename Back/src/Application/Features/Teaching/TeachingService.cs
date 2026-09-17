@@ -647,73 +647,131 @@ public sealed class TeachingService : ITeachingService
         var targetDate = date ?? GetBusinessToday().AddDays(-1);
         var normalizedSort = string.IsNullOrWhiteSpace(sort) ? "scoreAsc" : sort.Trim();
 
-        var query = _dbContext.TestAssignments
+        var assignedPairsQuery = _dbContext.TeacherSubjectGroups
             .AsNoTracking()
             .Where(assignment =>
-                assignment.DailyLesson.LessonDate == targetDate &&
-                _dbContext.TeacherSubjectGroups.Any(teacherAssignment =>
-                    teacherAssignment.TeacherId == teacherId &&
-                    teacherAssignment.GroupId == assignment.GroupId &&
-                    teacherAssignment.SubjectId == assignment.DailyLesson.SubjectId));
+                assignment.TeacherId == teacherId &&
+                assignment.Group.IsActive &&
+                assignment.Subject.IsActive);
 
         if (groupId.HasValue)
         {
-            query = query.Where(assignment => assignment.GroupId == groupId.Value);
+            assignedPairsQuery = assignedPairsQuery.Where(assignment => assignment.GroupId == groupId.Value);
         }
 
-        var resultsQuery = query.SelectMany(
-            assignment => assignment.DailyLesson.GradeEntries
-                .Where(grade => assignment.Group.Students.Any(
-                    groupStudent => groupStudent.StudentId == grade.StudentId)),
-            (assignment, grade) => new
-            {
-                grade.StudentId,
-                StudentName = grade.Student.FirstName + " " + grade.Student.LastName,
-                grade.Student.PhoneNumber,
+        var assignedRows = await assignedPairsQuery
+            .SelectMany(
+                assignment => _dbContext.GroupStudents
+                    .AsNoTracking()
+                    .Where(groupStudent =>
+                        groupStudent.GroupId == assignment.GroupId &&
+                        groupStudent.Student.IsActive &&
+                        groupStudent.Student.Role == UserRole.Student),
+                (assignment, groupStudent) => new TeacherDashboardStudentSubjectRow(
+                    groupStudent.StudentId,
+                    groupStudent.Student.FirstName + " " + groupStudent.Student.LastName,
+                    groupStudent.Student.PhoneNumber,
+                    assignment.GroupId,
+                    assignment.Group.Name,
+                    assignment.Group.Branch,
+                    assignment.SubjectId,
+                    assignment.Subject.Name))
+            .ToListAsync(cancellationToken);
+
+        var groupIds = assignedRows.Select(row => row.GroupId).Distinct().ToList();
+        var subjectIds = assignedRows.Select(row => row.SubjectId).Distinct().ToList();
+
+        var lessonRows = await _dbContext.TestAssignments
+            .AsNoTracking()
+            .Where(assignment =>
+                assignment.Group.IsActive &&
+                assignment.DailyLesson.LessonDate == targetDate &&
+                groupIds.Contains(assignment.GroupId) &&
+                subjectIds.Contains(assignment.DailyLesson.SubjectId) &&
+                _dbContext.TeacherSubjectGroups.Any(teacherAssignment =>
+                    teacherAssignment.TeacherId == teacherId &&
+                    teacherAssignment.GroupId == assignment.GroupId &&
+                    teacherAssignment.SubjectId == assignment.DailyLesson.SubjectId))
+            .Select(assignment => new TeacherDashboardLessonRow(
                 assignment.GroupId,
-                GroupName = assignment.Group.Name,
-                assignment.Group.Branch,
                 assignment.DailyLesson.SubjectId,
-                SubjectName = assignment.DailyLesson.Subject.Name,
                 assignment.DailyLessonId,
-                LessonTitle = assignment.DailyLesson.Title,
+                assignment.DailyLesson.Title,
                 assignment.DailyLesson.TopicId,
-                TopicTitle = assignment.DailyLesson.Topic == null ? null : assignment.DailyLesson.Topic.Title,
-                Score = grade.FinalScore ?? grade.AutoScore,
-                grade.AttendanceStatus
-            });
+                assignment.DailyLesson.Topic == null ? null : assignment.DailyLesson.Topic.Title))
+            .ToListAsync(cancellationToken);
 
-        resultsQuery = string.Equals(normalizedSort, "scoreDesc", StringComparison.OrdinalIgnoreCase)
-            ? resultsQuery
-                .OrderByDescending(result => result.Score)
-                .ThenBy(result => result.StudentName)
-                .ThenBy(result => result.SubjectName)
-            : resultsQuery
-                .OrderBy(result => result.Score)
-                .ThenBy(result => result.StudentName)
-                .ThenBy(result => result.SubjectName);
+        var lessonIds = lessonRows.Select(row => row.DailyLessonId).Distinct().ToList();
+        var studentIds = assignedRows.Select(row => row.StudentId).Distinct().ToList();
 
-        var rows = await resultsQuery.ToListAsync(cancellationToken);
-        var results = rows
-            .Select(row => new TeacherDashboardStudentResultDto(
-                row.StudentId,
-                row.StudentName,
-                row.PhoneNumber,
-                row.GroupId,
-                row.GroupName,
-                row.Branch,
-                row.SubjectId,
-                row.SubjectName,
-                row.DailyLessonId,
-                row.LessonTitle,
-                row.TopicId,
-                row.TopicTitle,
-                row.Score,
-                row.AttendanceStatus.ToString()))
-            .ToList();
-        var averageScore = results.Count == 0
+        var gradeRows = await _dbContext.GradeEntries
+            .AsNoTracking()
+            .Where(grade =>
+                lessonIds.Contains(grade.DailyLessonId) &&
+                studentIds.Contains(grade.StudentId))
+            .Select(grade => new TeacherDashboardGradeRow(
+                grade.DailyLessonId,
+                grade.StudentId,
+                grade.FinalScore ?? grade.AutoScore,
+                grade.AttendanceStatus.ToString()))
+            .ToListAsync(cancellationToken);
+
+        var lessonsByGroupSubject = lessonRows
+            .GroupBy(row => (row.GroupId, row.SubjectId))
+            .ToDictionary(group => group.Key, group => group.OrderBy(row => row.LessonTitle).ToList());
+        var gradesByLessonStudent = gradeRows
+            .GroupBy(row => (row.DailyLessonId, row.StudentId))
+            .ToDictionary(group => group.Key, group => group.First());
+
+        var results = new List<TeacherDashboardStudentResultDto>();
+        foreach (var assignedRow in assignedRows)
+        {
+            if (!lessonsByGroupSubject.TryGetValue((assignedRow.GroupId, assignedRow.SubjectId), out var lessons) || lessons.Count == 0)
+            {
+                results.Add(new TeacherDashboardStudentResultDto(
+                    assignedRow.StudentId,
+                    assignedRow.StudentName,
+                    assignedRow.PhoneNumber,
+                    assignedRow.GroupId,
+                    assignedRow.GroupName,
+                    assignedRow.Branch,
+                    assignedRow.SubjectId,
+                    assignedRow.SubjectName,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    "NoGrade"));
+                continue;
+            }
+
+            foreach (var lesson in lessons)
+            {
+                gradesByLessonStudent.TryGetValue((lesson.DailyLessonId, assignedRow.StudentId), out var grade);
+                results.Add(new TeacherDashboardStudentResultDto(
+                    assignedRow.StudentId,
+                    assignedRow.StudentName,
+                    assignedRow.PhoneNumber,
+                    assignedRow.GroupId,
+                    assignedRow.GroupName,
+                    assignedRow.Branch,
+                    assignedRow.SubjectId,
+                    assignedRow.SubjectName,
+                    lesson.DailyLessonId,
+                    lesson.LessonTitle,
+                    lesson.TopicId,
+                    lesson.TopicTitle,
+                    grade?.Score,
+                    grade?.AttendanceStatus ?? "NoGrade"));
+            }
+        }
+
+        results = SortTeacherDashboardResults(results, normalizedSort).ToList();
+        var scoredResults = results.Where(result => result.Score.HasValue).ToList();
+        var averageScore = scoredResults.Count == 0
             ? (decimal?)null
-            : Math.Round(results.Average(result => result.Score), 2);
+            : Math.Round(scoredResults.Average(result => result.Score!.Value), 2);
 
         return new TeacherDashboardDailyResultsDto(
             targetDate,
@@ -721,6 +779,50 @@ public sealed class TeachingService : ITeachingService
             averageScore,
             results);
     }
+
+
+    private static IEnumerable<TeacherDashboardStudentResultDto> SortTeacherDashboardResults(
+        IEnumerable<TeacherDashboardStudentResultDto> results,
+        string sort)
+    {
+        return string.Equals(sort, "scoreDesc", StringComparison.OrdinalIgnoreCase)
+            ? results
+                .OrderBy(result => result.Score.HasValue ? 0 : 1)
+                .ThenByDescending(result => result.Score)
+                .ThenBy(result => result.StudentName)
+                .ThenBy(result => result.GroupName)
+                .ThenBy(result => result.SubjectName)
+            : results
+                .OrderBy(result => result.Score.HasValue ? 1 : 0)
+                .ThenBy(result => result.Score)
+                .ThenBy(result => result.StudentName)
+                .ThenBy(result => result.GroupName)
+                .ThenBy(result => result.SubjectName);
+    }
+
+    private sealed record TeacherDashboardStudentSubjectRow(
+        Guid StudentId,
+        string StudentName,
+        string PhoneNumber,
+        Guid GroupId,
+        string GroupName,
+        string Branch,
+        Guid SubjectId,
+        string SubjectName);
+
+    private sealed record TeacherDashboardLessonRow(
+        Guid GroupId,
+        Guid SubjectId,
+        Guid DailyLessonId,
+        string LessonTitle,
+        Guid? TopicId,
+        string? TopicTitle);
+
+    private sealed record TeacherDashboardGradeRow(
+        Guid DailyLessonId,
+        Guid StudentId,
+        decimal Score,
+        string AttendanceStatus);
 
     private async Task<TopicDto?> GetTopicDtoAsync(Guid id, CancellationToken cancellationToken)
     {

@@ -84,6 +84,50 @@ public sealed class AdministrationEndpointTests : IClassFixture<TestApiFactory>
         Assert.True(dashboard.TeacherAssignments >= 1);
     }
 
+
+
+    [Fact]
+    public async Task AdminDashboardDailyResults_ReturnsStudentsFromActiveGroupsWithoutGrades()
+    {
+        using var client = _factory.CreateClient();
+        await AuthorizeAsync(client, "+992000000000", "Admin123!");
+
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var subject = await CreateSubjectAsync(client, $"Dashboard admin subject {suffix}");
+        var group = await CreateGroupAsync(client, [subject.Id], $"Dashboard admin group {suffix}");
+        var firstStudent = await CreateUserAsync(
+            client,
+            UserRole.Student,
+            $"dashboard-admin-student-a-{suffix}",
+            $"+99241{suffix[..7]}",
+            "12345A");
+        var secondStudent = await CreateUserAsync(
+            client,
+            UserRole.Student,
+            $"dashboard-admin-student-b-{suffix}",
+            $"+99242{suffix[..7]}",
+            "12345A");
+
+        (await client.PostAsync($"/api/groups/{group.Id}/students/{firstStudent.Id}", null)).EnsureSuccessStatusCode();
+        (await client.PostAsync($"/api/groups/{group.Id}/students/{secondStudent.Id}", null)).EnsureSuccessStatusCode();
+
+        var results = await client.GetFromJsonAsync<DashboardDailyResultsDto>(
+            $"/api/admin/dashboard/daily-results?date=2026-09-15&groupId={group.Id}&sort=scoreAsc");
+
+        Assert.NotNull(results);
+        Assert.Equal(2, results.TotalResults);
+        Assert.Null(results.AverageScore);
+        Assert.All(results.Results, result =>
+        {
+            Assert.Equal(group.Id, result.GroupId);
+            Assert.Equal(subject.Id, result.SubjectId);
+            Assert.Null(result.Score);
+            Assert.Equal("NoGrade", result.AttendanceStatus);
+        });
+        Assert.Contains(results.Results, result => result.StudentId == firstStudent.Id);
+        Assert.Contains(results.Results, result => result.StudentId == secondStudent.Id);
+    }
+
     [Fact]
     public async Task TeacherAssignments_Set_ReplacesTeacherForGroupSubject()
     {

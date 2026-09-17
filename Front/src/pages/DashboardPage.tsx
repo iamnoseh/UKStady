@@ -10,7 +10,9 @@ import {
   getTeacherDashboardDailyResults,
   getTeacherDashboardGroups,
 } from '../services/api';
-import type { DashboardDailyResultsDto, DashboardDailyResultsSort, GroupDto } from '../types/admin';
+import type { DashboardDailyResultsDto, DashboardDailyResultsSort } from '../types/admin';
+
+type DashboardGroupOption = { id: string; name: string; isActive?: boolean };
 
 const sortOptions: Array<{ value: DashboardDailyResultsSort; label: string }> = [
   { value: 'scoreAsc', label: 'Хол: аз кам ба зиёд' },
@@ -20,7 +22,7 @@ const sortOptions: Array<{ value: DashboardDailyResultsSort; label: string }> = 
 export function DashboardPage({ onViewChange: _onViewChange }: { onViewChange: (view: AppView) => void }) {
   const { auth } = useAuth();
   const isTeacher = auth?.role === 'Teacher';
-  const [groups, setGroups] = useState<Array<Pick<GroupDto, 'id' | 'name'>>>([]);
+  const [groups, setGroups] = useState<DashboardGroupOption[]>([]);
   const [dailyResults, setDailyResults] = useState<DashboardDailyResultsDto | null>(null);
   const [date, setDate] = useState(() => getYesterdayDateValue());
   const [groupId, setGroupId] = useState('');
@@ -29,7 +31,7 @@ export function DashboardPage({ onViewChange: _onViewChange }: { onViewChange: (
   const [page, setPage] = useState(1);
   const [isLoadingResults, setIsLoadingResults] = useState(false);
   const [resultsError, setResultsError] = useState('');
-  const canSeeDailyResults = auth?.role === 'SuperAdmin' || isTeacher;
+  const canSeeDailyResults = auth?.role === 'SuperAdmin' || auth?.role === 'Admin' || auth?.role === 'Manager' || isTeacher;
 
   useEffect(() => {
     if (!auth || !canSeeDailyResults) {
@@ -81,7 +83,7 @@ export function DashboardPage({ onViewChange: _onViewChange }: { onViewChange: (
 
   const groupOptions = useMemo(() => {
     return groups
-      .slice()
+      .filter((group) => group.isActive !== false)
       .sort((left, right) => left.name.localeCompare(right.name));
   }, [groups]);
 
@@ -100,7 +102,7 @@ export function DashboardPage({ onViewChange: _onViewChange }: { onViewChange: (
         result.branch,
         result.subjectName,
         result.topicTitle ?? '',
-        result.lessonTitle,
+        result.lessonTitle ?? '',
       ].join(' ').toLowerCase().includes(value),
     );
   }, [dailyResults?.results, search]);
@@ -127,8 +129,8 @@ export function DashboardPage({ onViewChange: _onViewChange }: { onViewChange: (
     <section className="px-4 py-6 lg:px-6">
       <div className="mb-5 flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
         <div>
-          <p className="text-sm font-semibold text-muted">{isTeacher ? `Муаллим: ${auth?.fullName}` : 'SuperAdmin'}</p>
-          <h2 className="mt-1 text-2xl font-bold">{isTeacher ? 'Натиҷаҳои гурӯҳҳои ман' : 'Дашбоарди натиҷаҳо'}</h2>
+          <p className="text-sm font-semibold text-muted">{isTeacher ? `Муаллим: ${auth?.fullName}` : `Нақш: ${auth?.role}`}</p>
+          <h2 className="mt-1 text-2xl font-bold">{isTeacher ? 'Натиҷаҳои гурӯҳҳои ман' : 'Дашбоарди донишҷӯён'}</h2>
         </div>
       </div>
 
@@ -214,19 +216,19 @@ export function DashboardPage({ onViewChange: _onViewChange }: { onViewChange: (
         {isLoadingResults ? <p className="px-4 py-5 text-sm text-muted">Натиҷаҳо бор шуда истодаанд...</p> : null}
         {!isLoadingResults && resultsError ? <p className="px-4 py-5 text-sm text-red-600">{resultsError}</p> : null}
         {!isLoadingResults && !resultsError && pagedResults.items.length === 0 ? (
-          <p className="px-4 py-5 text-sm text-muted">Барои ин рӯз натиҷа ёфт нашуд.</p>
+          <p className="px-4 py-5 text-sm text-muted">Барои ин филтр донишҷӯ ёфт нашуд.</p>
         ) : null}
 
         {pagedResults.items.map((result) => (
-          <div key={`${result.dailyLessonId}-${result.studentId}-${result.groupId}`} className="grid grid-cols-[1.2fr_110px_120px_1fr_1fr_130px] items-center border-b border-line px-4 py-4 text-sm last:border-0">
+          <div key={`${result.dailyLessonId ?? 'no-lesson'}-${result.studentId}-${result.groupId}-${result.subjectId}`} className="grid grid-cols-[1.2fr_110px_120px_1fr_1fr_130px] items-center border-b border-line px-4 py-4 text-sm last:border-0">
             <div className="min-w-0">
               <p className="font-semibold">{result.studentName}</p>
               <p className="truncate text-muted">{result.phoneNumber}</p>
             </div>
             <span className={`w-fit rounded-md px-2 py-1 text-xs font-bold ${getScoreClassName(result.score)}`}>
-              {result.score} хол
+              {result.score === null ? 'Насупоридааст' : `${result.score} хол`}
             </span>
-            <span className="text-muted">{result.attendanceStatus === 'Present' ? 'Иштирок' : 'Ғоиб'}</span>
+            <span className="text-muted">{formatAttendanceStatus(result.attendanceStatus)}</span>
             <div className="min-w-0">
               <p className="font-semibold">{result.groupName}</p>
               <p className="truncate text-muted">{result.branch}</p>
@@ -235,7 +237,7 @@ export function DashboardPage({ onViewChange: _onViewChange }: { onViewChange: (
               <p className="font-semibold">{result.subjectName}</p>
               <p className="truncate text-muted">{result.topicTitle ?? 'Мавзӯъ нест'}</p>
             </div>
-            <span className="truncate text-muted">{result.lessonTitle}</span>
+            <span className="truncate text-muted">{result.lessonTitle ?? 'Дарс нест'}</span>
           </div>
         ))}
       </div>
@@ -271,7 +273,11 @@ function toDateValue(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function getScoreClassName(score: number) {
+function getScoreClassName(score: number | null) {
+  if (score === null) {
+    return 'bg-slate-50 text-slate-600';
+  }
+
   if (score < 50) {
     return 'bg-red-50 text-red-700';
   }
@@ -281,4 +287,16 @@ function getScoreClassName(score: number) {
   }
 
   return 'bg-emerald-50 text-emerald-700';
+}
+
+function formatAttendanceStatus(status: string) {
+  if (status === 'Present') {
+    return 'Иштирок';
+  }
+
+  if (status === 'Absent') {
+    return 'Ғоиб';
+  }
+
+  return 'Насупоридааст';
 }

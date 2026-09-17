@@ -250,11 +250,11 @@ export interface DashboardDailyStudentResultDto {
   branch: string;
   subjectId: string;
   subjectName: string;
-  dailyLessonId: string;
-  lessonTitle: string;
+  dailyLessonId: string | null;
+  lessonTitle: string | null;
   topicId: string | null;
   topicTitle: string | null;
-  score: number;
+  score: number | null;
   attendanceStatus: string;
 }
 

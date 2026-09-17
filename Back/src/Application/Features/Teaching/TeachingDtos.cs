@@ -146,9 +146,9 @@ public sealed record TeacherDashboardStudentResultDto(
     string Branch,
     Guid SubjectId,
     string SubjectName,
-    Guid DailyLessonId,
-    string LessonTitle,
+    Guid? DailyLessonId,
+    string? LessonTitle,
     Guid? TopicId,
     string? TopicTitle,
-    decimal Score,
+    decimal? Score,
     string AttendanceStatus);
