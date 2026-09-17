@@ -178,6 +178,7 @@ public sealed class TeachingEndpointTests : IClassFixture<TestApiFactory>
         var firstTeacher = await CreateUserAsync(client, UserRole.Teacher, $"dashboard-teacher-a-{suffix}", firstTeacherPhone);
         var secondTeacher = await CreateUserAsync(client, UserRole.Teacher, $"dashboard-teacher-b-{suffix}", secondTeacherPhone);
         var firstStudent = await CreateUserAsync(client, UserRole.Student, $"dashboard-student-a-{suffix}", $"+99236{suffix[..7]}");
+        var ungradedStudent = await CreateUserAsync(client, UserRole.Student, $"dashboard-student-ungraded-{suffix}", $"+99238{suffix[..7]}");
         var secondStudent = await CreateUserAsync(client, UserRole.Student, $"dashboard-student-b-{suffix}", $"+99237{suffix[..7]}");
         var firstSubject = await CreateSubjectAsync(client, $"Dashboard subject A {suffix}");
         var secondSubject = await CreateSubjectAsync(client, $"Dashboard subject B {suffix}");
@@ -187,6 +188,7 @@ public sealed class TeachingEndpointTests : IClassFixture<TestApiFactory>
         await AssignTeacherAsync(client, firstTeacher.Id, firstSubject.Id, firstGroup.Id);
         await AssignTeacherAsync(client, secondTeacher.Id, secondSubject.Id, secondGroup.Id);
         (await client.PostAsync($"/api/groups/{firstGroup.Id}/students/{firstStudent.Id}", null)).EnsureSuccessStatusCode();
+        (await client.PostAsync($"/api/groups/{firstGroup.Id}/students/{ungradedStudent.Id}", null)).EnsureSuccessStatusCode();
         (await client.PostAsync($"/api/groups/{secondGroup.Id}/students/{secondStudent.Id}", null)).EnsureSuccessStatusCode();
 
         var lessonDate = new DateOnly(2026, 9, 15);
@@ -226,16 +228,24 @@ public sealed class TeachingEndpointTests : IClassFixture<TestApiFactory>
         var groups = await client.GetFromJsonAsync<List<TeacherDashboardGroupDto>>("/api/teacher/dashboard/groups");
         Assert.NotNull(groups);
         var dashboardGroup = Assert.Single(groups.Where(group => group.Id == firstGroup.Id));
-        Assert.Equal(1, dashboardGroup.StudentCount);
+        Assert.Equal(2, dashboardGroup.StudentCount);
         Assert.DoesNotContain(groups, group => group.Id == secondGroup.Id);
 
         var results = await client.GetFromJsonAsync<TeacherDashboardDailyResultsDto>(
             $"/api/teacher/dashboard/daily-results?date={lessonDate:yyyy-MM-dd}&sort=scoreAsc");
         Assert.NotNull(results);
-        var studentResult = Assert.Single(results.Results);
+        Assert.Equal(2, results.Results.Count);
+        var studentResult = results.Results[0];
         Assert.Equal(firstStudent.Id, studentResult.StudentId);
         Assert.Equal(firstGroup.Id, studentResult.GroupId);
         Assert.Equal(firstSubject.Id, studentResult.SubjectId);
+        Assert.True(studentResult.Score.HasValue);
+        Assert.Equal(84m, studentResult.Score.Value);
+
+        var ungradedResult = results.Results[1];
+        Assert.Equal(ungradedStudent.Id, ungradedResult.StudentId);
+        Assert.Null(ungradedResult.Score);
+        Assert.Equal("NoGrade", ungradedResult.AttendanceStatus);
         Assert.DoesNotContain(results.Results, result => result.StudentId == secondStudent.Id);
     }
 
