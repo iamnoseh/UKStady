@@ -407,6 +407,57 @@ public sealed class TeachingEndpointTests : IClassFixture<TestApiFactory>
         Assert.Equal(0m, submitResult.Score);
     }
 
+    [Fact]
+    public async Task GroupJournal_UnsubmittedTest_CountsAsZeroAndCanBeGradedByTeacherForYesterday()
+    {
+        using var client = _factory.CreateClient();
+        await AuthorizeAsync(client, "+992000000000", "Admin123!");
+
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var teacherPhone = $"+99253{suffix[..7]}";
+        var studentPhone = $"+99254{suffix[..7]}";
+        var teacher = await CreateUserAsync(client, UserRole.Teacher, $"jt-{suffix}", teacherPhone);
+        var student = await CreateUserAsync(client, UserRole.Student, $"js-{suffix}", studentPhone);
+        var subject = await CreateSubjectAsync(client, $"Sub-{suffix}");
+        var group = await CreateGroupAsync(client, $"Grp-{suffix}", [subject.Id]);
+
+        await AssignTeacherAsync(client, teacher.Id, subject.Id, group.Id);
+        (await client.PostAsync($"/api/groups/{group.Id}/students/{student.Id}", null)).EnsureSuccessStatusCode();
+
+        var topic = await CreateTopicAsync(client, subject.Id);
+        await CreateQuestionAsync(client, topic.Id);
+        var yesterday = GetBusinessToday().AddDays(-1);
+        var yesterdayLesson = await CreateDailyLessonAsync(client, subject.Id, topic.Id, group.Id, yesterday);
+
+        // Teacher views group journal
+        await AuthorizeAsync(client, teacherPhone, "12345A");
+        var journal = await client.GetFromJsonAsync<GroupJournalDto>($"/api/group-journals/{group.Id}");
+        Assert.NotNull(journal);
+
+        var studentEntry = Assert.Single(Assert.Single(journal.Subjects).Students);
+        var lessonScore = Assert.Single(studentEntry.LessonScores);
+
+        // Unsubmitted test ("н"): Score is null, but average is 0, and canEdit is true for yesterday
+        Assert.Null(lessonScore.Score);
+        Assert.True(lessonScore.CanEdit);
+        Assert.Equal(0m, studentEntry.AverageScore);
+
+        // Teacher grades the unsubmitted test ("н") for yesterday's lesson
+        using var updateResponse = await client.PutAsJsonAsync(
+            $"/api/group-journals/{group.Id}/lessons/{yesterdayLesson.Id}/students/{student.Id}/score",
+            new UpdateGroupJournalScoreRequest(85, "Graded unsubmitted test"));
+        updateResponse.EnsureSuccessStatusCode();
+
+        // Check journal again: score is 85 and average is 85
+        var updatedJournal = await client.GetFromJsonAsync<GroupJournalDto>($"/api/group-journals/{group.Id}");
+        Assert.NotNull(updatedJournal);
+        var updatedStudent = Assert.Single(Assert.Single(updatedJournal.Subjects).Students);
+        var updatedLessonScore = Assert.Single(updatedStudent.LessonScores);
+
+        Assert.Equal(85m, updatedLessonScore.Score);
+        Assert.Equal(85m, updatedStudent.AverageScore);
+    }
+
     private static async Task AssignTeacherAsync(
         HttpClient client,
         Guid teacherId,

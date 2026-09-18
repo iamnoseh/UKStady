@@ -45,10 +45,9 @@ export function StudentJournalPage() {
   }, [auth, date]);
 
   const rows = useMemo(() => journal?.subjects ?? [], [journal?.subjects]);
-  const totalScoreRows = rows.filter((row) => row.score !== null);
-  const averageScore = totalScoreRows.length === 0
+  const averageScore = rows.length === 0
     ? null
-    : Math.round(totalScoreRows.reduce((sum, row) => sum + (row.score ?? 0), 0) / totalScoreRows.length);
+    : Math.round(rows.reduce((sum, row) => sum + (row.score ?? 0), 0) / rows.length);
 
   function moveDay(days: number) {
     setDate(addDays(date, days));
@@ -153,7 +152,7 @@ function formatDateLabel(dateValue: string) {
 
 function getScoreClassName(score: number | null) {
   if (score === null || Number.isNaN(score)) {
-    return 'border-slate-200 bg-slate-50 text-slate-400 font-medium';
+    return 'border-red-200 bg-red-50 text-red-600 font-extrabold';
   }
 
   if (score >= 90) {

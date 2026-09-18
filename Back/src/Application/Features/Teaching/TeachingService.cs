@@ -419,9 +419,14 @@ public sealed class TeachingService : ITeachingService
                         var todayGrade = todayLesson is null
                             ? null
                             : studentGrades.FirstOrDefault(grade => grade.DailyLessonId == todayLesson.Id);
-                        var average = studentGrades.Count == 0
+                        var totalScore = subjectLessons.Sum(lesson =>
+                        {
+                            var lessonGrade = studentGrades.FirstOrDefault(grade => grade.DailyLessonId == lesson.Id);
+                            return lessonGrade?.Score ?? 0m;
+                        });
+                        var average = subjectLessons.Count == 0
                             ? (decimal?)null
-                            : Math.Round(studentGrades.Average(grade => grade.Score), 2);
+                            : Math.Round(totalScore / subjectLessons.Count, 2);
                         var lessonScores = subjectLessons
                             .Select(lesson =>
                             {
@@ -449,9 +454,9 @@ public sealed class TeachingService : ITeachingService
                     .ThenBy(student => student.FullName)
                     .ToList();
 
-                var subjectAverage = subjectGrades.Count == 0
+                var subjectAverage = students.Count == 0 || !students.Any(student => student.AverageScore.HasValue)
                     ? (decimal?)null
-                    : Math.Round(subjectGrades.Average(grade => grade.Score), 2);
+                    : Math.Round(students.Where(student => student.AverageScore.HasValue).Average(student => student.AverageScore!.Value), 2);
 
                 return new GroupSubjectJournalDto(
                     groupSubject.SubjectId,

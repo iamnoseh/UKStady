@@ -502,12 +502,12 @@ export function GroupsPage() {
   }
 
   function openScoreModal(lesson: GroupJournalLessonDto, studentId: string, studentName: string, score: GroupJournalLessonScoreDto) {
-    if (!score.canEdit || score.score === null) {
+    if (!score.canEdit) {
       return;
     }
 
     setScoreModal({ lesson, studentId, studentName, score });
-    setScoreModalValue(String(score.score));
+    setScoreModalValue(score.score !== null && score.score !== undefined ? String(score.score) : '');
     setScoreModalReason('');
     setError('');
   }
@@ -660,17 +660,15 @@ export function GroupsPage() {
 
     journal.subjects.forEach((subject) => {
       subject.students.forEach((student) => {
-        const weeklyScores = student.lessonScores
-          .filter((lessonScore) => {
-            const lesson = lessonById.get(lessonScore.lessonId);
-            if (!lesson || lessonScore.score === null || lessonScore.score === undefined) {
-              return false;
-            }
+        const weekLessons = subject.lessons.filter((lesson) => {
+          const lessonDate = parseDateValue(lesson.lessonDate);
+          return lessonDate >= weekStart && lessonDate <= weekEnd;
+        });
 
-            const lessonDate = parseDateValue(lesson.lessonDate);
-            return lessonDate >= weekStart && lessonDate <= weekEnd;
-          })
-          .map((lessonScore) => lessonScore.score as number);
+        const weeklyScores = weekLessons.map((lesson) => {
+          const lessonScore = student.lessonScores.find((item) => item.lessonId === lesson.id);
+          return lessonScore?.score ?? 0;
+        });
 
         const subjectAverage = weeklyScores.length === 0
           ? 0
@@ -1182,12 +1180,12 @@ export function GroupsPage() {
                               const scoreClassName = getJournalScoreClassName(score);
                               return (
                                 <td key={`${student.studentId}-${lesson.id}`} className="w-[92px] sm:w-[154px] border-b border-r border-line px-1.5 sm:px-3 py-2 sm:py-4 text-center">
-                                  {score?.canEdit && score.score !== null ? (
+                                  {score?.canEdit ? (
                                     <button
                                       type="button"
                                       onClick={() => openScoreModal(lesson, student.studentId, student.fullName, score)}
                                       className={`inline-flex h-7 sm:h-9 w-[54px] sm:w-[110px] items-center justify-center rounded-lg border font-bold transition hover:ring-2 hover:ring-brand/20 ${scoreClassName}`}
-                                      title="Тағйир додани бал"
+                                      title={score.score !== null ? 'Тағйир додани бал' : 'Гузоштани бал (барои «н»)'}
                                     >
                                       {scoreContent}
                                     </button>
@@ -1502,7 +1500,9 @@ export function GroupsPage() {
               <div className="mb-4 flex items-start justify-between gap-4">
                 <div>
                   <p className="text-sm font-semibold text-muted">{scoreModal.studentName}</p>
-                  <h3 className="mt-1 text-lg font-bold">Тағйир додани бал</h3>
+                  <h3 className="mt-1 text-lg font-bold">
+                    {scoreModal.score.score !== null ? 'Тағйир додани бал' : 'Гузоштани бал (барои «н»)'}
+                  </h3>
                   <p className="mt-1 text-sm text-muted">{formatLessonDate(scoreModal.lesson.lessonDate)}</p>
                 </div>
                 <button
@@ -1889,14 +1889,16 @@ function getAverageScoreClassName(score: number | null) {
 
 function getJournalScoreClassName(score?: GroupJournalLessonScoreDto) {
   if (!score || score.score === null || score.score === undefined) {
-    return 'border-slate-200 bg-slate-50 text-muted';
+    return score?.canEdit
+      ? 'border-red-300 bg-red-50 text-red-600 font-extrabold hover:bg-red-100 hover:border-red-400 cursor-pointer shadow-sm'
+      : 'border-slate-200 bg-slate-50 text-red-600 font-extrabold';
   }
 
   if (score.isAdjusted) {
-    return 'border-orange-200 bg-orange-50 text-orange-700';
+    return 'border-orange-200 bg-orange-50 text-orange-700 font-bold';
   }
 
-  return 'border-slate-200 bg-white text-ink';
+  return 'border-slate-200 bg-white text-ink font-bold';
 }
 
 function parseDateValue(value: string) {
