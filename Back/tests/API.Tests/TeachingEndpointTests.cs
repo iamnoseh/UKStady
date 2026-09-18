@@ -350,6 +350,63 @@ public sealed class TeachingEndpointTests : IClassFixture<TestApiFactory>
         Assert.Equal(HttpStatusCode.Forbidden, adminUpdateResponse.StatusCode);
     }
 
+    [Fact]
+    public async Task StudentTest_Requires20Questions_AndAllowsCheckingUnansweredQuestion()
+    {
+        using var client = _factory.CreateClient();
+        await AuthorizeAsync(client, "+992000000000", "Admin123!");
+
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var teacherPhone = $"+99251{suffix[..7]}";
+        var studentPhone = $"+99252{suffix[..7]}";
+        var teacher = await CreateUserAsync(client, UserRole.Teacher, $"t-{suffix}", teacherPhone);
+        var student = await CreateUserAsync(client, UserRole.Student, $"s-{suffix}", studentPhone);
+        var subject = await CreateSubjectAsync(client, $"Bio-{suffix}");
+        var group = await CreateGroupAsync(client, $"Grp-{suffix}", [subject.Id]);
+
+        await AssignTeacherAsync(client, teacher.Id, subject.Id, group.Id);
+        (await client.PostAsync($"/api/groups/{group.Id}/students/{student.Id}", null)).EnsureSuccessStatusCode();
+
+        var topic = await CreateTopicAsync(client, subject.Id);
+
+        // Create 20 questions
+        for (var i = 0; i < 20; i++)
+        {
+            await CreateQuestionAsync(client, topic.Id);
+        }
+
+        var today = GetBusinessToday();
+        var dailyLesson = await CreateDailyLessonAsync(client, subject.Id, topic.Id, group.Id, today);
+
+        // Login as student
+        await AuthorizeAsync(client, studentPhone, "12345A");
+
+        // Start test
+        using var startResponse = await client.PostAsJsonAsync($"/api/student/tests/{dailyLesson.Id}/start", new StartStudentTestRequest(group.Id));
+        startResponse.EnsureSuccessStatusCode();
+        var session = await startResponse.Content.ReadFromJsonAsync<StudentTestSessionDto>();
+        Assert.NotNull(session);
+        Assert.Equal(20, session.Questions.Count);
+
+        // Check an unanswered question (e.g. timed out after 30s)
+        var firstQuestion = session.Questions[0];
+        using var checkResponse = await client.PostAsync($"/api/student/tests/{session.AttemptId}/questions/{firstQuestion.QuestionId}/check", null);
+        checkResponse.EnsureSuccessStatusCode();
+        var checkedAnswer = await checkResponse.Content.ReadFromJsonAsync<StudentTestAnswerDto>();
+        Assert.NotNull(checkedAnswer);
+        Assert.True(checkedAnswer.IsChecked);
+        Assert.False(checkedAnswer.IsCorrect);
+
+        // Submit test directly (auto-checking remaining 19 questions)
+        using var submitResponse = await client.PostAsync($"/api/student/tests/{session.AttemptId}/submit", null);
+        submitResponse.EnsureSuccessStatusCode();
+        var submitResult = await submitResponse.Content.ReadFromJsonAsync<StudentTestSubmitResultDto>();
+        Assert.NotNull(submitResult);
+        Assert.Equal(20, submitResult.TotalQuestions);
+        Assert.Equal(0, submitResult.CorrectAnswers);
+        Assert.Equal(0m, submitResult.Score);
+    }
+
     private static async Task AssignTeacherAsync(
         HttpClient client,
         Guid teacherId,

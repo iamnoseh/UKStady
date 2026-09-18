@@ -9,7 +9,7 @@ namespace UKStady.Application.Features.Teaching;
 
 public sealed class TeachingService : ITeachingService
 {
-    private const int DefaultStudentQuestionCount = 10;
+    private const int DefaultStudentQuestionCount = 20;
 
     private readonly IAppDbContext _dbContext;
     private readonly ICurrentUserService _currentUserService;
@@ -1322,20 +1322,31 @@ public sealed class TeachingService : ITeachingService
         }
 
         var answer = attempt.Answers.FirstOrDefault(candidate => candidate.QuestionId == questionId);
-        if (answer is null ||
-            (attemptQuestion.Question.Type == QuestionType.SingleChoice && !answer.QuestionOptionId.HasValue) ||
-            (attemptQuestion.Question.Type != QuestionType.SingleChoice && string.IsNullOrWhiteSpace(answer.AnswerText)))
+        if (answer is null)
         {
-            return StudentTestActionResult<StudentTestAnswerDto>.Failure("Answer this question before checking.");
+            answer = new StudentAnswer
+            {
+                Id = Guid.NewGuid(),
+                StudentTestAttemptId = attempt.Id,
+                QuestionId = questionId,
+                QuestionOptionId = null,
+                AnswerText = null,
+                IsChecked = true,
+                CreatedAtUtc = now,
+                UpdatedAtUtc = now
+            };
+            _dbContext.StudentAnswers.Add(answer);
+            attempt.Answers.Add(answer);
+            await _dbContext.SaveChangesAsync(cancellationToken);
         }
-
-        var isCorrect = IsStudentAnswerCorrect(attemptQuestion.Question, answer);
-        if (!answer.IsChecked)
+        else if (!answer.IsChecked)
         {
             answer.IsChecked = true;
             answer.UpdatedAtUtc = now;
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
+
+        var isCorrect = IsStudentAnswerCorrect(attemptQuestion.Question, answer);
 
         return StudentTestActionResult<StudentTestAnswerDto>.Success(new StudentTestAnswerDto(
             answer.QuestionId,
@@ -1395,9 +1406,38 @@ public sealed class TeachingService : ITeachingService
             return StudentTestActionResult<StudentTestSubmitResultDto>.Failure("This attempt has no questions.");
         }
 
-        if (attempt.Answers.Count(answer => answer.IsChecked) < totalQuestions)
+        var hasUnchecked = false;
+        foreach (var attemptQuestion in attempt.AttemptQuestions)
         {
-            return StudentTestActionResult<StudentTestSubmitResultDto>.Failure("Check every question before submitting the test.");
+            var existingAnswer = attempt.Answers.FirstOrDefault(candidate => candidate.QuestionId == attemptQuestion.QuestionId);
+            if (existingAnswer is null)
+            {
+                existingAnswer = new StudentAnswer
+                {
+                    Id = Guid.NewGuid(),
+                    StudentTestAttemptId = attempt.Id,
+                    QuestionId = attemptQuestion.QuestionId,
+                    QuestionOptionId = null,
+                    AnswerText = null,
+                    IsChecked = true,
+                    CreatedAtUtc = now,
+                    UpdatedAtUtc = now
+                };
+                _dbContext.StudentAnswers.Add(existingAnswer);
+                attempt.Answers.Add(existingAnswer);
+                hasUnchecked = true;
+            }
+            else if (!existingAnswer.IsChecked)
+            {
+                existingAnswer.IsChecked = true;
+                existingAnswer.UpdatedAtUtc = now;
+                hasUnchecked = true;
+            }
+        }
+
+        if (hasUnchecked)
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
         }
 
         var correctAnswers = attempt.AttemptQuestions.Count(attemptQuestion =>

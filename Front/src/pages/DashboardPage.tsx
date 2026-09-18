@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { BookOpen, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Lock, PlayCircle, Search } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { BookOpen, CheckCircle2, ChevronLeft, ChevronRight, Clock, Clock3, Lock, PlayCircle, Search, XCircle } from 'lucide-react';
 import { Button } from '../components/Button';
 import type { AppView } from '../components/AppShell';
 import { Pagination, paginate } from '../components/Pagination';
@@ -596,6 +596,8 @@ function StudentSubjectCard({
   );
 }
 
+const QUESTION_TIME_LIMIT = 30;
+
 function StudentTestRoomV2({
   session,
   result,
@@ -622,6 +624,10 @@ function StudentTestRoomV2({
   const [draftAnswers, setDraftAnswers] = useState<Record<string, string>>(() =>
     Object.fromEntries(session.questions.map((question) => [question.questionId, question.answerText ?? ''])),
   );
+  const [timeLeft, setTimeLeft] = useState(QUESTION_TIME_LIMIT);
+  const [isExpiring, setIsExpiring] = useState(false);
+  const advanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const currentQuestion = session.questions[currentIndex] ?? session.questions[0];
   const answeredCount = session.questions.filter((question) =>
     question.type === 'SingleChoice' ? Boolean(question.selectedOptionId) : Boolean(question.answerText?.trim()),
@@ -629,6 +635,69 @@ function StudentTestRoomV2({
   const checkedCount = session.questions.filter((question) => question.isChecked).length;
   const canSubmit = checkedCount === session.questions.length && !result;
   const progressPercent = session.questions.length === 0 ? 0 : Math.round(((currentIndex + 1) / session.questions.length) * 100);
+
+  // Synchronize timer when question changes or checked status updates
+  useEffect(() => {
+    if (advanceTimeoutRef.current) {
+      clearTimeout(advanceTimeoutRef.current);
+      advanceTimeoutRef.current = null;
+    }
+    if (currentQuestion?.isChecked) {
+      setTimeLeft(0);
+    } else {
+      setTimeLeft(QUESTION_TIME_LIMIT);
+    }
+  }, [currentIndex, currentQuestion?.questionId, currentQuestion?.isChecked]);
+
+  // Countdown timer for active, unchecked question
+  useEffect(() => {
+    if (result || isSubmitting || !currentQuestion || currentQuestion.isChecked || isExpiring) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [currentIndex, currentQuestion?.questionId, currentQuestion?.isChecked, result, isSubmitting, isExpiring]);
+
+  // Handle expiration when 30 seconds run out without solving
+  useEffect(() => {
+    if (timeLeft === 0 && currentQuestion && !currentQuestion.isChecked && !result && !isExpiring && !checkingQuestionId) {
+      void handleQuestionExpired();
+    }
+  }, [timeLeft, currentQuestion?.questionId, currentQuestion?.isChecked, result, isExpiring, checkingQuestionId]);
+
+  async function handleQuestionExpired() {
+    if (!currentQuestion || currentQuestion.isChecked || isExpiring) {
+      return;
+    }
+
+    setIsExpiring(true);
+    setAnswerError('');
+    try {
+      if (currentQuestion.selectedOptionId) {
+        await onAnswer(currentQuestion.questionId, null, null);
+      }
+      await onCheck(currentQuestion.questionId);
+    } catch (err) {
+      console.error('Failed to expire question:', err);
+    } finally {
+      setIsExpiring(false);
+      if (currentIndex < session.questions.length - 1) {
+        goToQuestion(currentIndex + 1);
+      } else {
+        void onSubmit();
+      }
+    }
+  }
 
   async function saveAnswer(questionId: string, questionOptionId: string | null, answerText: string | null) {
     setSavingQuestionId(questionId);
@@ -643,12 +712,16 @@ function StudentTestRoomV2({
   }
 
   function goToQuestion(index: number) {
+    if (advanceTimeoutRef.current) {
+      clearTimeout(advanceTimeoutRef.current);
+      advanceTimeoutRef.current = null;
+    }
     setCurrentIndex(Math.min(Math.max(index, 0), session.questions.length - 1));
     setAnswerError('');
   }
 
   async function checkCurrentQuestion() {
-    if (!currentQuestion || currentQuestion.isChecked) {
+    if (!currentQuestion || currentQuestion.isChecked || isExpiring) {
       return;
     }
 
@@ -661,6 +734,17 @@ function StudentTestRoomV2({
     setAnswerError('');
     try {
       await onCheck(currentQuestion.questionId);
+      // Auto-advance after 1.2s so student sees feedback
+      if (advanceTimeoutRef.current) {
+        clearTimeout(advanceTimeoutRef.current);
+      }
+      advanceTimeoutRef.current = setTimeout(() => {
+        if (currentIndex < session.questions.length - 1) {
+          goToQuestion(currentIndex + 1);
+        } else {
+          void onSubmit();
+        }
+      }, 1200);
     } catch (error) {
       setAnswerError(error instanceof Error ? error.message : 'Савол санҷида нашуд.');
     } finally {
@@ -694,12 +778,59 @@ function StudentTestRoomV2({
 
           {currentQuestion ? (
             <article className="rounded-lg border border-line bg-white p-5 shadow-sm sm:p-7">
-              <div className="mb-8 flex items-center justify-between gap-3">
-                <p className="text-sm font-extrabold uppercase tracking-wide text-brand">Савол {currentIndex + 1}</p>
-                <span className="rounded-md px-2 py-1 text-xs font-bold text-muted">
-                  {currentQuestion.type === 'SingleChoice' ? 'Интихобӣ' : 'Пӯшида'}
-                </span>
+              <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-extrabold uppercase tracking-wide text-brand">Савол {currentIndex + 1}</p>
+                  <span className="rounded-md bg-panel px-2 py-1 text-xs font-bold text-muted">
+                    {currentQuestion.type === 'SingleChoice' ? 'Интихобӣ' : 'Пӯшида'}
+                  </span>
+                </div>
+
+                {/* 30-Second Countdown Timer Badge */}
+                <div
+                  className={`flex items-center gap-2 rounded-full border px-3.5 py-1.5 shadow-sm transition-all duration-300 ${
+                    currentQuestion.isChecked
+                      ? 'border-slate-200 bg-slate-100 text-slate-500'
+                      : isExpiring
+                        ? 'border-red-400 bg-red-100 text-red-700 animate-pulse ring-2 ring-red-300'
+                        : timeLeft <= 5
+                          ? 'border-red-400 bg-red-50 text-red-600 animate-pulse ring-2 ring-red-300'
+                          : timeLeft <= 10
+                            ? 'border-amber-400 bg-amber-50 text-amber-700 ring-1 ring-amber-200'
+                            : 'border-brand/30 bg-brand/5 text-brand'
+                  }`}
+                >
+                  {currentQuestion.isChecked ? (
+                    <Lock className="h-4 w-4 shrink-0" />
+                  ) : (
+                    <Clock className={`h-4 w-4 shrink-0 ${timeLeft <= 5 ? 'animate-bounce' : ''}`} />
+                  )}
+                  <span className="font-mono text-base font-extrabold tracking-wider">
+                    {currentQuestion.isChecked ? 'Маҳкам' : `00:${timeLeft < 10 ? `0${timeLeft}` : timeLeft}`}
+                  </span>
+                  {!currentQuestion.isChecked ? (
+                    <span className={`text-xs font-bold ${timeLeft <= 5 ? 'text-red-600' : 'text-muted'}`}>
+                      {timeLeft <= 5 ? 'Шитобед!' : 'сония'}
+                    </span>
+                  ) : null}
+                </div>
               </div>
+
+              {/* Countdown Progress Bar */}
+              {!currentQuestion.isChecked && (
+                <div className="mb-6 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className={`h-full transition-all duration-1000 ease-linear ${
+                      timeLeft <= 5
+                        ? 'bg-red-500'
+                        : timeLeft <= 10
+                          ? 'bg-amber-500'
+                          : 'bg-brand'
+                    }`}
+                    style={{ width: `${(timeLeft / QUESTION_TIME_LIMIT) * 100}%` }}
+                  />
+                </div>
+              )}
 
               <h2 className="text-xl font-extrabold leading-8 text-ink sm:text-2xl">
                 {currentQuestion.text}
@@ -709,7 +840,7 @@ function StudentTestRoomV2({
                 <div className="mt-8 grid gap-3">
                   {currentQuestion.options.map((option, optionIndex) => {
                     const selected = currentQuestion.selectedOptionId === option.id;
-                    const locked = Boolean(result) || currentQuestion.isChecked || savingQuestionId === currentQuestion.questionId;
+                    const locked = Boolean(result) || currentQuestion.isChecked || savingQuestionId === currentQuestion.questionId || isExpiring;
                     return (
                       <button
                         key={option.id}
@@ -741,7 +872,7 @@ function StudentTestRoomV2({
                 <div className="mt-8">
                   <textarea
                     value={draftAnswers[currentQuestion.questionId] ?? ''}
-                    disabled={Boolean(result) || currentQuestion.isChecked}
+                    disabled={Boolean(result) || currentQuestion.isChecked || isExpiring}
                     onChange={(event) => {
                       const value = event.target.value;
                       setDraftAnswers((current) => ({
@@ -755,7 +886,7 @@ function StudentTestRoomV2({
                   <div className="mt-4 hidden justify-end">
                     <Button
                       type="button"
-                      disabled={Boolean(result) || savingQuestionId === currentQuestion.questionId || !(draftAnswers[currentQuestion.questionId] ?? '').trim()}
+                      disabled={Boolean(result) || savingQuestionId === currentQuestion.questionId || isExpiring || !(draftAnswers[currentQuestion.questionId] ?? '').trim()}
                       onClick={() => {
                         void checkCurrentQuestion();
                       }}
@@ -769,11 +900,25 @@ function StudentTestRoomV2({
               <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-h-6 text-sm font-semibold">
                   {currentQuestion.isChecked ? (
-                    <span className={currentQuestion.isCorrect ? 'text-emerald-600' : 'text-red-600'}>
-                      {currentQuestion.isCorrect ? 'Ҷавоб дуруст аст.' : 'Ҷавоб хато аст.'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {currentQuestion.isCorrect ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 font-bold text-emerald-700">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                          Ҷавоб дуруст аст (+1 хол)
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 font-bold text-red-600">
+                          <XCircle className="h-4 w-4 text-red-500" />
+                          {currentQuestion.selectedOptionId || (draftAnswers[currentQuestion.questionId] ?? '').trim()
+                            ? 'Ҷавоб хато аст (0 хол)'
+                            : 'Вақт тамом шуд! Савол маҳкам шуд (0 хол)'}
+                        </span>
+                      )}
+                    </div>
+                  ) : isExpiring ? (
+                    <span className="font-bold text-red-600">Вақт тамом шуд! Савол маҳкам шуда истодааст...</span>
                   ) : (
-                    <span className="text-muted">Пас аз интихоб ё навиштани ҷавоб санҷишро зер кунед.</span>
+                    <span className="text-muted">Ҳар як савол 30 сония вақт дорад. Пас аз интихоб «Санҷиш»-ро зер кунед.</span>
                   )}
                 </div>
                 <Button
@@ -783,6 +928,7 @@ function StudentTestRoomV2({
                     currentQuestion.isChecked ||
                     checkingQuestionId === currentQuestion.questionId ||
                     savingQuestionId === currentQuestion.questionId ||
+                    isExpiring ||
                     (currentQuestion.type === 'SingleChoice'
                       ? !currentQuestion.selectedOptionId
                       : !(draftAnswers[currentQuestion.questionId] ?? '').trim())
@@ -799,11 +945,20 @@ function StudentTestRoomV2({
           ) : null}
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <Button type="button" variant="secondary" disabled={currentIndex === 0} onClick={() => goToQuestion(currentIndex - 1)}>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={currentIndex === 0 || isExpiring}
+              onClick={() => goToQuestion(currentIndex - 1)}
+            >
               <ChevronLeft className="h-4 w-4" />
               Саволи пешина
             </Button>
-            <Button type="button" disabled={currentIndex >= session.questions.length - 1} onClick={() => goToQuestion(currentIndex + 1)}>
+            <Button
+              type="button"
+              disabled={currentIndex >= session.questions.length - 1 || !currentQuestion?.isChecked || isExpiring}
+              onClick={() => goToQuestion(currentIndex + 1)}
+            >
               Саволи баъдӣ
               <ChevronRight className="h-4 w-4" />
             </Button>
@@ -821,20 +976,31 @@ function StudentTestRoomV2({
           <div className="mt-4 grid grid-cols-5 gap-2">
             {session.questions.map((question, index) => {
               const active = index === currentIndex;
+              const isFuture = index > currentIndex && !question.isChecked;
               return (
                 <button
                   key={question.questionId}
                   type="button"
+                  disabled={isFuture || isExpiring || Boolean(result)}
                   onClick={() => goToQuestion(index)}
                   className={`h-12 rounded-lg border text-base font-bold transition ${
                     active
-                      ? 'border-brand bg-brand text-white shadow-sm'
+                      ? 'border-brand bg-brand text-white shadow-sm ring-2 ring-brand/20'
                       : question.isChecked && question.isCorrect
                         ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                         : question.isChecked && question.isCorrect === false
                           ? 'border-red-200 bg-red-50 text-red-600'
-                        : 'border-line bg-white text-slate-600 hover:border-brand/50'
+                          : isFuture
+                            ? 'border-line bg-slate-50 text-slate-300 cursor-not-allowed'
+                            : 'border-line bg-white text-slate-600 hover:border-brand/50'
                   }`}
+                  title={
+                    isFuture
+                      ? 'Саволи оянда (дастрас нест)'
+                      : question.isChecked
+                        ? question.isCorrect ? 'Дуруст (+1)' : 'Хато (0)'
+                        : 'Саволи ҷорӣ'
+                  }
                 >
                   {index + 1}
                 </button>
