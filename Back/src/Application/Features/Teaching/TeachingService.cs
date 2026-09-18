@@ -981,6 +981,90 @@ public sealed class TeachingService : ITeachingService
         return new StudentDashboardDto(now, subjects);
     }
 
+    public async Task<StudentJournalDayDto> GetStudentJournalDayAsync(
+        DateOnly? date,
+        CancellationToken cancellationToken)
+    {
+        var targetDate = date ?? GetCurrentLessonDate();
+        if (!IsStudent())
+        {
+            return new StudentJournalDayDto(targetDate, []);
+        }
+
+        var studentId = RequireCurrentUserId();
+        var subjectRows = await _dbContext.GroupSubjects
+            .AsNoTracking()
+            .Where(groupSubject =>
+                groupSubject.Group.IsActive &&
+                groupSubject.Subject.IsActive &&
+                groupSubject.Group.Students.Any(groupStudent => groupStudent.StudentId == studentId))
+            .OrderBy(groupSubject => groupSubject.Subject.Name)
+            .ThenBy(groupSubject => groupSubject.Group.Name)
+            .Select(groupSubject => new StudentSubjectRow(
+                groupSubject.GroupId,
+                groupSubject.Group.Name,
+                groupSubject.SubjectId,
+                groupSubject.Subject.Name))
+            .ToListAsync(cancellationToken);
+
+        if (subjectRows.Count == 0)
+        {
+            return new StudentJournalDayDto(targetDate, []);
+        }
+
+        var groupIds = subjectRows.Select(row => row.GroupId).Distinct().ToList();
+        var subjectIds = subjectRows.Select(row => row.SubjectId).Distinct().ToList();
+        var lessons = await _dbContext.DailyLessons
+            .AsNoTracking()
+            .Include(lesson => lesson.Topic)
+            .Include(lesson => lesson.TestAssignments)
+            .Where(lesson =>
+                lesson.LessonDate == targetDate &&
+                subjectIds.Contains(lesson.SubjectId) &&
+                lesson.TestAssignments.Any(assignment => groupIds.Contains(assignment.GroupId)))
+            .ToListAsync(cancellationToken);
+
+        var lessonIds = lessons.Select(lesson => lesson.Id).Distinct().ToList();
+        var gradesByLessonId = await _dbContext.GradeEntries
+            .AsNoTracking()
+            .Where(grade => grade.StudentId == studentId && lessonIds.Contains(grade.DailyLessonId))
+            .Select(grade => new
+            {
+                grade.DailyLessonId,
+                Score = grade.FinalScore ?? grade.AutoScore,
+                grade.AttendanceStatus
+            })
+            .ToDictionaryAsync(grade => grade.DailyLessonId, cancellationToken);
+
+        var subjects = subjectRows
+            .Select(row =>
+            {
+                var lesson = lessons
+                    .Where(candidate =>
+                        candidate.SubjectId == row.SubjectId &&
+                        candidate.TestAssignments.Any(assignment => assignment.GroupId == row.GroupId))
+                    .OrderByDescending(candidate => candidate.CreatedAtUtc)
+                    .FirstOrDefault();
+
+                var grade = lesson is null || !gradesByLessonId.TryGetValue(lesson.Id, out var gradeRow)
+                    ? null
+                    : gradeRow;
+
+                return new StudentJournalSubjectDto(
+                    row.GroupId,
+                    row.GroupName,
+                    row.SubjectId,
+                    row.SubjectName,
+                    lesson?.Id,
+                    lesson?.Topic?.Title,
+                    grade?.Score,
+                    grade?.AttendanceStatus.ToString() ?? "NoGrade");
+            })
+            .ToList();
+
+        return new StudentJournalDayDto(targetDate, subjects);
+    }
+
     public async Task<StudentTestActionResult<StudentTestSessionDto>> StartStudentTestAsync(
         Guid dailyLessonId,
         StartStudentTestRequest request,
@@ -1750,8 +1834,8 @@ public sealed class TeachingService : ITeachingService
             ' ',
             (value ?? string.Empty)
                 .Trim()
-                .ToLowerInvariant()
-                .Split(' ', StringSplitOptions.RemoveEmptyEntries));
+                .ToUpperInvariant()
+                .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
     }
 
     private static IReadOnlyList<T> Shuffle<T>(IReadOnlyList<T> items)

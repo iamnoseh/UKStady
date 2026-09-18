@@ -301,6 +301,22 @@ export interface StudentDashboardDto {
   subjects: StudentDashboardSubjectDto[];
 }
 
+export interface StudentJournalSubjectDto {
+  groupId: string;
+  groupName: string;
+  subjectId: string;
+  subjectName: string;
+  dailyLessonId: string | null;
+  topicTitle: string | null;
+  score: number | null;
+  attendanceStatus: string;
+}
+
+export interface StudentJournalDayDto {
+  date: string;
+  subjects: StudentJournalSubjectDto[];
+}
+
 export interface StudentTestQuestionOptionDto {
   id: string;
   text: string;

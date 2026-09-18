@@ -57,6 +57,10 @@ public interface ITeachingService
 
     Task<StudentDashboardDto> GetStudentDashboardAsync(CancellationToken cancellationToken);
 
+    Task<StudentJournalDayDto> GetStudentJournalDayAsync(
+        DateOnly? date,
+        CancellationToken cancellationToken);
+
     Task<StudentTestActionResult<StudentTestSessionDto>> StartStudentTestAsync(
         Guid dailyLessonId,
         StartStudentTestRequest request,

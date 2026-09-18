@@ -291,6 +291,15 @@ public static class TeachingEndpoints
             .WithTags("Student Dashboard")
             .RequireAuthorization(AuthorizationPolicies.Students)
             .WithName("GetStudentDashboard");
+
+        endpoints.MapGet("/api/student/journal", async (
+            [FromQuery] DateOnly? date,
+            ITeachingService service,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await service.GetStudentJournalDayAsync(date, cancellationToken)))
+            .WithTags("Student Dashboard")
+            .RequireAuthorization(AuthorizationPolicies.Students)
+            .WithName("GetStudentJournalDay");
     }
 
     private static void MapStudentTestEndpoints(this IEndpointRouteBuilder endpoints)

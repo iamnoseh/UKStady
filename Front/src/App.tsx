@@ -6,6 +6,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { GroupsPage } from './pages/GroupsPage';
 import { LoginPage } from './pages/LoginPage';
 import { QuestionsPage } from './pages/QuestionsPage';
+import { StudentJournalPage } from './pages/StudentJournalPage';
 import { StudentsPage } from './pages/StudentsPage';
 import { SubjectsPage } from './pages/SubjectsPage';
 import { TeachersPage } from './pages/TeachersPage';
@@ -94,7 +95,9 @@ function AppContent() {
       case 'groups':
         return <GroupsPage />;
       case 'journal':
-        return <StudentPlaceholderPage title="\u0416\u0443\u0440\u043d\u0430\u043b" description="\u0414\u0430\u0440 \u049b\u0430\u0434\u0430\u043c\u0438 \u0431\u0430\u044a\u0434\u04e3 \u043d\u0430\u0442\u0438\u04b7\u0430\u04b3\u043e \u0432\u0430 \u0436\u0443\u0440\u043d\u0430\u043b\u0438 \u0448\u0430\u0445\u0441\u0438\u0438 \u0448\u0443\u043c\u043e \u0434\u0430\u0440 \u04b3\u0430\u043c\u0438\u043d \u04b7\u043e \u043c\u0435\u043e\u044f\u043d\u0434." />;
+        return auth?.role === 'Student'
+          ? <StudentJournalPage />
+          : <StudentPlaceholderPage title="\u0416\u0443\u0440\u043d\u0430\u043b" description="\u0414\u0430\u0440 \u049b\u0430\u0434\u0430\u043c\u0438 \u0431\u0430\u044a\u0434\u04e3 \u043d\u0430\u0442\u0438\u04b7\u0430\u04b3\u043e \u0432\u0430 \u0436\u0443\u0440\u043d\u0430\u043b\u0438 \u0448\u0430\u0445\u0441\u0438\u0438 \u0448\u0443\u043c\u043e \u0434\u0430\u0440 \u04b3\u0430\u043c\u0438\u043d \u04b7\u043e \u043c\u0435\u043e\u044f\u043d\u0434." />;
       default:
         return <DashboardPage onViewChange={setActiveView} />;
     }

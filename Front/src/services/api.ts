@@ -14,6 +14,7 @@ import type {
   QuestionDto,
   SubjectDto,
   StudentDashboardDto,
+  StudentJournalDayDto,
   StudentTestSessionDto,
   StudentTestSubmitResultDto,
   TeacherAssignmentDto,
@@ -249,6 +250,10 @@ export function getTeacherDashboardDailyResults(
 
 export function getStudentDashboard(token: string): Promise<StudentDashboardDto> {
   return request<StudentDashboardDto>('/api/student/dashboard', token);
+}
+
+export function getStudentJournalDay(token: string, date: string): Promise<StudentJournalDayDto> {
+  return request<StudentJournalDayDto>(`/api/student/journal?date=${encodeURIComponent(date)}`, token);
 }
 
 export function startStudentTest(

@@ -179,6 +179,20 @@ public sealed record StudentDashboardSubjectDto(
     string Status,
     string StatusText);
 
+public sealed record StudentJournalDayDto(
+    DateOnly Date,
+    IReadOnlyList<StudentJournalSubjectDto> Subjects);
+
+public sealed record StudentJournalSubjectDto(
+    Guid GroupId,
+    string GroupName,
+    Guid SubjectId,
+    string SubjectName,
+    Guid? DailyLessonId,
+    string? TopicTitle,
+    decimal? Score,
+    string AttendanceStatus);
+
 public sealed record StartStudentTestRequest(Guid GroupId);
 
 public sealed record StudentTestActionResult<T>(T? Value, string? Error)
