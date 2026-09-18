@@ -768,17 +768,17 @@ export function GroupsPage() {
 
         <div className="mb-4 flex flex-nowrap gap-2 overflow-x-auto no-scrollbar border-b border-line pb-1">
           {canManageGroups ? (
-            <TabButton active={activeTab === 'students'} onClick={() => setActiveTab('students')} icon={Users} label={"\u0425\u043e\u043d\u0430\u043d\u0434\u0430\u0433\u043e\u043d"} />
+            <TabButton active={activeTab === 'students'} onClick={() => setActiveTab('students')} icon={Users} label="Хонандагон" />
           ) : null}
-          <TabButton active={activeTab === 'journals'} onClick={() => setActiveTab('journals')} icon={ClipboardList} label={"\u0416\u0443\u0440\u043d\u0430\u043b\u04b3\u043e"} />
+          <TabButton active={activeTab === 'journals'} onClick={() => setActiveTab('journals')} icon={ClipboardList} label="Журналҳо" />
           {canManageGroups ? (
-            <TabButton active={activeTab === 'teachers'} onClick={() => setActiveTab('teachers')} icon={GraduationCap} label={"\u041c\u0443\u0430\u043b\u043b\u0438\u043c\u043e\u043d"} />
-          ) : null}
-          {canManageGroups ? (
-            <TabButton active={activeTab === 'edit'} onClick={() => setActiveTab('edit')} icon={Edit3} label={"\u0422\u0430\u04b3\u0440\u0438\u0440 \u043a\u0430\u0440\u0434\u0430\u043d"} />
+            <TabButton active={activeTab === 'teachers'} onClick={() => setActiveTab('teachers')} icon={GraduationCap} label="Муаллимон" />
           ) : null}
           {canManageGroups ? (
-            <TabButton active={activeTab === 'other'} onClick={() => setActiveTab('other')} icon={SlidersHorizontal} label={"\u0414\u0438\u0433\u0430\u0440 \u049b\u0438\u0441\u043c\u04b3\u043e"} />
+            <TabButton active={activeTab === 'edit'} onClick={() => setActiveTab('edit')} icon={Edit3} label="Таҳрир кардан" />
+          ) : null}
+          {canManageGroups ? (
+            <TabButton active={activeTab === 'other'} onClick={() => setActiveTab('other')} icon={SlidersHorizontal} label="Дигар қисмҳо" />
           ) : null}
         </div>
         {notice ? <p className="mb-5 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{notice}</p> : null}

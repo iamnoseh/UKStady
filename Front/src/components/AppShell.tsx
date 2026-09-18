@@ -13,7 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import { hasPermission, type Permission } from '../auth/permissions';
-import logo from '../assets/UKStady_Logo.png';
+import logo from '../assets/USStady_Logo.png';
 import { useAuth } from '../context/AuthContext';
 import { Button } from './Button';
 
@@ -29,7 +29,7 @@ const navigation: Array<{
   { label: 'Хонандагон', view: 'students', icon: Users, permission: 'students.manage' },
   { label: 'Муаллимон', view: 'teachers', icon: GraduationCap, permission: 'teachers.manage' },
   { label: 'Гурӯҳҳо', view: 'groups', icon: Layers, permission: 'groups.view' },
-  { label: '\u0416\u0443\u0440\u043d\u0430\u043b', view: 'journal', icon: ClipboardList, permission: 'journal.view' },
+  { label: 'Журнал', view: 'journal', icon: ClipboardList, permission: 'journal.view' },
   { label: 'Фанҳо', view: 'subjects', icon: BookOpen, permission: 'subjects.view' },
   { label: 'Тестҳо', view: 'dashboard', icon: ClipboardCheck, permission: 'tests.view' },
 ];
@@ -59,9 +59,9 @@ export function AppShell({
       {/* ДЕСКТОП САЙДБАР (Desktop Sidebar) */}
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-[236px] border-r border-line bg-panel/80 backdrop-blur lg:block">
         <div className="flex h-16 items-center gap-3 border-b border-line px-5">
-          <img src={logo} alt="UKStady" className="h-9 w-9 rounded-lg object-contain" />
+          <img src={logo} alt="USStady" className="h-9 w-9 rounded-lg object-contain" />
           <div>
-            <p className="text-sm font-bold tracking-wide">UKStady</p>
+            <p className="text-sm font-bold tracking-wide">USStady</p>
             <p className="text-xs text-muted">Assessment</p>
           </div>
         </div>
@@ -97,9 +97,9 @@ export function AppShell({
             {/* Сатри болоии меню бо тугмаи пӯшидан */}
             <div className="flex h-16 items-center justify-between border-b border-line px-4">
               <div className="flex items-center gap-3">
-                <img src={logo} alt="UKStady" className="h-8 w-8 rounded-lg object-contain" />
+                <img src={logo} alt="USStady" className="h-8 w-8 rounded-lg object-contain" />
                 <div>
-                  <p className="text-sm font-bold tracking-wide text-ink">UKStady</p>
+                  <p className="text-sm font-bold tracking-wide text-ink">USStady</p>
                   <p className="text-[11px] text-muted">Assessment</p>
                 </div>
               </div>

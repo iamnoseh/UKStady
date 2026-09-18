@@ -1,7 +1,7 @@
 import { FormEvent, useState } from 'react';
 import { Eye, EyeOff, LockKeyhole, Phone } from 'lucide-react';
-import bannerImg from '../assets/login_banner.jpg';
-import logo from '../assets/UKStady_Logo.png';
+import bannerImg from '../assets/login_banner.png';
+import logo from '../assets/USStady_Logo.png';
 import { Button } from '../components/Button';
 import { useAuth } from '../context/AuthContext';
 
@@ -28,25 +28,14 @@ export function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-panel lg:grid lg:grid-cols-[1.1fr_0.9fr] xl:grid-cols-[1.2fr_0.8fr]">
-      {/* ТАРАФИ ЧАП: Танҳо барои компютер (Desktop) */}
-      <section className="relative hidden items-center justify-center overflow-hidden border-r border-line bg-gradient-to-br from-[#e8f1fd] via-[#f1f6fe] to-[#edf4fc] p-8 lg:flex xl:p-12">
-        <div className="relative flex h-full max-h-[92vh] w-full max-w-[620px] items-center justify-center">
-          <img
-            src={bannerImg}
-            alt="UKStady - Назорати дониш дар як ҷой"
-            className="max-h-full w-auto max-w-full rounded-3xl object-contain shadow-2xl ring-1 ring-black/5 transition-transform duration-300 hover:scale-[1.01]"
-          />
-        </div>
-      </section>
-
-      {/* ТАРАФИ РОСТ: Корти воридшавӣ */}
+    <main className="min-h-screen bg-panel lg:grid lg:grid-cols-[0.95fr_1.05fr] xl:grid-cols-[0.9fr_1.1fr]">
+      {/* ТАРАФИ ЧАП: Корти воридшавӣ */}
       <section className="flex min-h-screen flex-col items-center justify-center px-4 py-8 sm:px-6 lg:p-12">
         <div className="w-full max-w-[420px]">
-          {/* Логотип дар мобил */}
-          <div className="mb-6 flex flex-col items-center text-center lg:hidden">
-            <img src={logo} alt="UKStady" className="h-14 w-14 rounded-2xl object-contain shadow-md ring-1 ring-black/5" />
-            <h1 className="mt-3 text-2xl font-bold tracking-tight text-ink">UKStady</h1>
+          {/* Логотип */}
+          <div className="mb-6 flex flex-col items-center text-center">
+            <img src={logo} alt="USStady" className="h-16 w-16 rounded-2xl object-contain shadow-md ring-1 ring-black/5" />
+            <h1 className="mt-3 text-2xl font-bold tracking-tight text-ink">USStady</h1>
             <p className="text-xs text-muted">Системаи санҷиш ва баҳогузорӣ</p>
           </div>
 
@@ -122,6 +111,17 @@ export function LoginPage() {
               {isSubmitting ? 'Санҷида истодааст...' : 'Ворид шудан'}
             </Button>
           </form>
+        </div>
+      </section>
+
+      {/* ТАРАФИ РОСТ: Расми проект (Desktop) */}
+      <section className="relative hidden items-center justify-center overflow-hidden border-l border-line bg-gradient-to-br from-[#f0f6ff] via-[#f8fafc] to-[#eef2ff] p-8 lg:flex xl:p-12">
+        <div className="relative flex h-full max-h-[92vh] w-full max-w-[620px] items-center justify-center">
+          <img
+            src={bannerImg}
+            alt="USStady - Universal School"
+            className="max-h-full w-auto max-w-full rounded-3xl object-contain shadow-2xl ring-1 ring-black/5 transition-transform duration-300 hover:scale-[1.01]"
+          />
         </div>
       </section>
     </main>
