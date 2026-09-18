@@ -75,15 +75,49 @@ public static class AdministrationEndpoints
         })
         .WithName("UpdateUser");
 
-        group.MapDelete("/{id:guid}", async (
+        group.MapPost("/{id:guid}/password", async (
             Guid id,
+            [FromBody] ChangeUserPasswordRequest request,
             IAdministrationService service,
             CancellationToken cancellationToken) =>
         {
+            var validationError = ValidateChangePassword(request);
+            if (validationError is not null)
+            {
+                return Results.BadRequest(new { message = validationError });
+            }
+
+            var changed = await service.ChangeUserPasswordAsync(id, request.NewPassword, cancellationToken);
+            return changed ? Results.NoContent() : Results.NotFound();
+        })
+        .WithName("ChangeUserPassword");
+
+        group.MapDelete("/{id:guid}", async (
+            Guid id,
+            [FromQuery] bool? hard,
+            IAdministrationService service,
+            CancellationToken cancellationToken) =>
+        {
+            if (hard == true)
+            {
+                var hardDeleted = await service.HardDeleteUserAsync(id, cancellationToken);
+                return hardDeleted ? Results.NoContent() : Results.NotFound();
+            }
+
             var deactivated = await service.DeactivateUserAsync(id, cancellationToken);
             return deactivated ? Results.NoContent() : Results.NotFound();
         })
         .WithName("DeactivateUser");
+
+        group.MapDelete("/{id:guid}/hard", async (
+            Guid id,
+            IAdministrationService service,
+            CancellationToken cancellationToken) =>
+        {
+            var deleted = await service.HardDeleteUserAsync(id, cancellationToken);
+            return deleted ? Results.NoContent() : Results.NotFound();
+        })
+        .WithName("HardDeleteUser");
     }
 
     private static void MapGroupEndpoints(this IEndpointRouteBuilder endpoints)
@@ -364,9 +398,24 @@ public static class AdministrationEndpoints
             return "FirstName, LastName, PhoneNumber and Password are required.";
         }
 
-        if (!IsGeneratedPasswordShape(request.Password))
+        if (request.Password.Trim().Length < 6)
         {
-            return "Password must contain exactly 5 digits and 1 English letter.";
+            return "Password must be at least 6 characters long.";
+        }
+
+        return null;
+    }
+
+    private static string? ValidateChangePassword(ChangeUserPasswordRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.NewPassword))
+        {
+            return "NewPassword is required.";
+        }
+
+        if (request.NewPassword.Trim().Length < 6)
+        {
+            return "Password must be at least 6 characters long.";
         }
 
         return null;

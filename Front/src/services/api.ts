@@ -26,6 +26,8 @@ import type {
   UpdateQuestionRequest,
   UpdateSubjectRequest,
   UpdateTopicRequest,
+  UpdateUserRequest,
+  ChangeUserPasswordRequest,
   UserDto,
   CreateTodayGroupLessonResult,
   SaveStudentAnswerRequest,
@@ -94,6 +96,32 @@ export function createUser(token: string, body: CreateUserRequest): Promise<User
 
 export function generatePassword(token: string): Promise<GeneratedPasswordDto> {
   return request<GeneratedPasswordDto>('/api/users/generated-password', token);
+}
+
+export function updateUser(token: string, userId: string, body: UpdateUserRequest): Promise<UserDto> {
+  return request<UserDto>(`/api/users/${userId}`, token, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  });
+}
+
+export function changeUserPassword(token: string, userId: string, newPassword: string): Promise<void> {
+  return request<void>(`/api/users/${userId}/password`, token, {
+    method: 'POST',
+    body: JSON.stringify({ newPassword }),
+  });
+}
+
+export function hardDeleteUser(token: string, userId: string): Promise<void> {
+  return request<void>(`/api/users/${userId}/hard`, token, {
+    method: 'DELETE',
+  });
+}
+
+export function removeTeacherSubject(token: string, teacherId: string, subjectId: string): Promise<void> {
+  return request<void>(`/api/teacher-subjects/${teacherId}/${subjectId}`, token, {
+    method: 'DELETE',
+  });
 }
 
 export function getSubjects(token: string): Promise<SubjectDto[]> {

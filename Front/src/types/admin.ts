@@ -21,6 +21,20 @@ export interface CreateUserRequest {
   userName?: string | null;
 }
 
+export interface UpdateUserRequest {
+  firstName: string;
+  lastName: string;
+  middleName?: string | null;
+  phoneNumber: string;
+  role: UserRole;
+  isActive: boolean;
+  userName?: string | null;
+}
+
+export interface ChangeUserPasswordRequest {
+  newPassword: string;
+}
+
 export interface GeneratedPasswordDto {
   password: string;
 }

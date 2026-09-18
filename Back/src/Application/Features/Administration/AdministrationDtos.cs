@@ -30,6 +30,8 @@ public sealed record UpdateUserRequest(
     bool IsActive,
     string? UserName = null);
 
+public sealed record ChangeUserPasswordRequest(string NewPassword);
+
 public sealed record GeneratedPasswordDto(string Password);
 
 public sealed record GroupSubjectDto(Guid Id, string Name);

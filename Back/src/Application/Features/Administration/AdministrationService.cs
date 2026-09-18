@@ -123,6 +123,141 @@ public sealed class AdministrationService : IAdministrationService
         return true;
     }
 
+    public async Task<bool> ChangeUserPasswordAsync(Guid id, string newPassword, CancellationToken cancellationToken)
+    {
+        var user = await _dbContext.Users.FirstOrDefaultAsync(candidate => candidate.Id == id, cancellationToken);
+        if (user is null)
+        {
+            return false;
+        }
+
+        user.PasswordHash = _passwordHasher.Hash(newPassword.Trim());
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<bool> HardDeleteUserAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var user = await _dbContext.Users
+            .Include(u => u.TeacherAssignments)
+            .Include(u => u.TeacherSubjects)
+            .Include(u => u.StudentGroups)
+            .FirstOrDefaultAsync(candidate => candidate.Id == id, cancellationToken);
+
+        if (user is null)
+        {
+            return false;
+        }
+
+        // 1. Remove TeacherSubjectGroup assignments
+        if (user.TeacherAssignments.Count > 0)
+        {
+            _dbContext.TeacherSubjectGroups.RemoveRange(user.TeacherAssignments);
+        }
+
+        // 2. Remove TeacherSubject relations
+        if (user.TeacherSubjects.Count > 0)
+        {
+            _dbContext.TeacherSubjects.RemoveRange(user.TeacherSubjects);
+        }
+
+        // 3. Remove StudentGroups if any
+        if (user.StudentGroups.Count > 0)
+        {
+            _dbContext.GroupStudents.RemoveRange(user.StudentGroups);
+        }
+
+        // 4. Nullify GradedByTeacherId in GradeEntries
+        var gradedEntries = await _dbContext.GradeEntries
+            .Where(g => g.GradedByTeacherId == id)
+            .ToListAsync(cancellationToken);
+        foreach (var entry in gradedEntries)
+        {
+            entry.GradedByTeacherId = null;
+        }
+
+        // 5. Remove GradeAuditLogs changed by this user
+        var auditLogs = await _dbContext.GradeAuditLogs
+            .Where(l => l.ChangedByUserId == id)
+            .ToListAsync(cancellationToken);
+        if (auditLogs.Count > 0)
+        {
+            _dbContext.GradeAuditLogs.RemoveRange(auditLogs);
+        }
+
+        // 6. If teacher created daily lessons, remove them cleanly along with their test assignments and attempts
+        var lessons = await _dbContext.DailyLessons
+            .Include(l => l.TestAssignments)
+                .ThenInclude(ta => ta.Attempts)
+                    .ThenInclude(a => a.Answers)
+            .Include(l => l.TestAssignments)
+                .ThenInclude(ta => ta.Attempts)
+                    .ThenInclude(a => a.AttemptQuestions)
+            .Include(l => l.TestAssignments)
+                .ThenInclude(ta => ta.Attempts)
+                    .ThenInclude(a => a.GradeEntry)
+            .Include(l => l.GradeEntries)
+            .Where(l => l.TeacherId == id)
+            .ToListAsync(cancellationToken);
+
+        if (lessons.Count > 0)
+        {
+            foreach (var lesson in lessons)
+            {
+                foreach (var testAssignment in lesson.TestAssignments)
+                {
+                    foreach (var attempt in testAssignment.Attempts)
+                    {
+                        if (attempt.GradeEntry is not null)
+                        {
+                            _dbContext.GradeEntries.Remove(attempt.GradeEntry);
+                        }
+                        _dbContext.StudentAnswers.RemoveRange(attempt.Answers);
+                        _dbContext.AttemptQuestions.RemoveRange(attempt.AttemptQuestions);
+                    }
+                    _dbContext.StudentTestAttempts.RemoveRange(testAssignment.Attempts);
+                }
+                _dbContext.TestAssignments.RemoveRange(lesson.TestAssignments);
+                _dbContext.GradeEntries.RemoveRange(lesson.GradeEntries);
+            }
+            _dbContext.DailyLessons.RemoveRange(lessons);
+        }
+
+        // 7. If student has test attempts or answers
+        var studentAttempts = await _dbContext.StudentTestAttempts
+            .Include(a => a.Answers)
+            .Include(a => a.AttemptQuestions)
+            .Include(a => a.GradeEntry)
+            .Where(a => a.StudentId == id)
+            .ToListAsync(cancellationToken);
+
+        if (studentAttempts.Count > 0)
+        {
+            foreach (var attempt in studentAttempts)
+            {
+                if (attempt.GradeEntry is not null)
+                {
+                    _dbContext.GradeEntries.Remove(attempt.GradeEntry);
+                }
+                _dbContext.StudentAnswers.RemoveRange(attempt.Answers);
+                _dbContext.AttemptQuestions.RemoveRange(attempt.AttemptQuestions);
+            }
+            _dbContext.StudentTestAttempts.RemoveRange(studentAttempts);
+        }
+
+        var studentGrades = await _dbContext.GradeEntries
+            .Where(g => g.StudentId == id)
+            .ToListAsync(cancellationToken);
+        if (studentGrades.Count > 0)
+        {
+            _dbContext.GradeEntries.RemoveRange(studentGrades);
+        }
+
+        _dbContext.Users.Remove(user);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     public async Task<IReadOnlyList<GroupDto>> GetGroupsAsync(CancellationToken cancellationToken)
     {
         IQueryable<Group> query = _dbContext.Groups

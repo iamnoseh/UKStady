@@ -84,7 +84,35 @@ public sealed class AdministrationEndpointTests : IClassFixture<TestApiFactory>
         Assert.True(dashboard.TeacherAssignments >= 1);
     }
 
+    [Fact]
+    public async Task TeacherManagement_SupportsArbitraryPassword_ChangePassword_AndHardDelete()
+    {
+        using var client = _factory.CreateClient();
+        await AuthorizeAsync(client, "+992000000000", "Admin123!");
 
+        // 1. Create teacher with 6-digit password "654321" (no letters)
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var teacher = await CreateUserAsync(client, UserRole.Teacher, $"teacher-{suffix}", $"+992{Random.Shared.Next(10000000, 99999999)}", "654321");
+        Assert.NotNull(teacher);
+
+        // 2. Change teacher password to "newpass123"
+        using var changePassResponse = await client.PostAsJsonAsync(
+            $"/api/users/{teacher.Id}/password",
+            new ChangeUserPasswordRequest("newpass123"));
+        Assert.Equal(HttpStatusCode.NoContent, changePassResponse.StatusCode);
+
+        // 3. Verify teacher can log in with new password
+        using var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest(teacher.PhoneNumber, "newpass123"));
+        Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
+
+        // 4. Hard delete teacher
+        using var hardDeleteResponse = await client.DeleteAsync($"/api/users/{teacher.Id}/hard");
+        Assert.Equal(HttpStatusCode.NoContent, hardDeleteResponse.StatusCode);
+
+        // 5. Verify teacher is completely gone from DB
+        using var getUserResponse = await client.GetAsync($"/api/users/{teacher.Id}");
+        Assert.Equal(HttpStatusCode.NotFound, getUserResponse.StatusCode);
+    }
 
     [Fact]
     public async Task AdminDashboardDailyResults_ReturnsStudentsFromActiveGroupsWithoutGrades()

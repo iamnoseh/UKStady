@@ -5,6 +5,7 @@ namespace UKStady.API.Auth;
 
 public static class AuthorizationPolicies
 {
+    public const string SuperAdmins = nameof(SuperAdmins);
     public const string Administrators = nameof(Administrators);
     public const string Managers = nameof(Managers);
     public const string Teachers = nameof(Teachers);
@@ -13,6 +14,9 @@ public static class AuthorizationPolicies
 
     public static void AddRolePolicies(this AuthorizationOptions options)
     {
+        options.AddPolicy(SuperAdmins, policy =>
+            policy.RequireRole(UserRole.SuperAdmin.ToString()));
+
         options.AddPolicy(Administrators, policy =>
             policy.RequireRole(UserRole.SuperAdmin.ToString(), UserRole.Admin.ToString()));
 

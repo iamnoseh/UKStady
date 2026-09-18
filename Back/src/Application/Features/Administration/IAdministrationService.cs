@@ -12,7 +12,11 @@ public interface IAdministrationService
 
     Task<UserDto?> UpdateUserAsync(Guid id, UpdateUserRequest request, CancellationToken cancellationToken);
 
+    Task<bool> ChangeUserPasswordAsync(Guid id, string newPassword, CancellationToken cancellationToken);
+
     Task<bool> DeactivateUserAsync(Guid id, CancellationToken cancellationToken);
+
+    Task<bool> HardDeleteUserAsync(Guid id, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<GroupDto>> GetGroupsAsync(CancellationToken cancellationToken);
 
