@@ -9,7 +9,10 @@ import {
   CheckCircle2,
   ClipboardList,
   Edit3,
+  Eye,
+  EyeOff,
   GraduationCap,
+  KeyRound,
   Layers,
   Save,
   Plus,
@@ -26,8 +29,10 @@ import { SearchableMultiSelect } from '../components/SearchableMultiSelect';
 import { SearchableSelect } from '../components/SearchableSelect';
 import {
   addStudentToGroup,
+  changeUserPassword,
   createTodayGroupLesson,
   createGroup,
+  generatePassword,
   getGroupJournal,
   getGroups,
   getSubjects,
@@ -79,6 +84,7 @@ const subjectBadgeColors = [
 
 export function GroupsPage() {
   const { auth } = useAuth();
+  const isSuperAdmin = auth?.role === 'SuperAdmin';
   const [groups, setGroups] = useState<GroupDto[]>([]);
   const [subjects, setSubjects] = useState<SubjectDto[]>([]);
   const [topics, setTopics] = useState<TopicDto[]>([]);
@@ -88,6 +94,11 @@ export function GroupsPage() {
   const [journal, setJournal] = useState<GroupJournalDto | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<GroupTab>('students');
+  const [passwordStudent, setPasswordStudent] = useState<{ id: string; firstName: string; lastName: string } | null>(null);
+  const [newStudentPassword, setNewStudentPassword] = useState('');
+  const [showStudentPassword, setShowStudentPassword] = useState(false);
+  const [isPasswordSubmitting, setIsPasswordSubmitting] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
   const [name, setName] = useState('');
   const [branch, setBranch] = useState('');
   const [description, setDescription] = useState('');
@@ -371,6 +382,46 @@ export function GroupsPage() {
       setError(error instanceof Error ? error.message : 'Хонанда хориҷ нашуд.');
     } finally {
       setIsStudentSubmitting(false);
+    }
+  }
+
+  function handleOpenStudentPassword(student: { id: string; firstName: string; lastName: string }) {
+    setPasswordStudent(student);
+    setNewStudentPassword('');
+    setPasswordError('');
+    setShowStudentPassword(false);
+  }
+
+  async function handleGenerateStudentPassword() {
+    if (!auth) return;
+    try {
+      const res = await generatePassword(auth.accessToken);
+      setNewStudentPassword(res.password);
+    } catch {
+      const digits = Math.floor(100000 + Math.random() * 900000).toString();
+      setNewStudentPassword(digits);
+    }
+  }
+
+  async function handleSaveStudentPassword(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!auth || !passwordStudent) return;
+
+    if (newStudentPassword.trim().length < 6) {
+      setPasswordError('Парол бояд на камтар аз 6 рамз бошад.');
+      return;
+    }
+
+    setIsPasswordSubmitting(true);
+    setPasswordError('');
+    try {
+      await changeUserPassword(auth.accessToken, passwordStudent.id, newStudentPassword.trim());
+      setNotice(`Пароли хонанда ${passwordStudent.firstName} ${passwordStudent.lastName} бомуваффақият иваз карда шуд.`);
+      setPasswordStudent(null);
+    } catch (err) {
+      setPasswordError(err instanceof Error ? err.message : 'Ивази парол иҷро нашуд.');
+    } finally {
+      setIsPasswordSubmitting(false);
     }
   }
 
@@ -837,16 +888,28 @@ export function GroupsPage() {
                       <p className="truncate font-semibold">{student.firstName} {student.lastName}</p>
                       <p className="font-mono text-xs text-muted">{student.phoneNumber}</p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => void handleRemoveStudent(student.id)}
-                      className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-line bg-white text-red-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-                      disabled={isStudentSubmitting}
-                      aria-label="Хориҷ кардан"
-                      title="Хориҷ кардан"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      {isSuperAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenStudentPassword(student)}
+                          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-line bg-white text-slate-600 transition hover:border-brand hover:bg-brand/10 hover:text-brand"
+                          title="Ивази пароли хонанда"
+                        >
+                          <KeyRound className="h-4 w-4" />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => void handleRemoveStudent(student.id)}
+                        className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-line bg-white text-red-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                        disabled={isStudentSubmitting}
+                        aria-label="Хориҷ кардан"
+                        title="Хориҷ кардан"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1692,6 +1755,79 @@ export function GroupsPage() {
           onPageChange={setPage}
         />
       </div>
+      {/* МОДАЛИ ИВАЗИ ПАРОЛИ ХОНАНДА ДАР ГУРӮҲ */}
+      {passwordStudent ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-line bg-white p-5 sm:p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="grid h-9 w-9 place-items-center rounded-lg bg-amber-50 text-amber-600">
+                  <KeyRound className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-ink">Ивази пароли хонанда</h3>
+                  <p className="text-xs text-muted">{passwordStudent.firstName} {passwordStudent.lastName}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPasswordStudent(null)}
+                className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-panel hover:text-ink"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveStudentPassword} className="mt-4 space-y-3.5">
+              <label className="block">
+                <span className="text-xs font-semibold text-muted">Пароли нав</span>
+                <div className="mt-1 relative flex items-center">
+                  <input
+                    type={showStudentPassword ? 'text' : 'password'}
+                    value={newStudentPassword}
+                    onChange={(e) => setNewStudentPassword(e.target.value)}
+                    placeholder="Ҳадди ақал 6 рамз"
+                    className="h-10 w-full rounded-lg border border-line pl-3 pr-10 font-mono text-sm outline-none focus:border-brand"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowStudentPassword((prev) => !prev)}
+                    className="absolute right-2.5 text-muted hover:text-ink"
+                  >
+                    {showStudentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                <p className="mt-1.5 text-[11px] text-muted">
+                  Дилхоҳ пароли на камтар аз 6 рамз (рақамҳо, ҳарфҳо ё дилхоҳ аломат) қабул карда мешавад.
+                </p>
+              </label>
+
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={handleGenerateStudentPassword}
+                  className="flex items-center gap-1.5 text-xs font-bold text-brand hover:underline"
+                >
+                  <KeyRound className="h-3.5 w-3.5" />
+                  <span>Тавлиди худкори парол</span>
+                </button>
+              </div>
+
+              {passwordError ? <p className="rounded-lg bg-red-50 p-2.5 text-xs font-medium text-red-700">{passwordError}</p> : null}
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-line">
+                <Button type="button" variant="secondary" onClick={() => setPasswordStudent(null)}>
+                  Бекор кардан
+                </Button>
+                <Button type="submit" disabled={isPasswordSubmitting || newStudentPassword.trim().length < 6}>
+                  {isPasswordSubmitting ? 'Иваз шуда истодааст...' : 'Иваз кардани парол'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

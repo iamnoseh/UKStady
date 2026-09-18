@@ -115,6 +115,28 @@ public sealed class AdministrationEndpointTests : IClassFixture<TestApiFactory>
     }
 
     [Fact]
+    public async Task StudentPasswordChange_ByAdmin_AllowsAnyPasswordAndLogin()
+    {
+        using var client = _factory.CreateClient();
+        await AuthorizeAsync(client, "+992000000000", "Admin123!");
+
+        // 1. Create student with 6-character password
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var student = await CreateUserAsync(client, UserRole.Student, $"student-{suffix}", $"+992{Random.Shared.Next(10000000, 99999999)}", "112233");
+        Assert.NotNull(student);
+
+        // 2. Change student password to "stud99"
+        using var changePassResponse = await client.PostAsJsonAsync(
+            $"/api/users/{student.Id}/password",
+            new ChangeUserPasswordRequest("stud99"));
+        Assert.Equal(HttpStatusCode.NoContent, changePassResponse.StatusCode);
+
+        // 3. Verify student can log in with new password
+        using var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest(student.PhoneNumber, "stud99"));
+        Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
+    }
+
+    [Fact]
     public async Task AdminDashboardDailyResults_ReturnsStudentsFromActiveGroupsWithoutGrades()
     {
         using var client = _factory.CreateClient();
