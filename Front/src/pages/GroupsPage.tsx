@@ -952,19 +952,24 @@ export function GroupsPage() {
                         </tr>
                       ) : null}
 
-                      {weeklyReport.rows.map((student, index) => (
-                        <tr key={student.studentId} className={index % 2 === 0 ? 'bg-emerald-50/35' : 'bg-white'}>
-                          <td className="sticky left-0 z-20 w-[180px] sm:w-[260px] border-b border-r border-line bg-inherit px-3 sm:px-4 py-3 sm:py-4">
-                            <div className="flex min-w-0 items-center gap-3">
-                              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-emerald-100 text-[11px] font-bold text-emerald-700">
-                                {index + 1}
-                              </span>
-                              <div className="min-w-0">
-                                <p className="truncate font-semibold">{student.fullName}</p>
-                                <p className="font-mono text-xs text-muted">{student.phoneNumber}</p>
+                      {weeklyReport.rows.map((student, index) => {
+                        const isFailing = student.averageScore !== null && !Number.isNaN(student.averageScore) && student.averageScore < 56;
+                        return (
+                          <tr key={student.studentId} className={index % 2 === 0 ? 'bg-emerald-50/35' : 'bg-white'}>
+                            <td className="sticky left-0 z-20 w-[180px] sm:w-[260px] border-b border-r border-line bg-inherit px-3 sm:px-4 py-3 sm:py-4">
+                              <div className="flex min-w-0 items-center gap-3">
+                                <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-bold ${
+                                  isFailing ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'
+                                }`}>
+                                  {index + 1}
+                                </span>
+                                <div className="min-w-0">
+                                  <p className={`truncate font-bold transition-colors ${isFailing ? 'text-red-600' : 'text-ink'}`}>
+                                    {student.fullName}
+                                  </p>
+                                </div>
                               </div>
-                            </div>
-                          </td>
+                            </td>
                           {weeklyReport.subjects.map((subject) => (
                             <td key={`${student.studentId}-${subject.subjectId}`} className="w-[150px] border-b border-r border-line px-3 py-4 text-center">
                               <span className="inline-flex h-9 min-w-[78px] items-center justify-center rounded-lg border border-slate-200 bg-white px-3 font-bold text-ink">
@@ -983,7 +988,8 @@ export function GroupsPage() {
                             </span>
                           </td>
                         </tr>
-                      ))}
+                      );
+                    })}
                     </tbody>
                   </table>
                 </div>
@@ -1084,49 +1090,55 @@ export function GroupsPage() {
                         </tr>
                       ) : null}
 
-                      {activeSubjectJournal.students.map((student, index) => (
-                        <tr key={`${activeSubjectJournal.subjectId}-${student.studentId}`} className={index % 2 === 0 ? 'bg-sky-50/40' : 'bg-white'}>
-                          <td className="sticky left-0 z-20 w-[118px] sm:w-[230px] border-b border-r border-line bg-inherit px-1.5 sm:px-4 py-2 sm:py-4">
-                            <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
-                              <span className="grid h-4 w-4 sm:h-5 sm:w-5 shrink-0 place-items-center rounded-full bg-brand/10 text-[9px] sm:text-[11px] font-bold text-brand">
-                                {index + 1}
-                              </span>
-                              <div className="min-w-0">
-                                <p className="truncate font-semibold">{student.fullName}</p>
-                                <p className="font-mono text-[10px] sm:text-xs text-muted">{student.phoneNumber}</p>
+                      {activeSubjectJournal.students.map((student, index) => {
+                        const isFailing = student.averageScore !== null && !Number.isNaN(student.averageScore) && student.averageScore < 56;
+                        return (
+                          <tr key={`${activeSubjectJournal.subjectId}-${student.studentId}`} className={index % 2 === 0 ? 'bg-sky-50/40' : 'bg-white'}>
+                            <td className="sticky left-0 z-20 w-[118px] sm:w-[230px] border-b border-r border-line bg-inherit px-1.5 sm:px-4 py-2 sm:py-4">
+                              <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
+                                <span className={`grid h-4 w-4 sm:h-5 sm:w-5 shrink-0 place-items-center rounded-full text-[9px] sm:text-[11px] font-bold ${
+                                  isFailing ? 'bg-red-100 text-red-700' : 'bg-brand/10 text-brand'
+                                }`}>
+                                  {index + 1}
+                                </span>
+                                <div className="min-w-0">
+                                  <p className={`truncate font-bold transition-colors ${isFailing ? 'text-red-600' : 'text-ink'}`}>
+                                    {student.fullName}
+                                  </p>
+                                </div>
                               </div>
-                            </div>
-                          </td>
-                          <td className="static sm:sticky sm:left-[230px] z-20 w-[62px] sm:w-[120px] border-b border-r border-line bg-inherit px-1.5 sm:px-3 py-2 sm:py-4 text-center">
-                            <span className={`inline-flex h-7 sm:h-9 w-[48px] sm:w-[86px] items-center justify-center rounded-lg border font-bold ${getAverageScoreClassName(student.averageScore)}`}>
-                              {formatScore(student.averageScore)}
-                            </span>
-                          </td>
-                          {activeSubjectJournal.lessons.map((lesson) => {
-                            const score = student.lessonScores.find((item) => item.lessonId === lesson.id);
-                            const scoreContent = formatScore(score?.score ?? null);
-                            const scoreClassName = getJournalScoreClassName(score);
-                            return (
-                              <td key={`${student.studentId}-${lesson.id}`} className="w-[92px] sm:w-[154px] border-b border-r border-line px-1.5 sm:px-3 py-2 sm:py-4 text-center">
-                                {score?.canEdit && score.score !== null ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => openScoreModal(lesson, student.studentId, student.fullName, score)}
-                                    className={`inline-flex h-7 sm:h-9 w-[54px] sm:w-[110px] items-center justify-center rounded-lg border font-bold transition hover:ring-2 hover:ring-brand/20 ${scoreClassName}`}
-                                    title="Тағйир додани бал"
-                                  >
-                                    {scoreContent}
-                                  </button>
-                                ) : (
-                                  <span className={`inline-flex h-7 sm:h-9 w-[54px] sm:w-[110px] items-center justify-center rounded-lg border font-bold ${scoreClassName}`}>
-                                    {scoreContent}
-                                  </span>
-                                )}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
+                            </td>
+                            <td className="static sm:sticky sm:left-[230px] z-20 w-[62px] sm:w-[120px] border-b border-r border-line bg-inherit px-1.5 sm:px-3 py-2 sm:py-4 text-center">
+                              <span className={`inline-flex h-7 sm:h-9 w-[48px] sm:w-[86px] items-center justify-center rounded-lg border font-bold ${getAverageScoreClassName(student.averageScore)}`}>
+                                {formatScore(student.averageScore)}
+                              </span>
+                            </td>
+                            {activeSubjectJournal.lessons.map((lesson) => {
+                              const score = student.lessonScores.find((item) => item.lessonId === lesson.id);
+                              const scoreContent = formatScore(score?.score ?? null);
+                              const scoreClassName = getJournalScoreClassName(score);
+                              return (
+                                <td key={`${student.studentId}-${lesson.id}`} className="w-[92px] sm:w-[154px] border-b border-r border-line px-1.5 sm:px-3 py-2 sm:py-4 text-center">
+                                  {score?.canEdit && score.score !== null ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => openScoreModal(lesson, student.studentId, student.fullName, score)}
+                                      className={`inline-flex h-7 sm:h-9 w-[54px] sm:w-[110px] items-center justify-center rounded-lg border font-bold transition hover:ring-2 hover:ring-brand/20 ${scoreClassName}`}
+                                      title="Тағйир додани бал"
+                                    >
+                                      {scoreContent}
+                                    </button>
+                                  ) : (
+                                    <span className={`inline-flex h-7 sm:h-9 w-[54px] sm:w-[110px] items-center justify-center rounded-lg border font-bold ${scoreClassName}`}>
+                                      {scoreContent}
+                                    </span>
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -1710,26 +1722,33 @@ function getGradeByAverage(value: number) {
 
 function getGradeClassName(grade: number) {
   if (grade <= 2) {
-    return 'border-red-200 bg-red-50 text-red-700';
+    return 'border-red-300 bg-red-50 text-red-700 font-extrabold shadow-sm';
   }
 
-  if (grade === 3) {
-    return 'border-amber-200 bg-amber-50 text-amber-700';
+  if (grade === 3 || grade === 4) {
+    return 'border-amber-300 bg-amber-50 text-amber-800 font-extrabold shadow-sm';
   }
 
-  if (grade === 4) {
-    return 'border-sky-200 bg-sky-50 text-sky-700';
-  }
-
-  return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+  return 'border-emerald-300 bg-emerald-50 text-emerald-700 font-extrabold shadow-sm';
 }
 
 function getAverageScoreClassName(score: number | null) {
-  if (score !== null && score >= 90) {
-    return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+  if (score === null || Number.isNaN(score)) {
+    return 'border-slate-200 bg-slate-50 text-slate-400 font-medium';
   }
 
-  return 'border-slate-200 bg-white text-ink';
+  // 90 то 100: сабз (green)
+  if (score >= 90) {
+    return 'border-emerald-300 bg-emerald-50 text-emerald-700 font-extrabold shadow-sm';
+  }
+
+  // 56 то 89: зард / тиллоӣ (yellow / amber)
+  if (score >= 56) {
+    return 'border-amber-300 bg-amber-50 text-amber-800 font-extrabold shadow-sm';
+  }
+
+  // Аз 55 поён: сурх (red)
+  return 'border-red-300 bg-red-50 text-red-600 font-extrabold shadow-sm';
 }
 
 function getJournalScoreClassName(score?: GroupJournalLessonScoreDto) {

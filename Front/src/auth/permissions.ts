@@ -37,10 +37,8 @@ const rolePermissions: Record<UserRole, ReadonlySet<Permission>> = {
     'subjects.view',
   ]),
   Student: new Set<Permission>([
-    'dashboard.view',
-    'groups.view',
-    'journal.view',
     'tests.view',
+    'journal.view',
   ]),
 };
 

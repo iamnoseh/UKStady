@@ -17,7 +17,7 @@ import logo from '../assets/USStady_Logo.png';
 import { useAuth } from '../context/AuthContext';
 import { Button } from './Button';
 
-export type AppView = 'dashboard' | 'students' | 'teachers' | 'groups' | 'journal' | 'subjects' | 'topics' | 'questions';
+export type AppView = 'dashboard' | 'students' | 'teachers' | 'groups' | 'journal' | 'subjects' | 'topics' | 'questions' | 'tests';
 
 const navigation: Array<{
   label: string;
@@ -29,9 +29,9 @@ const navigation: Array<{
   { label: 'Хонандагон', view: 'students', icon: Users, permission: 'students.manage' },
   { label: 'Муаллимон', view: 'teachers', icon: GraduationCap, permission: 'teachers.manage' },
   { label: 'Гурӯҳҳо', view: 'groups', icon: Layers, permission: 'groups.view' },
+  { label: 'Тестҳо', view: 'tests', icon: ClipboardCheck, permission: 'tests.view' },
   { label: 'Журнал', view: 'journal', icon: ClipboardList, permission: 'journal.view' },
   { label: 'Фанҳо', view: 'subjects', icon: BookOpen, permission: 'subjects.view' },
-  { label: 'Тестҳо', view: 'dashboard', icon: ClipboardCheck, permission: 'tests.view' },
 ];
 
 export function AppShell({

@@ -95,7 +95,7 @@ export function StudentJournalPage() {
               <p className="text-sm font-bold text-ink">{formatDateLabel(journal?.date ?? date)}</p>
               <p className="mt-1 text-xs text-muted">{rows.length} фан</p>
             </div>
-            <span className="inline-flex h-9 items-center rounded-lg bg-white px-3 text-sm font-bold text-ink ring-1 ring-line">
+            <span className={`inline-flex h-9 items-center rounded-lg border px-3 text-sm font-bold shadow-sm ${getScoreClassName(averageScore)}`}>
               Миёна: {averageScore === null ? 'н' : averageScore}
             </span>
           </div>
@@ -114,10 +114,10 @@ export function StudentJournalPage() {
                     </span>
                     <div className="min-w-0">
                       <h3 className="truncate font-bold text-ink">{row.subjectName}</h3>
-                      <p className="truncate text-xs text-muted">{row.groupName}{row.topicTitle ? ` · ${row.topicTitle}` : ''}</p>
+                      <p className="truncate text-xs text-muted">{row.topicTitle ?? 'Мавзӯъ муайян нашудааст'}</p>
                     </div>
                   </div>
-                  <span className={`inline-flex h-10 min-w-[62px] items-center justify-center rounded-lg border px-3 font-extrabold ${getScoreClassName(row.score)}`}>
+                  <span className={`inline-flex h-10 min-w-[62px] items-center justify-center rounded-lg border px-3 font-extrabold shadow-sm ${getScoreClassName(row.score)}`}>
                     {row.score === null ? 'н' : Math.round(row.score)}
                   </span>
                 </article>
@@ -152,21 +152,17 @@ function formatDateLabel(dateValue: string) {
 }
 
 function getScoreClassName(score: number | null) {
-  if (score === null) {
-    return 'border-slate-200 bg-slate-50 text-slate-500';
+  if (score === null || Number.isNaN(score)) {
+    return 'border-slate-200 bg-slate-50 text-slate-400 font-medium';
   }
 
   if (score >= 90) {
-    return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+    return 'border-emerald-200 bg-emerald-50 text-emerald-700 font-extrabold';
   }
 
-  if (score >= 76) {
-    return 'border-sky-200 bg-sky-50 text-sky-700';
+  if (score >= 56) {
+    return 'border-amber-200 bg-amber-50 text-amber-700 font-extrabold';
   }
 
-  if (score >= 55) {
-    return 'border-amber-200 bg-amber-50 text-amber-700';
-  }
-
-  return 'border-red-200 bg-red-50 text-red-600';
+  return 'border-red-200 bg-red-50 text-red-600 font-extrabold';
 }

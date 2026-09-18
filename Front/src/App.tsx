@@ -18,6 +18,7 @@ const titles: Record<AppView, string> = {
   students: 'Хонандагон',
   teachers: 'Муаллимон',
   groups: 'Гурӯҳҳо',
+  tests: 'Тестҳо',
   journal: 'Журнал',
   subjects: 'Фанҳо',
   topics: 'Мавзӯъҳо',
@@ -29,6 +30,7 @@ const viewPermissions: Record<AppView, Permission> = {
   students: 'students.manage',
   teachers: 'teachers.manage',
   groups: 'groups.view',
+  tests: 'tests.view',
   journal: 'journal.view',
   subjects: 'subjects.view',
   topics: 'subjects.view',
@@ -37,13 +39,14 @@ const viewPermissions: Record<AppView, Permission> = {
 
 function AppContent() {
   const { auth } = useAuth();
-  const [activeView, setActiveView] = useState<AppView>('dashboard');
+  const defaultView: AppView = auth?.role === 'Student' ? 'tests' : 'dashboard';
+  const [activeView, setActiveView] = useState<AppView>(defaultView);
   const [selectedSubject, setSelectedSubject] = useState<SubjectDto | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<TopicDto | null>(null);
 
   const permittedView = auth && hasPermission(auth.role, viewPermissions[activeView])
     ? activeView
-    : 'dashboard';
+    : defaultView;
 
   const content = useMemo(() => {
     switch (permittedView) {
@@ -102,6 +105,8 @@ function AppContent() {
         return <TeachersPage />;
       case 'groups':
         return <GroupsPage />;
+      case 'tests':
+        return <DashboardPage onViewChange={setActiveView} />;
       case 'journal':
         return <StudentJournalPage />;
       default:

@@ -514,7 +514,7 @@ function StudentDashboardView({
 
       {!isLoading && !error && subjects.length === 0 ? (
         <div className="rounded-xl border border-line bg-white p-8 text-center text-sm text-muted">
-          Ҳоло барои шумо фан ё гурӯҳ пайваст нашудааст.
+          Ҳоло барои шумо фан пайваст нашудааст.
         </div>
       ) : null}
 
@@ -553,7 +553,6 @@ function StudentSubjectCard({
             <BookOpen className="h-5 w-5" />
           </div>
           <h3 className="truncate text-lg font-bold text-ink">{subject.subjectName}</h3>
-          <p className="mt-1 truncate text-sm text-muted">{subject.groupName}</p>
         </div>
         <span className={`shrink-0 rounded-lg px-2.5 py-1 text-xs font-bold ${getStudentTestStatusClassName(subject.status)}`}>
           {getStudentTestStatusLabel(subject.status)}
