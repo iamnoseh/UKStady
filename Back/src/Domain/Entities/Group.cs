@@ -12,6 +12,12 @@ public sealed class Group : AuditableEntity
 
     public bool IsActive { get; set; } = true;
 
+    public TimeOnly? TestStartTime { get; set; }
+
+    public TimeOnly? TestEndTime { get; set; }
+
+    public string? TestAccessMode { get; set; }
+
     public ICollection<GroupStudent> Students { get; set; } = [];
 
     public ICollection<GroupSubject> Subjects { get; set; } = [];

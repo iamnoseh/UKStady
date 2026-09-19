@@ -8,6 +8,7 @@ import {
   Check,
   CheckCircle2,
   ClipboardList,
+  Clock,
   Edit3,
   Eye,
   EyeOff,
@@ -45,6 +46,7 @@ import {
   updateGroupJournalScore,
   updateGroupLessonTopic,
   updateGroup,
+  updateGroupTestAccess,
 } from '../services/api';
 import type {
   GroupDto,
@@ -143,6 +145,12 @@ export function GroupsPage() {
   const [teacherModalSubject, setTeacherModalSubject] = useState<GroupSubjectDto | null>(null);
   const [selectedTeacherId, setSelectedTeacherId] = useState('');
   const [isTeacherAssignmentSubmitting, setIsTeacherAssignmentSubmitting] = useState(false);
+  const [testAccessModalGroup, setTestAccessModalGroup] = useState<GroupDto | null>(null);
+  const [testStartTime, setTestStartTime] = useState('20:00');
+  const [testEndTime, setTestEndTime] = useState('07:00');
+  const [testAccessMode, setTestAccessMode] = useState<'Scheduled' | 'AlwaysOpen' | 'Closed'>('Scheduled');
+  const [isTestAccessSubmitting, setIsTestAccessSubmitting] = useState(false);
+  const [testAccessError, setTestAccessError] = useState('');
   const canManageGroups = auth?.role === 'SuperAdmin' || auth?.role === 'Admin' || auth?.role === 'Manager';
   const canManageJournal = auth?.role !== 'Student';
 
@@ -562,6 +570,45 @@ export function GroupsPage() {
     }
   }
 
+  function openTestAccessModal(group: GroupDto) {
+    setTestAccessModalGroup(group);
+    setTestStartTime(group.testStartTime ? group.testStartTime.slice(0, 5) : '20:00');
+    setTestEndTime(group.testEndTime ? group.testEndTime.slice(0, 5) : '07:00');
+    const mode = group.testAccessMode as 'Scheduled' | 'AlwaysOpen' | 'Closed';
+    setTestAccessMode(mode && ['Scheduled', 'AlwaysOpen', 'Closed'].includes(mode) ? mode : 'Scheduled');
+    setTestAccessError('');
+  }
+
+  function closeTestAccessModal() {
+    setTestAccessModalGroup(null);
+    setTestAccessError('');
+  }
+
+  async function handleSaveTestAccess(e: FormEvent) {
+    e.preventDefault();
+    if (!auth || !testAccessModalGroup) {
+      return;
+    }
+
+    setIsTestAccessSubmitting(true);
+    setTestAccessError('');
+    try {
+      const updated = await updateGroupTestAccess(auth.accessToken, testAccessModalGroup.id, {
+        testStartTime: testAccessMode === 'AlwaysOpen' ? null : (testStartTime || '20:00'),
+        testEndTime: testAccessMode === 'AlwaysOpen' ? null : (testEndTime || '07:00'),
+        testAccessMode,
+      });
+
+      setGroups((prev) => prev.map((group) => (group.id === updated.id ? updated : group)));
+      setNotice(`Танзимоти дастрасии тест барои гурӯҳи «${updated.name}» бомуваффақият сабт шуд.`);
+      closeTestAccessModal();
+    } catch (err) {
+      setTestAccessError(err instanceof Error ? err.message : 'Хатогӣ ҳангоми сабти дастрасии тест.');
+    } finally {
+      setIsTestAccessSubmitting(false);
+    }
+  }
+
   const filteredGroups = useMemo(() => {
     const value = query.trim().toLowerCase();
     if (!value) {
@@ -795,7 +842,7 @@ export function GroupsPage() {
             <div>
               <p className="text-sm font-semibold text-muted">Гурӯҳ</p>
               <h2 className="mt-1 text-2xl font-bold">{selectedGroup.name}</h2>
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-3 flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-semibold text-slate-700">
                   <Building2 className="h-4 w-4" />
                   {selectedGroup.branch}
@@ -810,9 +857,39 @@ export function GroupsPage() {
                 }`}>
                   {selectedGroup.isActive ? 'Фаъол' : 'Анҷомёфта'}
                 </span>
+                {canManageGroups ? (
+                  <button
+                    type="button"
+                    onClick={() => openTestAccessModal(selectedGroup)}
+                    className="inline-flex items-center gap-2 rounded-lg border border-brand/40 bg-brand/5 px-3 py-1.5 text-sm font-semibold text-brand transition hover:bg-brand hover:text-white"
+                    title="Идораи дастрасӣ ва вақти супоридани тест"
+                  >
+                    <Clock className="h-4 w-4" />
+                    <span>Дастрасии тест: {getTestAccessSummary(selectedGroup)}</span>
+                    <Edit3 className="h-3.5 w-3.5 opacity-70" />
+                  </button>
+                ) : (
+                  <span className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-semibold text-slate-700">
+                    <Clock className="h-4 w-4 text-muted" />
+                    <span>Дастрасии тест: {getTestAccessSummary(selectedGroup)}</span>
+                  </span>
+                )}
               </div>
             </div>
           </div>
+          {canManageGroups ? (
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => openTestAccessModal(selectedGroup)}
+                className="gap-2 border-brand/40 text-brand hover:bg-brand hover:text-white"
+              >
+                <Clock className="h-4 w-4" />
+                Идораи вақти тест
+              </Button>
+            </div>
+          ) : null}
         </div>
 
         <div className="mb-4 flex flex-nowrap gap-2 overflow-x-auto no-scrollbar border-b border-line pb-1">
@@ -1603,6 +1680,8 @@ export function GroupsPage() {
             </div>
           </div>
         ) : null}
+
+        {renderTestAccessModal()}
       </section>
     );
   }
@@ -1742,6 +1821,32 @@ export function GroupsPage() {
                 {group.studentCount} хонанда
               </span>
             </div>
+
+            <div className="mt-3.5 flex items-center justify-between border-t border-line/60 pt-3">
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+                <Clock className="h-3.5 w-3.5 text-brand" />
+                <span>Тест: {getTestAccessSummary(group)}</span>
+              </span>
+              {canManageGroups ? (
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openTestAccessModal(group);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.stopPropagation();
+                      openTestAccessModal(group);
+                    }
+                  }}
+                  className="rounded-md border border-line bg-panel px-2.5 py-1 text-xs font-bold text-ink transition hover:border-brand hover:bg-brand hover:text-white"
+                >
+                  Ивази вақт
+                </span>
+              ) : null}
+            </div>
           </button>
         ))}
       </div>
@@ -1828,8 +1933,213 @@ export function GroupsPage() {
           </div>
         </div>
       ) : null}
+
+      {renderTestAccessModal()}
     </section>
   );
+
+  function renderTestAccessModal() {
+    if (!testAccessModalGroup) {
+      return null;
+    }
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 backdrop-blur-sm p-0 sm:p-4">
+        <div className="w-full max-w-lg rounded-t-2xl sm:rounded-2xl border border-line bg-white p-5 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
+          <div className="mb-5 flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand/10 text-brand">
+                <Clock className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-ink">Идораи дастрасии тестҳо</h3>
+                <p className="mt-0.5 text-sm font-medium text-muted">
+                  Гурӯҳ: <strong className="text-ink">{testAccessModalGroup.name}</strong> ({testAccessModalGroup.branch})
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={closeTestAccessModal}
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-line text-muted transition hover:bg-panel hover:text-ink"
+              aria-label="Пӯшидан"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <form onSubmit={handleSaveTestAccess} className="space-y-4">
+            <div>
+              <span className="block text-xs font-bold uppercase tracking-wider text-muted mb-2">Реҷаи дастрасӣ</span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setTestAccessMode('Scheduled')}
+                  className={`flex flex-col items-start p-3 rounded-xl border text-left transition ${
+                    testAccessMode === 'Scheduled'
+                      ? 'border-brand bg-brand/5 ring-2 ring-brand/20'
+                      : 'border-line hover:border-brand/40 bg-panel/40'
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5 text-sm font-bold text-ink">
+                    <Clock className="h-4 w-4 text-brand" />
+                    Мувофиқи вақт
+                  </span>
+                  <span className="mt-1 text-[11px] text-muted leading-snug">
+                    Соатҳои мушаххаси рӯз ё шаб
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTestAccessMode('AlwaysOpen')}
+                  className={`flex flex-col items-start p-3 rounded-xl border text-left transition ${
+                    testAccessMode === 'AlwaysOpen'
+                      ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/20'
+                      : 'border-line hover:border-emerald-400 bg-panel/40'
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5 text-sm font-bold text-emerald-800">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    Ҳамеша кушода
+                  </span>
+                  <span className="mt-1 text-[11px] text-muted leading-snug">
+                    24/7 бе маҳдудияти соат
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTestAccessMode('Closed')}
+                  className={`flex flex-col items-start p-3 rounded-xl border text-left transition ${
+                    testAccessMode === 'Closed'
+                      ? 'border-red-500 bg-red-50 ring-2 ring-red-500/20'
+                      : 'border-line hover:border-red-400 bg-panel/40'
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5 text-sm font-bold text-red-800">
+                    <XCircle className="h-4 w-4 text-red-600" />
+                    Маҳкам
+                  </span>
+                  <span className="mt-1 text-[11px] text-muted leading-snug">
+                    Муваққатан баста шудааст
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {testAccessMode === 'Scheduled' ? (
+              <div className="rounded-xl border border-line bg-panel/30 p-4 space-y-3.5">
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="block">
+                    <span className="text-xs font-bold text-ink">Вақти оғоз</span>
+                    <input
+                      type="time"
+                      value={testStartTime}
+                      onChange={(e) => setTestStartTime(e.target.value)}
+                      className="mt-1.5 h-11 w-full rounded-lg border border-line bg-white px-3 font-mono text-sm font-bold outline-none focus:border-brand focus:ring-2 focus:ring-brand/10"
+                      required
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="text-xs font-bold text-ink">Вақти анҷом</span>
+                    <input
+                      type="time"
+                      value={testEndTime}
+                      onChange={(e) => setTestEndTime(e.target.value)}
+                      className="mt-1.5 h-11 w-full rounded-lg border border-line bg-white px-3 font-mono text-sm font-bold outline-none focus:border-brand focus:ring-2 focus:ring-brand/10"
+                      required
+                    />
+                  </label>
+                </div>
+
+                <p className="text-[11px] text-muted">
+                  {testEndTime <= testStartTime ? (
+                    <span>🌙 <strong>Реҷаи шабона:</strong> тест аз соати {testStartTime} кушода шуда, субҳи рӯзи дигар дар соати {testEndTime} маҳкам мешавад.</span>
+                  ) : (
+                    <span>☀️ <strong>Реҷаи рӯзона:</strong> тест дар ҳамон рӯз аз соати {testStartTime} то {testEndTime} кушода мебошад.</span>
+                  )}
+                </p>
+
+                <div>
+                  <span className="block text-[11px] font-bold uppercase tracking-wider text-muted mb-1.5">Танзимоти тайёр (Presets)</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => { setTestStartTime('20:00'); setTestEndTime('07:00'); }}
+                      className="rounded-md border border-line bg-white px-2.5 py-1 text-xs font-semibold text-ink hover:border-brand hover:text-brand"
+                    >
+                      20:00 - 07:00 (Шабона)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setTestStartTime('09:00'); setTestEndTime('18:00'); }}
+                      className="rounded-md border border-line bg-white px-2.5 py-1 text-xs font-semibold text-ink hover:border-brand hover:text-brand"
+                    >
+                      09:00 - 18:00 (Рӯзона)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setTestStartTime('18:00'); setTestEndTime('23:00'); }}
+                      className="rounded-md border border-line bg-white px-2.5 py-1 text-xs font-semibold text-ink hover:border-brand hover:text-brand"
+                    >
+                      18:00 - 23:00 (Бегоҳӣ)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setTestStartTime('08:00'); setTestEndTime('22:00'); }}
+                      className="rounded-md border border-line bg-white px-2.5 py-1 text-xs font-semibold text-ink hover:border-brand hover:text-brand"
+                    >
+                      08:00 - 22:00 (Тамоми рӯз)
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : testAccessMode === 'AlwaysOpen' ? (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4">
+                <p className="text-xs font-semibold text-emerald-900">
+                  🟢 <strong>Дастрасӣ доимо фаъол аст.</strong> Донишҷӯёни гурӯҳ метавонанд дар дилхоҳ вақти рӯзу шаб тестҳои фаъолро супоранд.
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-red-200 bg-red-50/70 p-4">
+                <p className="text-xs font-semibold text-red-900">
+                  🔴 <strong>Дастрасӣ баста мешавад.</strong> Донишҷӯёни гурӯҳ наметавонанд то кушодани дубора тест супоранд.
+                </p>
+              </div>
+            )}
+
+            {testAccessError ? (
+              <p className="rounded-lg bg-red-50 p-2.5 text-xs font-semibold text-red-700">{testAccessError}</p>
+            ) : null}
+
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-line">
+              <Button type="button" variant="secondary" onClick={closeTestAccessModal} disabled={isTestAccessSubmitting}>
+                Бекор кардан
+              </Button>
+              <Button type="submit" disabled={isTestAccessSubmitting}>
+                <Save className="h-4 w-4" />
+                {isTestAccessSubmitting ? 'Сабт шуда истодааст...' : 'Сабт кардан'}
+              </Button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
+}
+
+function getTestAccessSummary(group: GroupDto) {
+  if (group.testAccessMode === 'Closed') {
+    return 'Маҳкам';
+  }
+  if (group.testAccessMode === 'AlwaysOpen') {
+    return 'Ҳамеша кушода';
+  }
+  const start = group.testStartTime ? group.testStartTime.slice(0, 5) : '20:00';
+  const end = group.testEndTime ? group.testEndTime.slice(0, 5) : '07:00';
+  return `${start} - ${end}`;
 }
 
 function roundScore(value: number) {

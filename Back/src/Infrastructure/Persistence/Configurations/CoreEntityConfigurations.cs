@@ -45,6 +45,9 @@ public sealed class GroupConfiguration : IEntityTypeConfiguration<Group>
         builder.Property(group => group.Name).HasMaxLength(150).IsRequired();
         builder.Property(group => group.Description).HasMaxLength(500);
         builder.Property(group => group.Branch).HasMaxLength(150).IsRequired();
+        builder.Property(group => group.TestStartTime);
+        builder.Property(group => group.TestEndTime);
+        builder.Property(group => group.TestAccessMode).HasMaxLength(30);
         builder.HasIndex(group => group.Name).IsUnique();
     }
 }

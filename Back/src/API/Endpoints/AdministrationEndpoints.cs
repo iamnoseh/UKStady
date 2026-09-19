@@ -176,6 +176,18 @@ public static class AdministrationEndpoints
         .RequireAuthorization(AuthorizationPolicies.Managers)
         .WithName("UpdateGroup");
 
+        group.MapPut("/{id:guid}/test-access", async (
+            Guid id,
+            [FromBody] UpdateGroupTestAccessRequest request,
+            IAdministrationService service,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await service.UpdateGroupTestAccessAsync(id, request, cancellationToken);
+            return result is null ? Results.NotFound() : Results.Ok(result);
+        })
+        .RequireAuthorization(AuthorizationPolicies.Managers)
+        .WithName("UpdateGroupTestAccess");
+
         group.MapDelete("/{id:guid}", async (
             Guid id,
             IAdministrationService service,

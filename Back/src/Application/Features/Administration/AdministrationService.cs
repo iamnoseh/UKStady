@@ -476,6 +476,27 @@ public sealed class AdministrationService : IAdministrationService
         return await GetGroupAsync(group.Id, cancellationToken);
     }
 
+    public async Task<GroupDto?> UpdateGroupTestAccessAsync(
+        Guid id,
+        UpdateGroupTestAccessRequest request,
+        CancellationToken cancellationToken)
+    {
+        var group = await _dbContext.Groups
+            .FirstOrDefaultAsync(candidate => candidate.Id == id, cancellationToken);
+        if (group is null)
+        {
+            return null;
+        }
+
+        group.TestStartTime = request.TestStartTime;
+        group.TestEndTime = request.TestEndTime;
+        group.TestAccessMode = string.IsNullOrWhiteSpace(request.TestAccessMode) ? "Scheduled" : request.TestAccessMode.Trim();
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return await GetGroupAsync(group.Id, cancellationToken);
+    }
+
     public async Task<bool> DeactivateGroupAsync(Guid id, CancellationToken cancellationToken)
     {
         var group = await _dbContext.Groups.FirstOrDefaultAsync(candidate => candidate.Id == id, cancellationToken);
@@ -1046,7 +1067,10 @@ public sealed class AdministrationService : IAdministrationService
                     groupStudent.Student.FirstName,
                     groupStudent.Student.LastName,
                     groupStudent.Student.PhoneNumber))
-                .ToList());
+                .ToList(),
+            group.TestStartTime,
+            group.TestEndTime,
+            group.TestAccessMode);
     }
 
     private static string NormalizePhoneNumber(string phoneNumber)

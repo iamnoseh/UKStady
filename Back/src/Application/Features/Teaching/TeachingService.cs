@@ -967,17 +967,23 @@ public sealed class TeachingService : ITeachingService
             .Select(group => new { TopicId = group.Key, Count = group.Count() })
             .ToDictionaryAsync(row => row.TopicId, row => row.Count, cancellationToken);
 
+        var groupsById = await _dbContext.Groups
+            .AsNoTracking()
+            .Where(group => groupIds.Contains(group.Id))
+            .ToDictionaryAsync(group => group.Id, cancellationToken);
+
         var subjects = groupRows
             .Select(row =>
             {
+                var group = groupsById.GetValueOrDefault(row.GroupId);
                 var lesson = lessons
                     .Where(candidate =>
                         candidate.SubjectId == row.SubjectId &&
                         candidate.TestAssignments.Any(assignment => assignment.GroupId == row.GroupId))
                     .OrderByDescending(candidate =>
                     {
-                        var (opensAtUtc, closesAtUtc) = BuildAvailabilityWindow(candidate.LessonDate);
-                        return now >= opensAtUtc && now <= closesAtUtc;
+                        var (_, _, isOpen) = BuildAvailabilityWindow(candidate.LessonDate, group, now);
+                        return isOpen;
                     })
                     .ThenByDescending(candidate => candidate.LessonDate)
                     .ThenByDescending(candidate => candidate.CreatedAtUtc)
@@ -989,7 +995,7 @@ public sealed class TeachingService : ITeachingService
                     attemptStatus = status;
                 }
 
-                return ToStudentDashboardSubject(row, lesson, activeQuestionCounts, attemptStatus, now);
+                return ToStudentDashboardSubject(row, lesson, activeQuestionCounts, attemptStatus, now, group);
             })
             .ToList();
 
@@ -1127,10 +1133,13 @@ public sealed class TeachingService : ITeachingService
             return StudentTestActionResult<StudentTestSessionDto>.Failure("The lesson topic is not selected yet.");
         }
 
-        var (opensAtUtc, closesAtUtc) = BuildAvailabilityWindow(lesson.LessonDate);
-        if (now < opensAtUtc || now > closesAtUtc)
+        var (opensAtUtc, closesAtUtc, isOpen) = BuildAvailabilityWindow(lesson.LessonDate, assignment.Group, now);
+        if (!isOpen)
         {
-            return StudentTestActionResult<StudentTestSessionDto>.Failure("The test is not open at this time.");
+            return StudentTestActionResult<StudentTestSessionDto>.Failure(
+                string.Equals(assignment.Group?.TestAccessMode, "Closed", StringComparison.OrdinalIgnoreCase)
+                    ? "Дастрасӣ ба ин тест муваққатан маҳкам карда шудааст."
+                    : "The test is not open at this time.");
         }
 
         var existingAttempt = await _dbContext.StudentTestAttempts
@@ -1218,6 +1227,8 @@ public sealed class TeachingService : ITeachingService
         var attempt = await _dbContext.StudentTestAttempts
             .Include(candidate => candidate.TestAssignment)
                 .ThenInclude(assignment => assignment.DailyLesson)
+            .Include(candidate => candidate.TestAssignment)
+                .ThenInclude(assignment => assignment.Group)
             .Include(candidate => candidate.AttemptQuestions)
                 .ThenInclude(attemptQuestion => attemptQuestion.Question)
                     .ThenInclude(question => question.Options)
@@ -1234,8 +1245,11 @@ public sealed class TeachingService : ITeachingService
             return StudentTestActionResult<StudentTestAnswerDto>.Failure("This test cannot be changed anymore.");
         }
 
-        var (opensAtUtc, closesAtUtc) = BuildAvailabilityWindow(attempt.TestAssignment.DailyLesson.LessonDate);
-        if (now < opensAtUtc || now > closesAtUtc)
+        var (opensAtUtc, closesAtUtc, isOpen) = BuildAvailabilityWindow(
+            attempt.TestAssignment.DailyLesson.LessonDate,
+            attempt.TestAssignment.Group,
+            now);
+        if (!isOpen)
         {
             return StudentTestActionResult<StudentTestAnswerDto>.Failure("The test is not open at this time.");
         }
@@ -1308,6 +1322,8 @@ public sealed class TeachingService : ITeachingService
         var attempt = await _dbContext.StudentTestAttempts
             .Include(candidate => candidate.TestAssignment)
                 .ThenInclude(assignment => assignment.DailyLesson)
+            .Include(candidate => candidate.TestAssignment)
+                .ThenInclude(assignment => assignment.Group)
             .Include(candidate => candidate.AttemptQuestions)
                 .ThenInclude(attemptQuestion => attemptQuestion.Question)
                     .ThenInclude(question => question.Options)
@@ -1324,8 +1340,11 @@ public sealed class TeachingService : ITeachingService
             return StudentTestActionResult<StudentTestAnswerDto>.Failure("This test cannot be changed anymore.");
         }
 
-        var (opensAtUtc, closesAtUtc) = BuildAvailabilityWindow(attempt.TestAssignment.DailyLesson.LessonDate);
-        if (now < opensAtUtc || now > closesAtUtc)
+        var (opensAtUtc, closesAtUtc, isOpen) = BuildAvailabilityWindow(
+            attempt.TestAssignment.DailyLesson.LessonDate,
+            attempt.TestAssignment.Group,
+            now);
+        if (!isOpen)
         {
             return StudentTestActionResult<StudentTestAnswerDto>.Failure("The test is not open at this time.");
         }
@@ -1385,6 +1404,8 @@ public sealed class TeachingService : ITeachingService
         var attempt = await _dbContext.StudentTestAttempts
             .Include(candidate => candidate.TestAssignment)
                 .ThenInclude(assignment => assignment.DailyLesson)
+            .Include(candidate => candidate.TestAssignment)
+                .ThenInclude(assignment => assignment.Group)
             .Include(candidate => candidate.AttemptQuestions)
                 .ThenInclude(attemptQuestion => attemptQuestion.Question)
                     .ThenInclude(question => question.Options)
@@ -1406,13 +1427,21 @@ public sealed class TeachingService : ITeachingService
             return StudentTestActionResult<StudentTestSubmitResultDto>.Failure("This test attempt is expired.");
         }
 
-        var (opensAtUtc, closesAtUtc) = BuildAvailabilityWindow(attempt.TestAssignment.DailyLesson.LessonDate);
-        if (now > closesAtUtc)
+        var (opensAtUtc, closesAtUtc, isOpen) = BuildAvailabilityWindow(
+            attempt.TestAssignment.DailyLesson.LessonDate,
+            attempt.TestAssignment.Group,
+            now);
+        if (!isOpen)
         {
-            attempt.Status = TestStatus.Expired;
-            attempt.ExpiredAtUtc = now;
-            await _dbContext.SaveChangesAsync(cancellationToken);
-            return StudentTestActionResult<StudentTestSubmitResultDto>.Failure("The test time has passed.");
+            if (now > closesAtUtc && !string.Equals(attempt.TestAssignment.Group?.TestAccessMode, "AlwaysOpen", StringComparison.OrdinalIgnoreCase))
+            {
+                attempt.Status = TestStatus.Expired;
+                attempt.ExpiredAtUtc = now;
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return StudentTestActionResult<StudentTestSubmitResultDto>.Failure("The test time has passed.");
+            }
+
+            return StudentTestActionResult<StudentTestSubmitResultDto>.Failure("The test is not open at this time.");
         }
 
         var totalQuestions = attempt.AttemptQuestions.Count;
@@ -1502,7 +1531,8 @@ public sealed class TeachingService : ITeachingService
         DailyLesson? lesson,
         IReadOnlyDictionary<Guid, int> activeQuestionCounts,
         TestStatus? attemptStatus,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        Group? group = null)
     {
         if (lesson is null)
         {
@@ -1529,9 +1559,8 @@ public sealed class TeachingService : ITeachingService
         var hasTopic = lesson.TopicId.HasValue;
         var hasQuestions = activeQuestionCount >= DefaultStudentQuestionCount;
         var isReady = hasTopic && hasQuestions;
-        var (opensAtUtc, closesAtUtc) = BuildAvailabilityWindow(lesson.LessonDate);
-        var isOpen = now >= opensAtUtc && now <= closesAtUtc;
-        var (status, statusText) = BuildStudentDashboardStatus(lesson, opensAtUtc, closesAtUtc, hasTopic, hasQuestions, isOpen, attemptStatus, now);
+        var (opensAtUtc, closesAtUtc, isOpen) = BuildAvailabilityWindow(lesson.LessonDate, group, now);
+        var (status, statusText) = BuildStudentDashboardStatus(lesson, opensAtUtc, closesAtUtc, hasTopic, hasQuestions, isOpen, attemptStatus, now, group?.TestAccessMode);
 
         return new StudentDashboardSubjectDto(
             row.GroupId,
@@ -1558,7 +1587,8 @@ public sealed class TeachingService : ITeachingService
         bool hasQuestions,
         bool isOpen,
         TestStatus? attemptStatus,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        string? accessMode = null)
     {
         if (attemptStatus is TestStatus.Submitted or TestStatus.Graded)
         {
@@ -1583,6 +1613,16 @@ public sealed class TeachingService : ITeachingService
         if (!hasQuestions)
         {
             return ("NotReady", "Саволҳои тест ҳанӯз омода нестанд.");
+        }
+
+        if (string.Equals(accessMode, "Closed", StringComparison.OrdinalIgnoreCase))
+        {
+            return ("Closed", "Дастрасӣ ба ин тест муваққатан маҳкам карда шудааст.");
+        }
+
+        if (string.Equals(accessMode, "AlwaysOpen", StringComparison.OrdinalIgnoreCase))
+        {
+            return ("Available", "Тест барои супоридан кушода аст.");
         }
 
         if (now < opensAtUtc)
@@ -1745,16 +1785,51 @@ public sealed class TeachingService : ITeachingService
         return assignedCount == uniqueGroupIds.Count;
     }
 
+    private (DateTimeOffset OpensAtUtc, DateTimeOffset ClosesAtUtc, bool IsOpen) BuildAvailabilityWindow(
+        DateOnly lessonDate,
+        Group? group,
+        DateTimeOffset now)
+    {
+        var mode = group?.TestAccessMode?.Trim();
+        if (string.Equals(mode, "Closed", StringComparison.OrdinalIgnoreCase))
+        {
+            return (DateTimeOffset.MinValue, DateTimeOffset.MinValue, false);
+        }
+
+        if (string.Equals(mode, "AlwaysOpen", StringComparison.OrdinalIgnoreCase))
+        {
+            return (DateTimeOffset.MinValue, DateTimeOffset.MaxValue, true);
+        }
+
+        var startTime = group?.TestStartTime ?? new TimeOnly(20, 0);
+        var endTime = group?.TestEndTime ?? new TimeOnly(7, 0);
+        var timeZone = _timeZoneProvider.BusinessTimeZone;
+
+        DateTime opensLocal;
+        DateTime closesLocal;
+
+        if (endTime <= startTime)
+        {
+            opensLocal = lessonDate.ToDateTime(startTime);
+            closesLocal = lessonDate.AddDays(1).ToDateTime(endTime);
+        }
+        else
+        {
+            opensLocal = lessonDate.ToDateTime(startTime);
+            closesLocal = lessonDate.ToDateTime(endTime);
+        }
+
+        var opensAtUtc = new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(opensLocal, timeZone), TimeSpan.Zero);
+        var closesAtUtc = new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(closesLocal, timeZone), TimeSpan.Zero);
+        var isOpen = now >= opensAtUtc && now <= closesAtUtc;
+
+        return (opensAtUtc, closesAtUtc, isOpen);
+    }
+
     private (DateTimeOffset OpensAtUtc, DateTimeOffset ClosesAtUtc) BuildAvailabilityWindow(DateOnly lessonDate)
     {
-        var timeZone = _timeZoneProvider.BusinessTimeZone;
-        var opensLocal = lessonDate.ToDateTime(new TimeOnly(20, 0));
-        var closesLocal = lessonDate.AddDays(1).ToDateTime(new TimeOnly(7, 0));
-
-        var opensAtUtc = TimeZoneInfo.ConvertTimeToUtc(opensLocal, timeZone);
-        var closesAtUtc = TimeZoneInfo.ConvertTimeToUtc(closesLocal, timeZone);
-
-        return (new DateTimeOffset(opensAtUtc, TimeSpan.Zero), new DateTimeOffset(closesAtUtc, TimeSpan.Zero));
+        var (opensAtUtc, closesAtUtc, _) = BuildAvailabilityWindow(lessonDate, null, _dateTimeProvider.UtcNow);
+        return (opensAtUtc, closesAtUtc);
     }
 
     private DateOnly GetBusinessToday()
@@ -1793,7 +1868,7 @@ public sealed class TeachingService : ITeachingService
         TestAssignment assignment)
     {
         var lesson = assignment.DailyLesson;
-        var (opensAtUtc, closesAtUtc) = BuildAvailabilityWindow(lesson.LessonDate);
+        var (opensAtUtc, closesAtUtc, _) = BuildAvailabilityWindow(lesson.LessonDate, assignment.Group, _dateTimeProvider.UtcNow);
         var answersByQuestionId = attempt.Answers.ToDictionary(answer => answer.QuestionId);
         var questions = attempt.AttemptQuestions
             .OrderBy(attemptQuestion => attemptQuestion.SortOrder)

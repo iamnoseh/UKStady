@@ -26,6 +26,8 @@ public interface IAdministrationService
 
     Task<GroupDto?> UpdateGroupAsync(Guid id, UpdateGroupRequest request, CancellationToken cancellationToken);
 
+    Task<GroupDto?> UpdateGroupTestAccessAsync(Guid id, UpdateGroupTestAccessRequest request, CancellationToken cancellationToken);
+
     Task<bool> DeactivateGroupAsync(Guid id, CancellationToken cancellationToken);
 
     Task<bool> AddStudentToGroupAsync(Guid groupId, Guid studentId, CancellationToken cancellationToken);

@@ -149,6 +149,15 @@ export interface GroupDto {
   studentCount: number;
   subjects: GroupSubjectDto[];
   students: GroupStudentDto[];
+  testStartTime?: string | null;
+  testEndTime?: string | null;
+  testAccessMode?: 'Scheduled' | 'AlwaysOpen' | 'Closed' | string | null;
+}
+
+export interface UpdateGroupTestAccessRequest {
+  testStartTime: string | null;
+  testEndTime: string | null;
+  testAccessMode: 'Scheduled' | 'AlwaysOpen' | 'Closed' | string;
 }
 
 export interface CreateGroupRequest {

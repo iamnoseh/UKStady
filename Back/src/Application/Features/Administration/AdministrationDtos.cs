@@ -46,7 +46,15 @@ public sealed record GroupDto(
     bool IsActive,
     int StudentCount,
     IReadOnlyList<GroupSubjectDto> Subjects,
-    IReadOnlyList<GroupStudentDto> Students);
+    IReadOnlyList<GroupStudentDto> Students,
+    TimeOnly? TestStartTime = null,
+    TimeOnly? TestEndTime = null,
+    string? TestAccessMode = null);
+
+public sealed record UpdateGroupTestAccessRequest(
+    TimeOnly? TestStartTime,
+    TimeOnly? TestEndTime,
+    string? TestAccessMode);
 
 public sealed record CreateGroupRequest(string Name, string? Description, string Branch, IReadOnlyList<Guid> SubjectIds);
 

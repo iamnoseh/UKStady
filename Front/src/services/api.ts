@@ -23,6 +23,7 @@ import type {
   TopicDto,
   UpdateGroupJournalScoreRequest,
   UpdateGroupRequest,
+  UpdateGroupTestAccessRequest,
   UpdateQuestionRequest,
   UpdateSubjectRequest,
   UpdateTopicRequest,
@@ -213,6 +214,17 @@ export function createGroup(token: string, body: CreateGroupRequest): Promise<Gr
 
 export function updateGroup(token: string, groupId: string, body: UpdateGroupRequest): Promise<GroupDto> {
   return request<GroupDto>(`/api/groups/${groupId}`, token, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateGroupTestAccess(
+  token: string,
+  groupId: string,
+  body: UpdateGroupTestAccessRequest,
+): Promise<GroupDto> {
+  return request<GroupDto>(`/api/groups/${groupId}/test-access`, token, {
     method: 'PUT',
     body: JSON.stringify(body),
   });
