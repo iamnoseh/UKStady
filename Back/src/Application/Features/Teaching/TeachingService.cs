@@ -130,6 +130,11 @@ public sealed class TeachingService : ITeachingService
 
     public async Task<bool> DeactivateTopicAsync(Guid id, CancellationToken cancellationToken)
     {
+        if (string.Equals(_currentUserService.Role, UserRole.Admin.ToString(), StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
         var topic = await _dbContext.Topics.FirstOrDefaultAsync(candidate => candidate.Id == id, cancellationToken);
         if (topic is null || !await CanUseSubjectAsync(topic.SubjectId, cancellationToken))
         {
@@ -230,6 +235,11 @@ public sealed class TeachingService : ITeachingService
 
     public async Task<bool> DeactivateQuestionAsync(Guid id, CancellationToken cancellationToken)
     {
+        if (string.Equals(_currentUserService.Role, UserRole.Admin.ToString(), StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
         var question = await _dbContext.Questions
             .Include(candidate => candidate.Topic)
             .FirstOrDefaultAsync(candidate => candidate.Id == id, cancellationToken);

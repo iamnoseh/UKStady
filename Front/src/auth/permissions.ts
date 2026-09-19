@@ -4,6 +4,7 @@ export type Permission =
   | 'dashboard.view'
   | 'students.manage'
   | 'teachers.manage'
+  | 'admins.manage'
   | 'groups.view'
   | 'journal.view'
   | 'subjects.view'
@@ -14,6 +15,7 @@ const rolePermissions: Record<UserRole, ReadonlySet<Permission>> = {
     'dashboard.view',
     'students.manage',
     'teachers.manage',
+    'admins.manage',
     'groups.view',
     'subjects.view',
   ]),

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { hasPermission, type Permission } from './auth/permissions';
 import { AppShell, type AppView } from './components/AppShell';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { AdminsPage } from './pages/AdminsPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { GroupsPage } from './pages/GroupsPage';
 import { LoginPage } from './pages/LoginPage';
@@ -15,6 +16,7 @@ import type { SubjectDto, TopicDto } from './types/admin';
 
 const titles: Record<AppView, string> = {
   dashboard: 'Dashboard',
+  admins: 'Админҳо',
   students: 'Хонандагон',
   teachers: 'Муаллимон',
   groups: 'Гурӯҳҳо',
@@ -27,6 +29,7 @@ const titles: Record<AppView, string> = {
 
 const viewPermissions: Record<AppView, Permission> = {
   dashboard: 'dashboard.view',
+  admins: 'admins.manage',
   students: 'students.manage',
   teachers: 'teachers.manage',
   groups: 'groups.view',
@@ -50,6 +53,8 @@ function AppContent() {
 
   const content = useMemo(() => {
     switch (permittedView) {
+      case 'admins':
+        return <AdminsPage />;
       case 'students':
         return <StudentsPage />;
       case 'subjects':

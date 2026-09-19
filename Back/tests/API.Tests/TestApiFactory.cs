@@ -27,7 +27,9 @@ public sealed class TestApiFactory : WebApplicationFactory<Program>
             services.RemoveAll<DbContextOptions>();
             services.RemoveAll<IDbContextOptionsConfiguration<AppDbContext>>();
             services.RemoveAll<IAppDbContext>();
+            services.RemoveAll<IDateTimeProvider>();
 
+            services.AddSingleton<IDateTimeProvider, TestDateTimeProvider>();
             services.AddDbContext<AppDbContext>(options =>
                 options.UseInMemoryDatabase(_databaseName, _databaseRoot));
             services.AddScoped<IAppDbContext>(provider => provider.GetRequiredService<AppDbContext>());
@@ -52,5 +54,17 @@ public sealed class TestApiFactory : WebApplicationFactory<Program>
             });
             dbContext.SaveChanges();
         });
+    }
+}
+
+public sealed class TestDateTimeProvider : IDateTimeProvider
+{
+    public DateTimeOffset UtcNow
+    {
+        get
+        {
+            var todayUtc = DateTime.UtcNow.Date;
+            return new DateTimeOffset(todayUtc.AddHours(16), TimeSpan.Zero);
+        }
     }
 }

@@ -107,6 +107,7 @@ public static class AdministrationEndpoints
             var deactivated = await service.DeactivateUserAsync(id, cancellationToken);
             return deactivated ? Results.NoContent() : Results.NotFound();
         })
+        .RequireAuthorization(AuthorizationPolicies.SuperAdmins)
         .WithName("DeactivateUser");
 
         group.MapDelete("/{id:guid}/hard", async (
@@ -117,6 +118,7 @@ public static class AdministrationEndpoints
             var deleted = await service.HardDeleteUserAsync(id, cancellationToken);
             return deleted ? Results.NoContent() : Results.NotFound();
         })
+        .RequireAuthorization(AuthorizationPolicies.SuperAdmins)
         .WithName("HardDeleteUser");
     }
 
@@ -182,7 +184,7 @@ public static class AdministrationEndpoints
             var deactivated = await service.DeactivateGroupAsync(id, cancellationToken);
             return deactivated ? Results.NoContent() : Results.NotFound();
         })
-        .RequireAuthorization(AuthorizationPolicies.Managers)
+        .RequireAuthorization(AuthorizationPolicies.SuperAdmins)
         .WithName("DeactivateGroup");
 
         group.MapPost("/{groupId:guid}/students/{studentId:guid}", async (
@@ -269,6 +271,7 @@ public static class AdministrationEndpoints
             var deactivated = await service.DeactivateSubjectAsync(id, cancellationToken);
             return deactivated ? Results.NoContent() : Results.NotFound();
         })
+        .RequireAuthorization(AuthorizationPolicies.SuperAdmins)
         .WithName("DeactivateSubject");
     }
 

@@ -294,6 +294,71 @@ public sealed class AdministrationEndpointTests : IClassFixture<TestApiFactory>
         Assert.Equal(subject.Id, assignment.SubjectId);
     }
 
+    [Fact]
+    public async Task SuperAdmin_CanManageAdmins_AndAdminCannotDeleteOrSeeOtherAdmins()
+    {
+        using var client = _factory.CreateClient();
+        await AuthorizeAsync(client, "+992000000000", "Admin123!");
+
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var adminPhone = $"+99281{suffix[..7]}";
+        var admin = await CreateUserAsync(client, UserRole.Admin, $"admin-{suffix}", adminPhone, "654321");
+        Assert.NotNull(admin);
+        Assert.Equal(UserRole.Admin, admin.Role);
+
+        // SuperAdmin changes Admin's password
+        using var changePwResponse = await client.PostAsJsonAsync(
+            $"/api/users/{admin.Id}/password",
+            new ChangeUserPasswordRequest("112233"));
+        Assert.Equal(HttpStatusCode.NoContent, changePwResponse.StatusCode);
+
+        // Login as the new Admin
+        await AuthorizeAsync(client, adminPhone, "112233");
+
+        // Admin can list users, but SuperAdmin and Admin are excluded
+        var visibleUsers = await client.GetFromJsonAsync<IReadOnlyList<UserDto>>("/api/users");
+        Assert.NotNull(visibleUsers);
+        Assert.DoesNotContain(visibleUsers, u => u.Role == UserRole.SuperAdmin || u.Role == UserRole.Admin);
+
+        // Admin can create teacher, student, subject, group
+        var teacherPhone = $"+99282{suffix[..7]}";
+        var teacher = await CreateUserAsync(client, UserRole.Teacher, $"t-{suffix}", teacherPhone, "12345A");
+        var studentPhone = $"+99283{suffix[..7]}";
+        var student = await CreateUserAsync(client, UserRole.Student, $"s-{suffix}", studentPhone, "12345A");
+        var subject = await CreateSubjectAsync(client, $"Sub-{suffix}");
+        var group = await CreateGroupAsync(client, [subject.Id], $"Grp-{suffix}");
+
+        // Admin cannot delete teacher (Forbidden)
+        using var deleteTeacherResp = await client.DeleteAsync($"/api/users/{teacher.Id}");
+        Assert.Equal(HttpStatusCode.Forbidden, deleteTeacherResp.StatusCode);
+
+        using var hardDeleteTeacherResp = await client.DeleteAsync($"/api/users/{teacher.Id}/hard");
+        Assert.Equal(HttpStatusCode.Forbidden, hardDeleteTeacherResp.StatusCode);
+
+        // Admin cannot delete subject (Forbidden)
+        using var deleteSubjResp = await client.DeleteAsync($"/api/subjects/{subject.Id}");
+        Assert.Equal(HttpStatusCode.Forbidden, deleteSubjResp.StatusCode);
+
+        // Admin cannot delete group (Forbidden)
+        using var deleteGroupResp = await client.DeleteAsync($"/api/groups/{group.Id}");
+        Assert.Equal(HttpStatusCode.Forbidden, deleteGroupResp.StatusCode);
+
+        // Admin cannot create Admin
+        var admin2Phone = $"+99284{suffix[..7]}";
+        using var createAdminResp = await client.PostAsJsonAsync(
+            "/api/users",
+            new CreateUserRequest("Admin2", "Test", null, admin2Phone, "123456", UserRole.Admin, $"admin2-{suffix}"));
+        Assert.False(createAdminResp.IsSuccessStatusCode);
+
+        // SuperAdmin can hard delete the admin
+        await AuthorizeAsync(client, "+992000000000", "Admin123!");
+        using var deleteAdminResp = await client.DeleteAsync($"/api/users/{admin.Id}/hard");
+        Assert.Equal(HttpStatusCode.NoContent, deleteAdminResp.StatusCode);
+
+        var adminAfterDelete = await client.GetAsync($"/api/users/{admin.Id}");
+        Assert.Equal(HttpStatusCode.NotFound, adminAfterDelete.StatusCode);
+    }
+
     private static async Task AuthorizeAsync(HttpClient client, string login, string password)
     {
         var response = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest(login, password));

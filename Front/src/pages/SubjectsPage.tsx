@@ -330,15 +330,17 @@ export function SubjectsPage({ onOpenTopics }: { onOpenTopics: (subject: Subject
                             >
                               <Edit3 className="h-4 w-4" />
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => void handleDelete(subject)}
-                              className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-line bg-white text-red-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-                              title="Ғайрифаъол кардан"
-                              aria-label="Ғайрифаъол кардан"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                            {auth?.role === 'SuperAdmin' && (
+                              <button
+                                type="button"
+                                onClick={() => void handleDelete(subject)}
+                                className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-line bg-white text-red-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                                title="Ғайрифаъол кардан"
+                                aria-label="Ғайрифаъол кардан"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
                           </>
                         ) : null}
                       </div>
@@ -398,15 +400,17 @@ export function SubjectsPage({ onOpenTopics }: { onOpenTopics: (subject: Subject
                               >
                                 <Edit3 className="h-4 w-4" />
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => void handleDelete(subject)}
-                                className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-line bg-white text-red-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-                                title="Ғайрифаъол кардан"
-                                aria-label="Ғайрифаъол кардан"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
+                              {auth?.role === 'SuperAdmin' && (
+                                <button
+                                  type="button"
+                                  onClick={() => void handleDelete(subject)}
+                                  className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-line bg-white text-red-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                                  title="Ғайрифаъол кардан"
+                                  aria-label="Ғайрифаъол кардан"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              )}
                             </>
                           ) : null}
                         </div>

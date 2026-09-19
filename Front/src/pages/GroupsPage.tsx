@@ -972,34 +972,34 @@ export function GroupsPage() {
 
             {journalView === 'weeklyReport' && journal ? (
               <div className="overflow-hidden rounded-lg border border-line bg-white shadow-sm">
-                <div className="flex flex-col justify-between gap-2 border-b border-line bg-panel px-4 py-4 lg:flex-row lg:items-center">
+                <div className="flex flex-col justify-between gap-1.5 border-b border-line bg-panel px-3 py-2.5 sm:px-4 sm:py-3 lg:flex-row lg:items-center">
                   <div>
-                    <h3 className="text-lg font-bold">Ҳисоботи ҳафтаина</h3>
-                    <p className="mt-1 text-sm text-muted">
+                    <h3 className="text-sm sm:text-base font-bold">Ҳисоботи ҳафтаина</h3>
+                    <p className="mt-0.5 text-xs text-muted">
                       {formatShortDate(weeklyReport.weekStart)} - {formatShortDate(weeklyReport.weekEnd)} · рейтинг аз рӯи холи миёна
                     </p>
                   </div>
-                  <span className="w-fit rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700">
+                  <span className="w-fit rounded border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
                     {weeklyReport.rows.length} хонанда
                   </span>
                 </div>
 
-                <div className="max-h-[620px] overflow-auto">
-                  <table className="w-max min-w-full border-separate border-spacing-0 text-[11px] sm:text-sm">
+                <div className="max-h-[660px] overflow-auto">
+                  <table className="w-max min-w-full border-separate border-spacing-0 text-[10px] sm:text-xs">
                     <thead className="sticky top-0 z-30 bg-white">
                       <tr>
-                        <th className="sticky left-0 z-40 w-[180px] sm:w-[260px] border-b border-r border-line bg-white px-3 sm:px-4 py-3 text-left text-xs font-bold uppercase text-muted">
+                        <th className="sticky left-0 z-40 w-[120px] sm:w-[180px] border-b border-r border-line bg-white px-2 sm:px-3 py-2 text-left text-[9px] sm:text-xs font-bold uppercase text-muted">
                           Ному насаб
                         </th>
                         {weeklyReport.subjects.map((subject) => (
-                          <th key={subject.subjectId} className="w-[150px] border-b border-r border-line bg-white px-3 py-3 text-center text-xs font-bold uppercase text-muted">
-                            {subject.subjectName}
+                          <th key={subject.subjectId} className="w-[72px] sm:w-[96px] border-b border-r border-line bg-white px-1 sm:px-1.5 py-2 text-center text-[9px] sm:text-xs font-bold uppercase text-muted">
+                            <span className="truncate block max-w-[70px] sm:max-w-[92px] mx-auto" title={subject.subjectName}>{subject.subjectName}</span>
                           </th>
                         ))}
-                        <th className="w-[130px] border-b border-r border-line bg-white px-3 py-3 text-center text-xs font-bold uppercase text-muted">
+                        <th className="w-[66px] sm:w-[86px] border-b border-r border-line bg-white px-1 py-2 text-center text-[9px] sm:text-xs font-bold uppercase text-muted">
                           Холи миёна
                         </th>
-                        <th className="w-[90px] border-b border-line bg-white px-3 py-3 text-center text-xs font-bold uppercase text-muted">
+                        <th className="w-[46px] sm:w-[58px] border-b border-r border-line bg-white px-1 py-2 text-center text-[9px] sm:text-xs font-bold uppercase text-muted">
                           Баҳо
                         </th>
                       </tr>
@@ -1017,34 +1017,34 @@ export function GroupsPage() {
                         const isFailing = student.averageScore !== null && !Number.isNaN(student.averageScore) && student.averageScore < 56;
                         return (
                           <tr key={student.studentId} className={index % 2 === 0 ? 'bg-emerald-50/35' : 'bg-white'}>
-                            <td className="sticky left-0 z-20 w-[180px] sm:w-[260px] border-b border-r border-line bg-inherit px-3 sm:px-4 py-3 sm:py-4">
-                              <div className="flex min-w-0 items-center gap-3">
-                                <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-bold ${
+                            <td className="sticky left-0 z-20 w-[120px] sm:w-[180px] border-b border-r border-line bg-inherit px-2 sm:px-3 py-1 sm:py-1.5">
+                              <div className="flex min-w-0 items-center gap-1.5 sm:gap-2.5">
+                                <span className={`grid h-4 w-4 sm:h-5 sm:w-5 shrink-0 place-items-center rounded-full text-[8.5px] sm:text-[10px] font-bold ${
                                   isFailing ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'
                                 }`}>
                                   {index + 1}
                                 </span>
                                 <div className="min-w-0">
-                                  <p className={`truncate font-bold transition-colors ${isFailing ? 'text-red-600' : 'text-ink'}`}>
+                                  <p className={`truncate text-[10px] sm:text-xs font-bold transition-colors ${isFailing ? 'text-red-600' : 'text-ink'}`}>
                                     {student.fullName}
                                   </p>
                                 </div>
                               </div>
                             </td>
                           {weeklyReport.subjects.map((subject) => (
-                            <td key={`${student.studentId}-${subject.subjectId}`} className="w-[150px] border-b border-r border-line px-3 py-4 text-center">
-                              <span className="inline-flex h-9 min-w-[78px] items-center justify-center rounded-lg border border-slate-200 bg-white px-3 font-bold text-ink">
+                            <td key={`${student.studentId}-${subject.subjectId}`} className="w-[72px] sm:w-[96px] border-b border-r border-line px-1 sm:px-1.5 py-1 sm:py-1.5 text-center">
+                              <span className="inline-flex h-6 sm:h-7 min-w-[46px] sm:min-w-[62px] items-center justify-center rounded border border-slate-200 bg-white px-1.5 text-[10px] sm:text-xs font-bold text-ink">
                                 {formatScore(student.subjectScores[subject.subjectId] ?? 0)}
                               </span>
                             </td>
                           ))}
-                          <td className="w-[130px] border-b border-r border-line px-3 py-4 text-center">
-                            <span className={`inline-flex h-9 min-w-[84px] items-center justify-center rounded-lg border px-3 font-bold ${getAverageScoreClassName(student.averageScore)}`}>
+                          <td className="w-[66px] sm:w-[86px] border-b border-r border-line px-1 py-1 sm:py-1.5 text-center">
+                            <span className={`inline-flex h-6 sm:h-7 min-w-[46px] sm:min-w-[64px] items-center justify-center rounded border px-1.5 text-[10px] sm:text-xs font-bold ${getAverageScoreClassName(student.averageScore)}`}>
                               {formatScore(student.averageScore)}
                             </span>
                           </td>
-                          <td className="w-[90px] border-b border-line px-3 py-4 text-center">
-                            <span className={`inline-flex h-9 w-10 items-center justify-center rounded-lg border font-bold ${getGradeClassName(student.grade)}`}>
+                          <td className="w-[46px] sm:w-[58px] border-b border-r border-line px-1 py-1 sm:py-1.5 text-center">
+                            <span className={`inline-flex h-6 sm:h-7 w-7 sm:w-8 items-center justify-center rounded border text-[10px] sm:text-xs font-bold ${getGradeClassName(student.grade)}`}>
                               {student.grade}
                             </span>
                           </td>
@@ -1059,17 +1059,17 @@ export function GroupsPage() {
 
             {journalView === 'subject' && activeSubjectJournal ? (
               <div className="overflow-hidden rounded-lg border border-line bg-white shadow-sm">
-                <div className="flex flex-col justify-between gap-3 border-b border-line bg-panel px-4 py-4 xl:flex-row xl:items-center">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="inline-flex h-9 items-center gap-2 rounded-lg bg-white px-3 text-sm font-bold text-ink ring-1 ring-line">
-                      <BookOpen className="h-4 w-4 text-brand" />
+                <div className="flex flex-col justify-between gap-2 border-b border-line bg-panel px-3 py-2.5 sm:px-4 sm:py-3 xl:flex-row xl:items-center">
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                    <span className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-2.5 text-xs sm:text-sm font-bold text-ink ring-1 ring-line">
+                      <BookOpen className="h-3.5 w-3.5 text-brand" />
                       {activeSubjectJournal.subjectName}
                     </span>
-                    <span className="inline-flex h-9 items-center gap-2 rounded-lg bg-white px-3 text-sm font-semibold text-muted ring-1 ring-line">
-                      <BarChart3 className="h-4 w-4" />
+                    <span className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-2.5 text-xs sm:text-sm font-semibold text-muted ring-1 ring-line">
+                      <BarChart3 className="h-3.5 w-3.5" />
                       Average: {formatScore(activeSubjectJournal.averageScore)}
                     </span>
-                    <span className="inline-flex h-9 items-center rounded-lg bg-white px-3 text-sm font-semibold text-muted ring-1 ring-line">
+                    <span className="inline-flex h-8 items-center rounded-lg bg-white px-2.5 text-xs sm:text-sm font-semibold text-muted ring-1 ring-line">
                       {activeSubjectJournal.lessons.length} / 50 дарс
                     </span>
                   </div>
@@ -1077,11 +1077,11 @@ export function GroupsPage() {
                   {canManageJournal ? (
                   <Button
                     type="button"
-                    className="h-11"
+                    className="h-8 sm:h-9 text-xs sm:text-sm"
                     onClick={() => void handleCreateTodayLesson(activeSubjectJournal.subjectId)}
                     disabled={Boolean(activeSubjectJournal.todayLessonId) || journalBusySubjectId === activeSubjectJournal.subjectId}
                   >
-                    <CalendarDays className="h-4 w-4" />
+                    <CalendarDays className="h-3.5 w-3.5" />
                     {activeSubjectJournal.todayLessonId
                       ? 'Дарси имрӯз ҳаст'
                       : journalBusySubjectId === activeSubjectJournal.subjectId
@@ -1091,18 +1091,18 @@ export function GroupsPage() {
                   ) : null}
                 </div>
 
-                <div className="max-h-[620px] overflow-auto">
-                  <table className="w-max min-w-full border-separate border-spacing-0 text-[11px] sm:text-sm">
+                <div className="max-h-[660px] overflow-auto">
+                  <table className="w-max min-w-full border-separate border-spacing-0 text-[10px] sm:text-xs">
                     <thead className="sticky top-0 z-30 bg-white">
                       <tr>
-                        <th className="sticky left-0 z-40 h-16 w-[118px] sm:h-20 sm:w-[230px] border-b border-r border-line bg-white px-1.5 sm:px-4 text-left text-[10px] sm:text-xs font-bold uppercase text-muted">
+                        <th className="sticky left-0 z-40 h-11 sm:h-12 w-[110px] sm:w-[170px] border-b border-r border-line bg-white px-1 sm:px-2.5 text-left text-[9px] sm:text-xs font-bold uppercase text-muted">
                           Хонанда
                         </th>
-                        <th className="static sm:sticky sm:left-[230px] z-40 h-16 w-[62px] sm:h-20 sm:w-[120px] border-b border-r border-line bg-white px-1.5 sm:px-4 text-center text-[10px] sm:text-xs font-bold uppercase text-muted">
+                        <th className="static sm:sticky sm:left-[170px] z-40 h-11 sm:h-12 w-[52px] sm:w-[72px] border-b border-r border-line bg-white px-1 text-center text-[9px] sm:text-xs font-bold uppercase text-muted">
                           Average
                         </th>
                         {activeSubjectJournal.lessons.map((lesson, index) => (
-                          <th key={lesson.id} className="h-16 w-[92px] sm:h-20 sm:w-[154px] border-b border-r border-line bg-white px-1.5 sm:px-3 text-center">
+                          <th key={lesson.id} className="h-11 sm:h-12 w-[58px] sm:w-[76px] border-b border-r border-line bg-white px-0.5 sm:px-1 text-center">
                             <button
                               type="button"
                               onClick={() => {
@@ -1111,32 +1111,32 @@ export function GroupsPage() {
                                 }
                               }}
                               disabled={!canManageJournal}
-                              className={`mx-auto flex min-h-12 sm:min-h-14 w-full flex-col items-center justify-center rounded-lg border px-1 sm:px-2 text-[10px] sm:text-xs font-bold transition ${
+                              className={`mx-auto flex min-h-9 sm:min-h-10 w-full flex-col items-center justify-center rounded border px-0.5 py-0.5 text-[8.5px] sm:text-[10px] font-bold transition ${
                                 lesson.id === activeSubjectJournal.todayLessonId
                                   ? 'border-sky-200 bg-sky-50 text-sky-700 shadow-sm'
                                   : 'border-transparent text-muted hover:border-brand/20 hover:bg-panel hover:text-brand'
                               }`}
-                              title="Мавзӯи дарс"
+                              title={lesson.topicTitle ? `${lesson.topicTitle} (${formatLessonDate(lesson.lessonDate)})` : 'Мавзӯи дарс'}
                             >
-                              <span className="inline-flex items-center gap-1">
-                                <BookOpen className="h-3.5 w-3.5" />
+                              <span className="inline-flex items-center gap-0.5">
+                                <BookOpen className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                                 Урок {index + 1}
                               </span>
-                              <span className="mt-1 text-ink">{formatLessonDate(lesson.lessonDate)}</span>
-                              <span className="font-semibold text-muted">{lesson.topicTitle ?? 'Мавзӯъ нест'}</span>
+                              <span className="text-ink text-[8px] sm:text-[9.5px]">{formatLessonDate(lesson.lessonDate)}</span>
+                              <span className="font-semibold text-muted text-[8px] sm:text-[9.5px] truncate max-w-[52px] sm:max-w-[70px]">{lesson.topicTitle ?? 'Мавзӯъ нест'}</span>
                             </button>
                           </th>
                         ))}
                       </tr>
                       <tr>
-                        <th className="sticky left-0 z-40 w-[118px] sm:w-[230px] border-b border-r border-line bg-panel px-1.5 sm:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-bold uppercase text-muted">
+                        <th className="sticky left-0 z-40 w-[110px] sm:w-[170px] border-b border-r border-line bg-panel px-1 sm:px-2.5 py-1 sm:py-1.5 text-left text-[9px] sm:text-xs font-bold uppercase text-muted">
                           Ном ва фамилия
                         </th>
-                        <th className="static sm:sticky sm:left-[230px] z-40 w-[62px] sm:w-[120px] border-b border-r border-line bg-panel px-1.5 sm:px-4 py-2 sm:py-3 text-center text-[10px] sm:text-xs font-bold uppercase text-muted">
+                        <th className="static sm:sticky sm:left-[170px] z-40 w-[52px] sm:w-[72px] border-b border-r border-line bg-panel px-1 py-1 sm:py-1.5 text-center text-[9px] sm:text-xs font-bold uppercase text-muted">
                           Average
                         </th>
                         {activeSubjectJournal.lessons.map((lesson) => (
-                          <th key={`${lesson.id}-score`} className="w-[92px] sm:w-[154px] border-b border-r border-line bg-panel px-1.5 sm:px-3 py-2 sm:py-3 text-center text-[10px] sm:text-xs font-bold uppercase text-muted">
+                          <th key={`${lesson.id}-score`} className="w-[58px] sm:w-[76px] border-b border-r border-line bg-panel px-0.5 py-1 sm:py-1.5 text-center text-[9px] sm:text-[10px] font-bold uppercase text-muted">
                             Оценка
                           </th>
                         ))}
@@ -1155,22 +1155,22 @@ export function GroupsPage() {
                         const isFailing = student.averageScore !== null && !Number.isNaN(student.averageScore) && student.averageScore < 56;
                         return (
                           <tr key={`${activeSubjectJournal.subjectId}-${student.studentId}`} className={index % 2 === 0 ? 'bg-sky-50/40' : 'bg-white'}>
-                            <td className="sticky left-0 z-20 w-[118px] sm:w-[230px] border-b border-r border-line bg-inherit px-1.5 sm:px-4 py-2 sm:py-4">
-                              <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
-                                <span className={`grid h-4 w-4 sm:h-5 sm:w-5 shrink-0 place-items-center rounded-full text-[9px] sm:text-[11px] font-bold ${
+                            <td className="sticky left-0 z-20 w-[110px] sm:w-[170px] border-b border-r border-line bg-inherit px-1 sm:px-2.5 py-1 sm:py-1.5">
+                              <div className="flex min-w-0 items-center gap-1 sm:gap-2">
+                                <span className={`grid h-4 w-4 sm:h-4.5 sm:w-4.5 shrink-0 place-items-center rounded-full text-[8.5px] sm:text-[10px] font-bold ${
                                   isFailing ? 'bg-red-100 text-red-700' : 'bg-brand/10 text-brand'
                                 }`}>
                                   {index + 1}
                                 </span>
                                 <div className="min-w-0">
-                                  <p className={`truncate font-bold transition-colors ${isFailing ? 'text-red-600' : 'text-ink'}`}>
+                                  <p className={`truncate text-[10px] sm:text-xs font-bold transition-colors ${isFailing ? 'text-red-600' : 'text-ink'}`}>
                                     {student.fullName}
                                   </p>
                                 </div>
                               </div>
                             </td>
-                            <td className="static sm:sticky sm:left-[230px] z-20 w-[62px] sm:w-[120px] border-b border-r border-line bg-inherit px-1.5 sm:px-3 py-2 sm:py-4 text-center">
-                              <span className={`inline-flex h-7 sm:h-9 w-[48px] sm:w-[86px] items-center justify-center rounded-lg border font-bold ${getAverageScoreClassName(student.averageScore)}`}>
+                            <td className="static sm:sticky sm:left-[170px] z-20 w-[52px] sm:w-[72px] border-b border-r border-line bg-inherit px-0.5 sm:px-1 py-1 sm:py-1.5 text-center">
+                              <span className={`inline-flex h-6 sm:h-7 w-[42px] sm:w-[58px] items-center justify-center rounded border text-[10px] sm:text-xs font-bold ${getAverageScoreClassName(student.averageScore)}`}>
                                 {formatScore(student.averageScore)}
                               </span>
                             </td>
@@ -1179,18 +1179,18 @@ export function GroupsPage() {
                               const scoreContent = formatScore(score?.score ?? null);
                               const scoreClassName = getJournalScoreClassName(score);
                               return (
-                                <td key={`${student.studentId}-${lesson.id}`} className="w-[92px] sm:w-[154px] border-b border-r border-line px-1.5 sm:px-3 py-2 sm:py-4 text-center">
+                                <td key={`${student.studentId}-${lesson.id}`} className="w-[58px] sm:w-[76px] border-b border-r border-line px-0.5 sm:px-1 py-1 sm:py-1.5 text-center">
                                   {score?.canEdit ? (
                                     <button
                                       type="button"
                                       onClick={() => openScoreModal(lesson, student.studentId, student.fullName, score)}
-                                      className={`inline-flex h-7 sm:h-9 w-[54px] sm:w-[110px] items-center justify-center rounded-lg border font-bold transition hover:ring-2 hover:ring-brand/20 ${scoreClassName}`}
+                                      className={`inline-flex h-6 sm:h-7 w-[46px] sm:w-[62px] items-center justify-center rounded border text-[10px] sm:text-xs font-bold transition hover:ring-2 hover:ring-brand/20 ${scoreClassName}`}
                                       title={score.score !== null ? 'Тағйир додани бал' : 'Гузоштани бал (барои «н»)'}
                                     >
                                       {scoreContent}
                                     </button>
                                   ) : (
-                                    <span className={`inline-flex h-7 sm:h-9 w-[54px] sm:w-[110px] items-center justify-center rounded-lg border font-bold ${scoreClassName}`}>
+                                    <span className={`inline-flex h-6 sm:h-7 w-[46px] sm:w-[62px] items-center justify-center rounded border text-[10px] sm:text-xs font-bold ${scoreClassName}`}>
                                       {scoreContent}
                                     </span>
                                   )}

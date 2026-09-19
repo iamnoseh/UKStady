@@ -29,10 +29,18 @@ public sealed class AdministrationService : IAdministrationService
         _currentUserService = currentUserService;
     }
 
+    private bool IsSuperAdmin() =>
+        string.Equals(_currentUserService.Role, UserRole.SuperAdmin.ToString(), StringComparison.OrdinalIgnoreCase);
+
     public async Task<IReadOnlyList<UserDto>> GetUsersAsync(CancellationToken cancellationToken)
     {
-        return await _dbContext.Users
-            .AsNoTracking()
+        var query = _dbContext.Users.AsNoTracking();
+        if (!IsSuperAdmin())
+        {
+            query = query.Where(user => user.Role != UserRole.SuperAdmin && user.Role != UserRole.Admin);
+        }
+
+        return await query
             .OrderBy(user => user.LastName)
             .ThenBy(user => user.FirstName)
             .Select(user => ToUserDto(user))
@@ -41,9 +49,13 @@ public sealed class AdministrationService : IAdministrationService
 
     public async Task<UserDto?> GetUserAsync(Guid id, CancellationToken cancellationToken)
     {
-        return await _dbContext.Users
-            .AsNoTracking()
-            .Where(user => user.Id == id)
+        var query = _dbContext.Users.AsNoTracking().Where(user => user.Id == id);
+        if (!IsSuperAdmin())
+        {
+            query = query.Where(user => user.Role != UserRole.SuperAdmin && user.Role != UserRole.Admin);
+        }
+
+        return await query
             .Select(user => ToUserDto(user))
             .FirstOrDefaultAsync(cancellationToken);
     }
@@ -70,6 +82,11 @@ public sealed class AdministrationService : IAdministrationService
 
     public async Task<UserDto> CreateUserAsync(CreateUserRequest request, CancellationToken cancellationToken)
     {
+        if ((request.Role == UserRole.SuperAdmin || request.Role == UserRole.Admin) && !IsSuperAdmin())
+        {
+            throw new InvalidOperationException("Only SuperAdmin can create Admin or SuperAdmin users.");
+        }
+
         var phoneNumber = NormalizePhoneNumber(request.PhoneNumber);
         var user = new User
         {
@@ -97,6 +114,11 @@ public sealed class AdministrationService : IAdministrationService
             return null;
         }
 
+        if ((user.Role == UserRole.SuperAdmin || user.Role == UserRole.Admin || request.Role == UserRole.SuperAdmin || request.Role == UserRole.Admin) && !IsSuperAdmin())
+        {
+            return null;
+        }
+
         user.FirstName = request.FirstName.Trim();
         user.LastName = request.LastName.Trim();
         user.MiddleName = string.IsNullOrWhiteSpace(request.MiddleName) ? null : request.MiddleName.Trim();
@@ -112,6 +134,11 @@ public sealed class AdministrationService : IAdministrationService
 
     public async Task<bool> DeactivateUserAsync(Guid id, CancellationToken cancellationToken)
     {
+        if (!IsSuperAdmin())
+        {
+            return false;
+        }
+
         var user = await _dbContext.Users.FirstOrDefaultAsync(candidate => candidate.Id == id, cancellationToken);
         if (user is null)
         {
@@ -131,6 +158,12 @@ public sealed class AdministrationService : IAdministrationService
             return false;
         }
 
+        var isSelf = _currentUserService.UserId.HasValue && _currentUserService.UserId.Value == id;
+        if ((user.Role == UserRole.SuperAdmin || user.Role == UserRole.Admin) && !IsSuperAdmin() && !isSelf)
+        {
+            return false;
+        }
+
         user.PasswordHash = _passwordHasher.Hash(newPassword.Trim());
         await _dbContext.SaveChangesAsync(cancellationToken);
         return true;
@@ -138,6 +171,10 @@ public sealed class AdministrationService : IAdministrationService
 
     public async Task<bool> HardDeleteUserAsync(Guid id, CancellationToken cancellationToken)
     {
+        if (!IsSuperAdmin())
+        {
+            return false;
+        }
         var user = await _dbContext.Users
             .Include(u => u.TeacherAssignments)
             .Include(u => u.TeacherSubjects)

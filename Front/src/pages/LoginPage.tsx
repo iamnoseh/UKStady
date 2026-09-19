@@ -7,8 +7,8 @@ import { useAuth } from '../context/AuthContext';
 
 export function LoginPage() {
   const { signIn } = useAuth();
-  const [phoneNumber, setPhoneNumber] = useState('+992000000000');
-  const [password, setPassword] = useState('Admin123!');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -42,8 +42,27 @@ export function LoginPage() {
           {/* Корти формаи воридшавӣ */}
           <form
             onSubmit={handleSubmit}
+            autoComplete="off"
             className="rounded-2xl border border-line bg-white p-6 shadow-soft sm:p-8"
           >
+            {/* Муҳофизат аз автозаполненияи худкори браузер (Chrome autofill prevention) */}
+            <input
+              type="text"
+              name="fake_user"
+              tabIndex={-1}
+              autoComplete="username"
+              style={{ position: 'absolute', opacity: 0, height: 0, width: 0, pointerEvents: 'none', zIndex: -1 }}
+              aria-hidden="true"
+            />
+            <input
+              type="password"
+              name="fake_pass"
+              tabIndex={-1}
+              autoComplete="current-password"
+              style={{ position: 'absolute', opacity: 0, height: 0, width: 0, pointerEvents: 'none', zIndex: -1 }}
+              aria-hidden="true"
+            />
+
             <div className="mb-6">
               <h2 className="text-xl font-bold text-ink sm:text-2xl">Воридшавӣ</h2>
               <p className="mt-1 text-xs text-muted sm:text-sm">
@@ -63,7 +82,9 @@ export function LoginPage() {
                     onChange={(event) => setPhoneNumber(event.target.value)}
                     className="h-full w-full bg-transparent text-sm text-ink outline-none placeholder:text-muted/60"
                     placeholder="+992..."
-                    autoComplete="tel"
+                    name="phone_account"
+                    id="phone_account"
+                    autoComplete="off"
                     required
                   />
                 </div>
@@ -81,7 +102,9 @@ export function LoginPage() {
                     className="h-full w-full bg-transparent text-sm text-ink outline-none placeholder:text-muted/60"
                     placeholder="Пароли худро ворид кунед"
                     type={showPassword ? 'text' : 'password'}
-                    autoComplete="current-password"
+                    name="user_secret"
+                    id="user_secret"
+                    autoComplete="new-password"
                     required
                   />
                   <button

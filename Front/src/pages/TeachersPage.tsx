@@ -553,14 +553,16 @@ export function TeachersPage() {
                         <Edit2 className="h-3.5 w-3.5 text-slate-600" />
                         <span>Таҳрир</span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenDelete(teacher)}
-                        className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50/50 px-2.5 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-100 hover:text-red-700"
-                      >
-                        <Trash2 className="h-3.5 w-3.5 text-red-600" />
-                        <span>Нест кардан</span>
-                      </button>
+                      {auth?.role === 'SuperAdmin' && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenDelete(teacher)}
+                          className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50/50 px-2.5 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-100 hover:text-red-700"
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                          <span>Нест кардан</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -611,14 +613,16 @@ export function TeachersPage() {
                       >
                         <Edit2 className="h-4 w-4" />
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenDelete(teacher)}
-                        title="Пурра нест кардан аз система"
-                        className="grid h-8 w-8 place-items-center rounded-lg border border-red-200 text-red-500 hover:bg-red-50 hover:text-red-700 transition"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      {auth?.role === 'SuperAdmin' && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenDelete(teacher)}
+                          title="Пурра нест кардан аз система"
+                          className="grid h-8 w-8 place-items-center rounded-lg border border-red-200 text-red-500 hover:bg-red-50 hover:text-red-700 transition"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
