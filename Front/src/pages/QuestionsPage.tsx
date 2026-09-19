@@ -71,6 +71,7 @@ export function QuestionsPage({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isImportPage, setIsImportPage] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
+  const [importRawText, setImportRawText] = useState('');
   const [importDrafts, setImportDrafts] = useState<ImportQuestionDraft[]>([]);
   const [isAnalyzingImport, setIsAnalyzingImport] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -253,8 +254,8 @@ export function QuestionsPage({
   }
 
   async function handleAnalyzeImport() {
-    if (!importFile) {
-      setError('Аввал файли DOCX-ро интихоб кунед.');
+    if (!importFile && !importRawText.trim()) {
+      setError('Аввал файлро интихоб кунед ё матни тестҳоро ворид намоед.');
       return;
     }
 
@@ -262,12 +263,14 @@ export function QuestionsPage({
     setError('');
     setNotice('');
     try {
-      const rawText = await extractImportText(importFile);
+      const rawText = importRawText.trim()
+        ? importRawText
+        : await extractImportText(importFile!);
       const parsedDrafts = parseImportedQuestions(rawText);
       setImportDrafts(parsedDrafts);
-      setNotice(`${parsedDrafts.length} савол барои таҳрир омода шуд.`);
+      setNotice(`${parsedDrafts.length} савол барои таҳрир ва сабт омода шуд.`);
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Файл анализ нашуд.');
+      setError(error instanceof Error ? error.message : 'Файл ё матн анализ нашуд.');
     } finally {
       setIsAnalyzingImport(false);
     }
@@ -305,18 +308,25 @@ export function QuestionsPage({
       return;
     }
 
-    const validDrafts = importDrafts.map(validateImportDraft).filter((draft) => !draft.error);
+    const validatedDrafts = importDrafts.map(validateImportDraft);
+    const validDrafts = validatedDrafts.filter((draft) => !draft.error);
     if (validDrafts.length === 0) {
-      setError('Барои сабт саволи дуруст ёфт нашуд.');
+      setError('Барои сабт саволи бехато ёфт нашуд. Лутфан хатоҳоро ислоҳ намоед.');
       return;
     }
 
     setIsImporting(true);
     setError('');
     setNotice('');
-    try {
-      const createdQuestions = await Promise.all(
-        validDrafts.map((draft) => createQuestion(auth.accessToken, {
+
+    const token = auth.accessToken;
+    const successfullyCreated: QuestionDto[] = [];
+    const successfulIds = new Set<string>();
+    const failedErrors = new Map<string, string>();
+
+    const results = await Promise.allSettled(
+      validDrafts.map(async (draft) => {
+        const question = await createQuestion(token, {
           topicId: topic.id,
           text: draft.text.trim(),
           type: draft.type,
@@ -326,22 +336,55 @@ export function QuestionsPage({
             isCorrect: draft.type === 'ClosedAnswer' ? true : option.isCorrect,
             sortOrder: index + 1,
           })),
-        })),
-      );
-      setQuestions((current) => [...createdQuestions, ...current]);
-      setImportDrafts([]);
-      setImportFile(null);
-      setIsImportPage(false);
-      setNotice(`${createdQuestions.length} савол импорт шуд.`);
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Саволҳо импорт нашуданд.');
-    } finally {
-      setIsImporting(false);
+        });
+        return { draftId: draft.id, question };
+      }),
+    );
+
+    results.forEach((res, idx) => {
+      const draft = validDrafts[idx];
+      if (res.status === 'fulfilled') {
+        successfullyCreated.push(res.value.question);
+        successfulIds.add(draft.id);
+      } else {
+        const err = res.reason instanceof Error ? res.reason.message : 'Сабт нашуд';
+        failedErrors.set(draft.id, err);
+      }
+    });
+
+    if (successfullyCreated.length > 0) {
+      setQuestions((current) => [...successfullyCreated, ...current]);
     }
+
+    const remainingDrafts: ImportQuestionDraft[] = [];
+    importDrafts.forEach((draft) => {
+      if (!successfulIds.has(draft.id)) {
+        const serverError = failedErrors.get(draft.id);
+        remainingDrafts.push(serverError ? { ...draft, error: serverError } : draft);
+      }
+    });
+
+    setImportDrafts(remainingDrafts);
+
+    if (remainingDrafts.length === 0) {
+      setImportFile(null);
+      setImportRawText('');
+      setIsImportPage(false);
+      setNotice(`Ҳамаи ${successfullyCreated.length} савол бомуваффақият сабт шуд.`);
+    } else {
+      if (successfullyCreated.length > 0) {
+        setNotice(`${successfullyCreated.length} савол сабт шуд. ${remainingDrafts.length} савол сабт нашуд — хатои онҳоро дар зер дида метавонед.`);
+      }
+      const firstError = remainingDrafts.find((d) => d.error)?.error;
+      setError(firstError ?? 'Баъзе саволҳо сабт нашуданд.');
+    }
+
+    setIsImporting(false);
   }
 
   function cancelImport() {
     setImportFile(null);
+    setImportRawText('');
     setImportDrafts([]);
     setError('');
     setNotice('');
@@ -377,53 +420,129 @@ export function QuestionsPage({
             <h2 className="mt-1 text-2xl font-bold">Импорти саволҳо</h2>
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <label className="inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-bold text-ink transition hover:bg-panel">
-              <FileText className="h-4 w-4" />
-              {importFile ? importFile.name : 'Интихоби файл'}
+          <div className="flex flex-wrap gap-2.5">
+            <label className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg border border-line bg-white px-3.5 text-xs sm:text-sm font-bold text-ink transition hover:bg-panel shadow-sm">
+              <Upload className="h-4 w-4 text-brand" />
+              {importFile ? importFile.name : 'Интихоби файл (.docx, .txt)'}
               <input
                 type="file"
                 accept=".docx,.doc,.txt"
                 className="hidden"
-                onChange={(event) => {
-                  setImportFile(event.target.files?.[0] ?? null);
+                onChange={async (event) => {
+                  const file = event.target.files?.[0] ?? null;
+                  setImportFile(file);
                   setImportDrafts([]);
+                  if (file) {
+                    try {
+                      const extracted = await extractImportText(file);
+                      setImportRawText(extracted);
+                    } catch {
+                      // Handled on analyze
+                    }
+                  }
                 }}
               />
             </label>
-            <Button type="button" onClick={() => void handleAnalyzeImport()} disabled={!importFile || isAnalyzingImport}>
+            <Button
+              type="button"
+              className="h-10 text-xs sm:text-sm"
+              onClick={() => void handleAnalyzeImport()}
+              disabled={(!importFile && !importRawText.trim()) || isAnalyzingImport}
+            >
               <Wand2 className="h-4 w-4" />
-              {isAnalyzingImport ? 'Анализ...' : 'Анализ'}
+              {isAnalyzingImport ? 'Анализ...' : 'Анализ ва омодасозӣ'}
             </Button>
             {importDrafts.length > 0 ? (
-              <Button type="button" onClick={() => void handleConfirmImport()} disabled={isImporting || importDrafts.every((draft) => draft.error)}>
+              <Button
+                type="button"
+                className="h-10 text-xs sm:text-sm"
+                onClick={() => void handleConfirmImport()}
+                disabled={isImporting || importDrafts.every((draft) => draft.error)}
+              >
                 <Check className="h-4 w-4" />
-                {isImporting ? 'Сабт...' : `Тасдиқ (${importDrafts.filter((draft) => !draft.error).length})`}
+                {isImporting ? 'Сабт...' : `Тасдиқ ва сабт (${importDrafts.filter((draft) => !draft.error).length})`}
               </Button>
             ) : null}
-            <Button type="button" variant="secondary" onClick={cancelImport} disabled={isAnalyzingImport || isImporting}>
+            <Button
+              type="button"
+              variant="secondary"
+              className="h-10 text-xs sm:text-sm"
+              onClick={cancelImport}
+              disabled={isAnalyzingImport || isImporting}
+            >
               <XCircle className="h-4 w-4" />
               Бекор кардан
             </Button>
           </div>
         </div>
 
-        <div className="rounded-lg border border-line bg-white p-5">
-          <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-lg bg-brand/10 text-brand">
-              <FileText className="h-5 w-5" />
+        <div className="rounded-xl border border-line bg-white p-4 sm:p-6 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-line pb-4">
+            <div className="flex items-start gap-3">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand/10 text-brand">
+                <FileText className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-ink">Формати нави саволҳо (? / + / -)</h3>
+                <p className="mt-0.5 text-xs sm:text-sm text-muted">
+                  Савол бо аломати <strong className="text-ink">?</strong> оғоз мешавад. Ҷавоби дуруст бо <strong className="text-emerald-700">+</strong> ва вариантҳои нодуруст бо <strong className="text-slate-700">-</strong> навишта мешаванд.
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-bold">Import Docx</h3>
-              <p className="text-sm text-muted">Формат: савол дар `&lt;/&lt;Матни савол&gt;/&gt;`, ҷавоби дуруст бо `---`.</p>
-            </div>
+            <span className="w-fit shrink-0 rounded-lg border border-brand/20 bg-brand/5 px-2.5 py-1 text-xs font-semibold text-brand">
+              ? Савол / + Дуруст / - Нодуруст
+            </span>
           </div>
 
-          {notice ? <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{notice}</p> : null}
-          {error ? <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label htmlFor="import-raw-input" className="text-xs font-bold uppercase text-muted">
+                Матни тестҳо (мустақиман часпонед ё файлро интихоб намоед):
+              </label>
+              {importRawText && (
+                <button
+                  type="button"
+                  onClick={() => { setImportRawText(''); setImportFile(null); setImportDrafts([]); }}
+                  className="text-xs font-semibold text-muted hover:text-red-600 transition"
+                >
+                  Тоза кардани матн
+                </button>
+              )}
+            </div>
+            <textarea
+              id="import-raw-input"
+              value={importRawText}
+              onChange={(event) => {
+                setImportRawText(event.target.value);
+                setImportDrafts([]);
+              }}
+              rows={9}
+              placeholder={`? Мубодилаи газ дар барги растаниҳо чӣ гуна мегузарад?
++ ба воситаи масомаҳо
+- бо ҳуҷайраҳои лиф
+- бо найчаҳои элакшакл
+- бо рагҳои барг
+
+? Кадом тарзи рагбандӣ дар бештари растаниҳои якпалла дида мешавад?
+- камоншакл
+- тупшакл
+- хаттӣ
++ мутавозӣ`}
+              className="w-full font-mono text-xs sm:text-sm rounded-lg border border-line bg-panel/30 p-3.5 outline-none transition focus:border-brand focus:bg-white focus:ring-1 focus:ring-brand/20 leading-relaxed resize-y min-h-[160px]"
+            />
+          </div>
+
+          {notice ? <p className="rounded-lg bg-emerald-50 px-3.5 py-2.5 text-sm font-semibold text-emerald-700">{notice}</p> : null}
+          {error ? <p className="rounded-lg bg-red-50 px-3.5 py-2.5 text-sm font-semibold text-red-700">{error}</p> : null}
 
           {importDrafts.length > 0 ? (
-            <div className="mt-5 space-y-3">
+            <div className="mt-6 space-y-4 pt-4 border-t border-line">
+              <div className="flex items-center justify-between">
+                <h4 className="font-bold text-ink">
+                  Рӯйхати саволҳои анализшуда ({importDrafts.length} савол)
+                </h4>
+                <p className="text-xs text-muted">Метавонед пеш аз сабт саволҳо ё вариантҳоро таҳрир кунед</p>
+              </div>
               {importDrafts.map((draft, index) => (
                 <div key={draft.id} className={`rounded-lg border p-4 ${draft.error ? 'border-red-200 bg-red-50/40' : 'border-line bg-panel/30'}`}>
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -867,6 +986,98 @@ function parseImportedQuestions(rawText: string): ImportQuestionDraft[] {
   const normalizedText = rawText
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n');
+
+  if (/<\/<[\s\S]*?>\/>/u.test(normalizedText)) {
+    return parseLegacyImportedQuestions(normalizedText);
+  }
+
+  return parseQuestionMarkFormat(normalizedText);
+}
+
+function parseQuestionMarkFormat(normalizedText: string): ImportQuestionDraft[] {
+  const lines = normalizedText.split('\n');
+
+  interface RawQuestionBlock {
+    questionLines: string[];
+    options: Array<{ text: string; isCorrect: boolean }>;
+  }
+
+  const blocks: RawQuestionBlock[] = [];
+  let currentBlock: RawQuestionBlock | null = null;
+  let currentOption: { text: string; isCorrect: boolean } | null = null;
+
+  for (const rawLine of lines) {
+    const trimmed = rawLine.trim();
+    if (!trimmed) {
+      continue;
+    }
+
+    // Савол бо аломати '?' сар мешавад
+    if (trimmed.startsWith('?') || trimmed.startsWith('？')) {
+      const questionText = trimmed.replace(/^[?？]\s*/u, '').trim();
+      currentBlock = {
+        questionLines: questionText ? [questionText] : [],
+        options: [],
+      };
+      blocks.push(currentBlock);
+      currentOption = null;
+      continue;
+    }
+
+    if (!currentBlock) {
+      continue;
+    }
+
+    // Вариант бо '+' (дуруст) ё '-' (нодуруст, аз ҷумла тире/дефис) оғоз мешавад
+    const optionMatch = trimmed.match(/^([+\u002B]|[-\u002D\u2013\u2014\u2212])\s*(.*)$/u);
+    if (optionMatch) {
+      const isCorrect = optionMatch[1] === '+';
+      let optText = optionMatch[2].replace(/^[A-DА-Яа-я0-9]\s*[\).:\-]\s*/u, '').trim();
+      optText = cleanImportText(optText);
+      currentOption = { text: optText, isCorrect };
+      currentBlock.options.push(currentOption);
+      continue;
+    }
+
+    // Давоми матни вариант ё савол агар дар сатри нав бошад
+    if (currentOption) {
+      currentOption.text = cleanImportText(`${currentOption.text} ${trimmed}`);
+    } else {
+      currentBlock.questionLines.push(trimmed);
+    }
+  }
+
+  if (blocks.length === 0) {
+    throw new Error(
+      'Саволҳо ёфт нашуданд. Ҳар як савол бояд бо аломати «?» оғоз шавад ва вариантҳои он бо «+» (ҷавоби дуруст) ва «-» (нодуруст) навишта шаванд.',
+    );
+  }
+
+  return blocks.map((block, index) => {
+    const questionText = cleanImportText(block.questionLines.join(' '));
+    const cleanOpts: DraftOption[] = block.options.map((opt, optIndex) => ({
+      id: createImportId(optIndex),
+      text: opt.text,
+      isCorrect: opt.isCorrect,
+    }));
+
+    const type: QuestionType = cleanOpts.length === 1 ? 'ClosedAnswer' : 'SingleChoice';
+    const finalOptions = type === 'ClosedAnswer'
+      ? cleanOpts.slice(0, 1).map((opt) => ({ ...opt, isCorrect: true }))
+      : cleanOpts;
+
+    return validateImportDraft({
+      id: createImportId(index),
+      text: questionText,
+      type,
+      points: 1,
+      options: finalOptions,
+      error: null,
+    });
+  });
+}
+
+function parseLegacyImportedQuestions(normalizedText: string): ImportQuestionDraft[] {
   const markerRegex = /<\/<([\s\S]*?)>\/>/g;
   const matches = [...normalizedText.matchAll(markerRegex)];
 
@@ -965,15 +1176,20 @@ function validateImportDraft(draft: ImportQuestionDraft): ImportQuestionDraft {
   if (!draft.text.trim()) {
     error = 'Матни савол нест';
   } else if (draft.points <= 0) {
-    error = 'Хол нодуруст аст';
+    error = 'Хол бояд аз 0 зиёд бошад';
   } else if (draft.type === 'ClosedAnswer') {
     if (cleanOptions.length !== 1 || !cleanOptions[0]?.text) {
-      error = 'Барои пӯшида 1 ҷавоб лозим';
+      error = 'Барои саволи пӯшида 1 ҷавоб лозим аст';
     }
-  } else if (cleanOptions.length !== 4 || cleanOptions.some((option) => !option.text)) {
-    error = 'Барои кушода 4 вариант лозим';
-  } else if (cleanOptions.filter((option) => option.isCorrect).length !== 1) {
-    error = 'Ҷавоби дуруст бо --- ишора шавад';
+  } else if (cleanOptions.length < 2 || cleanOptions.some((option) => !option.text)) {
+    error = 'Ҳадди ақал 2 варианти пури ҷавоб лозим аст';
+  } else {
+    const correctCount = cleanOptions.filter((option) => option.isCorrect).length;
+    if (correctCount === 0) {
+      error = 'Ҷавоби дуруст бо «+» ишора шавад';
+    } else if (correctCount > 1) {
+      error = 'Танҳо 1 ҷавоби дуруст бо «+» бошад';
+    }
   }
 
   return { ...draft, options: cleanOptions, error };

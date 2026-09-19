@@ -402,7 +402,7 @@ public static class TeachingEndpoints
         {
             QuestionType.ClosedAnswer when options.Count != 1 || correctCount != 1 => "Closed answer questions require exactly one correct text answer.",
             QuestionType.OpenAnswer when options.Count != 1 || correctCount != 1 => "Closed answer questions require exactly one correct text answer.",
-            QuestionType.SingleChoice when options.Count != 4 => "Single choice questions require exactly four options.",
+            QuestionType.SingleChoice when options.Count < 2 => "Single choice questions require at least two options.",
             QuestionType.SingleChoice when correctCount != 1 => "Single choice questions require exactly one correct option.",
             _ => null
         };
