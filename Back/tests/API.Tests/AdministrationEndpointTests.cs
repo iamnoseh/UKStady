@@ -266,6 +266,21 @@ public sealed class AdministrationEndpointTests : IClassFixture<TestApiFactory>
         Assert.Equal("North branch", updatedGroup.Branch);
         Assert.False(updatedGroup.IsActive);
         Assert.Single(updatedGroup.Subjects);
+
+        // Update Test Access
+        using var testAccessResponse = await client.PutAsJsonAsync(
+            $"/api/groups/{group.Id}/test-access",
+            new UpdateGroupTestAccessRequest(
+                new TimeOnly(14, 30),
+                new TimeOnly(21, 45),
+                "AlwaysOpen"));
+
+        testAccessResponse.EnsureSuccessStatusCode();
+        var accessGroup = await testAccessResponse.Content.ReadFromJsonAsync<GroupDto>();
+        Assert.NotNull(accessGroup);
+        Assert.Equal(new TimeOnly(14, 30), accessGroup.TestStartTime);
+        Assert.Equal(new TimeOnly(21, 45), accessGroup.TestEndTime);
+        Assert.Equal("AlwaysOpen", accessGroup.TestAccessMode);
     }
 
     [Fact]

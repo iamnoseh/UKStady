@@ -636,18 +636,14 @@ function StudentTestRoomV2({
   const canSubmit = checkedCount === session.questions.length && !result;
   const progressPercent = session.questions.length === 0 ? 0 : Math.round(((currentIndex + 1) / session.questions.length) * 100);
 
-  // Synchronize timer when question changes or checked status updates
+  // Reset countdown whenever switching to a new question
   useEffect(() => {
     if (advanceTimeoutRef.current) {
       clearTimeout(advanceTimeoutRef.current);
       advanceTimeoutRef.current = null;
     }
-    if (currentQuestion?.isChecked) {
-      setTimeLeft(0);
-    } else {
-      setTimeLeft(QUESTION_TIME_LIMIT);
-    }
-  }, [currentIndex, currentQuestion?.questionId, currentQuestion?.isChecked]);
+    setTimeLeft(QUESTION_TIME_LIMIT);
+  }, [currentIndex, currentQuestion?.questionId]);
 
   // Countdown timer for active, unchecked question
   useEffect(() => {
@@ -655,10 +651,14 @@ function StudentTestRoomV2({
       return;
     }
 
+    const activeQuestionId = currentQuestion.questionId;
+
     const interval = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
+          // Only expire if the timer naturally hit 0 while this question was actively ticking
+          void handleQuestionExpired(activeQuestionId);
           return 0;
         }
         return prev - 1;
@@ -666,36 +666,32 @@ function StudentTestRoomV2({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [currentIndex, currentQuestion?.questionId, currentQuestion?.isChecked, result, isSubmitting, isExpiring]);
+  }, [currentQuestion?.questionId, currentQuestion?.isChecked, result, isSubmitting, isExpiring]);
 
-  // Handle expiration when 30 seconds run out without solving
-  useEffect(() => {
-    if (timeLeft === 0 && currentQuestion && !currentQuestion.isChecked && !result && !isExpiring && !checkingQuestionId) {
-      void handleQuestionExpired();
-    }
-  }, [timeLeft, currentQuestion?.questionId, currentQuestion?.isChecked, result, isExpiring, checkingQuestionId]);
-
-  async function handleQuestionExpired() {
-    if (!currentQuestion || currentQuestion.isChecked || isExpiring) {
+  async function handleQuestionExpired(targetQuestionId: string) {
+    const question = session.questions.find((item) => item.questionId === targetQuestionId);
+    if (!question || question.isChecked || isExpiring) {
       return;
     }
 
     setIsExpiring(true);
     setAnswerError('');
     try {
-      if (currentQuestion.selectedOptionId) {
-        await onAnswer(currentQuestion.questionId, null, null);
+      if (question.selectedOptionId) {
+        await onAnswer(question.questionId, null, null);
       }
-      await onCheck(currentQuestion.questionId);
+      await onCheck(question.questionId);
     } catch (err) {
       console.error('Failed to expire question:', err);
     } finally {
       setIsExpiring(false);
-      if (currentIndex < session.questions.length - 1) {
-        goToQuestion(currentIndex + 1);
-      } else {
-        void onSubmit();
-      }
+      // Auto-advance to the next question if student is still viewing this question
+      setCurrentIndex((current) => {
+        if (session.questions[current]?.questionId === targetQuestionId && current < session.questions.length - 1) {
+          return current + 1;
+        }
+        return current;
+      });
     }
   }
 
@@ -725,25 +721,29 @@ function StudentTestRoomV2({
       return;
     }
 
-    const answerText = draftAnswers[currentQuestion.questionId] ?? '';
+    const targetQuestionId = currentQuestion.questionId;
+    const answerText = draftAnswers[targetQuestionId] ?? '';
     if (currentQuestion.type !== 'SingleChoice' && answerText.trim() !== currentQuestion.answerText?.trim()) {
-      await saveAnswer(currentQuestion.questionId, null, answerText);
+      await saveAnswer(targetQuestionId, null, answerText);
     }
 
-    setCheckingQuestionId(currentQuestion.questionId);
+    setCheckingQuestionId(targetQuestionId);
     setAnswerError('');
     try {
-      await onCheck(currentQuestion.questionId);
+      await onCheck(targetQuestionId);
+
       // Auto-advance after 1.2s so student sees feedback
       if (advanceTimeoutRef.current) {
         clearTimeout(advanceTimeoutRef.current);
       }
       advanceTimeoutRef.current = setTimeout(() => {
-        if (currentIndex < session.questions.length - 1) {
-          goToQuestion(currentIndex + 1);
-        } else {
-          void onSubmit();
-        }
+        setCurrentIndex((current) => {
+          // Only advance if student hasn't already manually navigated away from this question
+          if (session.questions[current]?.questionId === targetQuestionId && current < session.questions.length - 1) {
+            return current + 1;
+          }
+          return current;
+        });
       }, 1200);
     } catch (error) {
       setAnswerError(error instanceof Error ? error.message : 'Савол санҷида нашуд.');
