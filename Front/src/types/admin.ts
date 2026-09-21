@@ -211,6 +211,8 @@ export interface GroupJournalLessonScoreDto {
   status: string;
   isAdjusted: boolean;
   canEdit: boolean;
+  testScore?: number | null;
+  teacherScore?: number | null;
 }
 
 export interface UpdateGroupJournalScoreRequest {

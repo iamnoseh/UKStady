@@ -351,6 +351,81 @@ public sealed class TeachingEndpointTests : IClassFixture<TestApiFactory>
     }
 
     [Fact]
+    public async Task Teacher_CanGradeAnyDay_AndCombinesTestScoreWithTeacherScore()
+    {
+        using var client = _factory.CreateClient();
+        await AuthorizeAsync(client, "+992000000000", "Admin123!");
+
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var teacherPhone = $"+99251{suffix[..7]}";
+        var studentPhone = $"+99252{suffix[..7]}";
+        var teacher = await CreateUserAsync(client, UserRole.Teacher, $"t-{suffix}", teacherPhone);
+        var student = await CreateUserAsync(client, UserRole.Student, $"s-{suffix}", studentPhone);
+        var subject = await CreateSubjectAsync(client, $"Math-{suffix}");
+        var group = await CreateGroupAsync(client, $"Grp-{suffix}", [subject.Id]);
+        (await client.PostAsync($"/api/groups/{group.Id}/students/{student.Id}", null)).EnsureSuccessStatusCode();
+        await AssignTeacherAsync(client, teacher.Id, subject.Id, group.Id);
+
+        await AuthorizeAsync(client, teacherPhone, "12345A");
+        var topic = await CreateTopicAsync(client, subject.Id);
+        await CreateQuestionAsync(client, topic.Id);
+        var today = GetBusinessToday();
+        var todayLesson = await CreateDailyLessonAsync(client, subject.Id, topic.Id, group.Id, today);
+
+        // Student took test and got 100
+        var attemptId = Guid.NewGuid();
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var assignment = dbContext.TestAssignments.First(a => a.DailyLessonId == todayLesson.Id && a.GroupId == group.Id);
+            var attempt = new StudentTestAttempt
+            {
+                Id = attemptId,
+                TestAssignmentId = assignment.Id,
+                StudentId = student.Id,
+                Status = TestStatus.Submitted,
+                AutoScore = 100m,
+                StartedAtUtc = DateTimeOffset.UtcNow,
+                SubmittedAtUtc = DateTimeOffset.UtcNow
+            };
+            dbContext.StudentTestAttempts.Add(attempt);
+            dbContext.GradeEntries.Add(new GradeEntry
+            {
+                DailyLessonId = todayLesson.Id,
+                StudentId = student.Id,
+                StudentTestAttemptId = attemptId,
+                AttendanceStatus = AttendanceStatus.Present,
+                AutoScore = 100m
+            });
+            await dbContext.SaveChangesAsync();
+        }
+
+        // Teacher accesses today's lesson in journal and gives 30 in class
+        await AuthorizeAsync(client, teacherPhone, "12345A");
+        using var updateResponse = await client.PutAsJsonAsync(
+            $"/api/group-journals/{group.Id}/lessons/{todayLesson.Id}/students/{student.Id}/score",
+            new UpdateGroupJournalScoreRequest(30, "In-class answers"));
+        updateResponse.EnsureSuccessStatusCode();
+
+        var updatedScore = await updateResponse.Content.ReadFromJsonAsync<GroupJournalLessonScoreDto>();
+        Assert.NotNull(updatedScore);
+        Assert.True(updatedScore.Score.HasValue);
+        Assert.Equal(130m, updatedScore.Score.Value); // 100 test + 30 class = 130!
+        Assert.Equal(100m, updatedScore.TestScore);
+        Assert.Equal(30m, updatedScore.TeacherScore);
+        Assert.True(updatedScore.CanEdit);
+
+        // Check journal view
+        var journal = await client.GetFromJsonAsync<GroupJournalDto>($"/api/group-journals/{group.Id}");
+        Assert.NotNull(journal);
+        var studentRow = Assert.Single(Assert.Single(journal.Subjects).Students);
+        var scoreItem = studentRow.LessonScores.Single(item => item.LessonId == todayLesson.Id);
+        Assert.Equal(130m, scoreItem.Score);
+        Assert.Equal(130m, studentRow.TodayScore);
+        Assert.Equal(130m, studentRow.AverageScore);
+    }
+
+    [Fact]
     public async Task StudentTest_Requires20Questions_AndAllowsCheckingUnansweredQuestion()
     {
         using var client = _factory.CreateClient();

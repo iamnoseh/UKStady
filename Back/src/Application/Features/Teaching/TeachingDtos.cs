@@ -119,7 +119,9 @@ public sealed record GroupJournalLessonScoreDto(
     decimal? Score,
     string Status,
     bool IsAdjusted,
-    bool CanEdit);
+    bool CanEdit,
+    decimal? TestScore = null,
+    decimal? TeacherScore = null);
 
 public sealed record UpdateGroupJournalScoreRequest(
     decimal Score,

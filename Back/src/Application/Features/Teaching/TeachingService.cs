@@ -389,13 +389,14 @@ public sealed class TeachingService : ITeachingService
             {
                 grade.DailyLessonId,
                 grade.StudentId,
-                Score = grade.FinalScore ?? grade.AutoScore,
+                grade.AutoScore,
+                grade.FinalScore,
+                grade.StudentTestAttemptId,
                 grade.AttendanceStatus,
                 IsAdjusted = grade.FinalScore.HasValue
             })
             .ToListAsync(cancellationToken);
         var canEditScores = IsTeacher();
-        var editableLessonDate = today.AddDays(-1);
 
         var subjects = group.Subjects
             .Where(groupSubject => subjectIdSet.Contains(groupSubject.SubjectId))
@@ -429,10 +430,23 @@ public sealed class TeachingService : ITeachingService
                         var todayGrade = todayLesson is null
                             ? null
                             : studentGrades.FirstOrDefault(grade => grade.DailyLessonId == todayLesson.Id);
+                        decimal? todayScore = null;
+                        if (todayGrade is not null)
+                        {
+                            todayScore = todayGrade.StudentTestAttemptId != null
+                                ? todayGrade.AutoScore + (todayGrade.FinalScore ?? 0m)
+                                : todayGrade.FinalScore;
+                        }
+
                         var totalScore = subjectLessons.Sum(lesson =>
                         {
                             var lessonGrade = studentGrades.FirstOrDefault(grade => grade.DailyLessonId == lesson.Id);
-                            return lessonGrade?.Score ?? 0m;
+                            if (lessonGrade is null) return 0m;
+                            if (lessonGrade.StudentTestAttemptId != null)
+                            {
+                                return lessonGrade.AutoScore + (lessonGrade.FinalScore ?? 0m);
+                            }
+                            return lessonGrade.FinalScore ?? 0m;
                         });
                         var average = subjectLessons.Count == 0
                             ? (decimal?)null
@@ -441,12 +455,30 @@ public sealed class TeachingService : ITeachingService
                             .Select(lesson =>
                             {
                                 var lessonGrade = studentGrades.FirstOrDefault(grade => grade.DailyLessonId == lesson.Id);
+                                decimal? calculatedScore = null;
+                                decimal? testScore = null;
+                                decimal? teacherScore = lessonGrade?.FinalScore;
+                                if (lessonGrade is not null)
+                                {
+                                    if (lessonGrade.StudentTestAttemptId != null)
+                                    {
+                                        testScore = lessonGrade.AutoScore;
+                                        calculatedScore = lessonGrade.AutoScore + (lessonGrade.FinalScore ?? 0m);
+                                    }
+                                    else if (lessonGrade.FinalScore.HasValue)
+                                    {
+                                        calculatedScore = lessonGrade.FinalScore.Value;
+                                    }
+                                }
+
                                 return new GroupJournalLessonScoreDto(
                                     lesson.Id,
-                                    lessonGrade?.Score,
+                                    calculatedScore,
                                     lessonGrade?.AttendanceStatus.ToString() ?? "NoGrade",
                                     lessonGrade?.IsAdjusted ?? false,
-                                    canEditScores && lesson.LessonDate == editableLessonDate);
+                                    canEditScores,
+                                    testScore,
+                                    teacherScore);
                             })
                             .ToList();
 
@@ -454,7 +486,7 @@ public sealed class TeachingService : ITeachingService
                             groupStudent.StudentId,
                             $"{groupStudent.Student.FirstName} {groupStudent.Student.LastName}",
                             groupStudent.Student.PhoneNumber,
-                            todayGrade?.Score,
+                            todayScore,
                             average,
                             todayGrade?.AttendanceStatus.ToString() ?? "NoGrade",
                             lessonScores);
@@ -624,11 +656,9 @@ public sealed class TeachingService : ITeachingService
         }
 
         var teacherId = RequireCurrentUserId();
-        var editableLessonDate = GetBusinessToday().AddDays(-1);
         var lesson = await _dbContext.DailyLessons
             .FirstOrDefaultAsync(candidate =>
                 candidate.Id == lessonId &&
-                candidate.LessonDate == editableLessonDate &&
                 candidate.TestAssignments.Any(assignment => assignment.GroupId == groupId),
                 cancellationToken);
 
@@ -674,8 +704,9 @@ public sealed class TeachingService : ITeachingService
         }
 
         var newScore = Math.Round(request.Score, 2);
-        var previousScore = grade.FinalScore ?? grade.AutoScore;
+        var previousScore = grade.FinalScore;
         grade.FinalScore = newScore;
+        grade.AttendanceStatus = AttendanceStatus.Present;
         grade.GradedByTeacherId = teacherId;
         grade.GradedAtUtc = _dateTimeProvider.UtcNow;
         grade.TeacherComment = string.IsNullOrWhiteSpace(request.Reason)
@@ -695,12 +726,18 @@ public sealed class TeachingService : ITeachingService
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
+        var totalScore = grade.StudentTestAttemptId != null
+            ? grade.AutoScore + (grade.FinalScore ?? 0m)
+            : grade.FinalScore;
+
         return new GroupJournalLessonScoreDto(
             lessonId,
-            newScore,
+            totalScore,
             grade.AttendanceStatus.ToString(),
             true,
-            true);
+            true,
+            grade.StudentTestAttemptId != null ? grade.AutoScore : null,
+            grade.FinalScore);
     }
 
     public async Task<TeacherDashboardDto> GetTeacherDashboardAsync(CancellationToken cancellationToken)
@@ -832,7 +869,7 @@ public sealed class TeachingService : ITeachingService
             .Select(grade => new TeacherDashboardGradeRow(
                 grade.DailyLessonId,
                 grade.StudentId,
-                grade.FinalScore ?? grade.AutoScore,
+                grade.FinalScore.HasValue ? (grade.StudentTestAttemptId != null ? grade.AutoScore + grade.FinalScore.Value : grade.FinalScore.Value) : grade.AutoScore,
                 grade.AttendanceStatus.ToString()))
             .ToListAsync(cancellationToken);
 
@@ -1052,7 +1089,9 @@ public sealed class TeachingService : ITeachingService
             .Select(grade => new
             {
                 grade.DailyLessonId,
-                Score = grade.FinalScore ?? grade.AutoScore,
+                Score = grade.StudentTestAttemptId != null
+                    ? (decimal?)(grade.AutoScore + (grade.FinalScore ?? 0m))
+                    : grade.FinalScore,
                 grade.AttendanceStatus
             })
             .ToDictionaryAsync(grade => grade.DailyLessonId, cancellationToken);

@@ -918,7 +918,7 @@ public sealed class AdministrationService : IAdministrationService
             .Select(grade => new DashboardGradeRow(
                 grade.DailyLessonId,
                 grade.StudentId,
-                grade.FinalScore ?? grade.AutoScore,
+                grade.FinalScore.HasValue ? (grade.StudentTestAttemptId != null ? grade.AutoScore + grade.FinalScore.Value : grade.FinalScore.Value) : grade.AutoScore,
                 grade.AttendanceStatus.ToString()))
             .ToListAsync(cancellationToken);
 

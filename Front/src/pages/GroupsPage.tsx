@@ -515,7 +515,10 @@ export function GroupsPage() {
     }
 
     setScoreModal({ lesson, studentId, studentName, score });
-    setScoreModalValue(score.score !== null && score.score !== undefined ? String(score.score) : '');
+    const initialScore = score.teacherScore !== null && score.teacherScore !== undefined
+      ? String(score.teacherScore)
+      : (score.testScore !== null && score.testScore !== undefined ? '' : (score.score !== null && score.score !== undefined ? String(score.score) : ''));
+    setScoreModalValue(initialScore);
     setScoreModalReason('');
     setError('');
   }
@@ -1578,7 +1581,7 @@ export function GroupsPage() {
                 <div>
                   <p className="text-sm font-semibold text-muted">{scoreModal.studentName}</p>
                   <h3 className="mt-1 text-lg font-bold">
-                    {scoreModal.score.score !== null ? 'Тағйир додани бал' : 'Гузоштани бал (барои «н»)'}
+                    Баҳогузории дарс
                   </h3>
                   <p className="mt-1 text-sm text-muted">{formatLessonDate(scoreModal.lesson.lessonDate)}</p>
                 </div>
@@ -1594,8 +1597,32 @@ export function GroupsPage() {
                 </button>
               </div>
 
+              {/* Information cards: Test Score, Teacher Score, and Total */}
+              <div className="mb-4 space-y-2 rounded-lg border border-line bg-panel/40 p-3 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted">Бали тест:</span>
+                  <span className="font-bold text-ink">
+                    {scoreModal.score.testScore !== null && scoreModal.score.testScore !== undefined
+                      ? `${roundScore(scoreModal.score.testScore)} хол`
+                      : 'Тест насупоридааст (0)'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted">Бали дарс (муаллим):</span>
+                  <span className="font-bold text-brand">
+                    {Number(scoreModalValue) || 0} хол
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-t border-line/70 pt-2 font-extrabold">
+                  <span className="text-ink">Ҷамъи бали дарс ва тест:</span>
+                  <span className="text-base text-emerald-600">
+                    {roundScore((scoreModal.score.testScore ?? 0) + (Number(scoreModalValue) || 0))} хол
+                  </span>
+                </div>
+              </div>
+
               <label className="block">
-                <span className="text-sm font-semibold">Бали нав</span>
+                <span className="text-sm font-semibold">Бали дарс (0 - 100)</span>
                 <input
                   type="number"
                   min={0}
@@ -1604,17 +1631,18 @@ export function GroupsPage() {
                   value={scoreModalValue}
                   onChange={(event) => setScoreModalValue(event.target.value)}
                   className="mt-2 h-11 w-full rounded-lg border border-line px-3 outline-none focus:border-brand"
-                  placeholder="0-100"
+                  placeholder="Масалан: 30"
+                  autoFocus
                 />
               </label>
 
               <label className="mt-4 block">
-                <span className="text-sm font-semibold">Шарҳ</span>
+                <span className="text-sm font-semibold">Шарҳ (ихтиёрӣ)</span>
                 <textarea
                   value={scoreModalReason}
                   onChange={(event) => setScoreModalReason(event.target.value)}
-                  className="mt-2 min-h-24 w-full resize-none rounded-lg border border-line px-3 py-2 outline-none focus:border-brand"
-                  placeholder="Масалан: бонус барои кори иловагӣ"
+                  className="mt-2 min-h-20 w-full resize-none rounded-lg border border-line px-3 py-2 outline-none focus:border-brand"
+                  placeholder="Масалан: бали дарсӣ барои посухҳои хуб"
                 />
               </label>
 
